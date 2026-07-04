@@ -50,6 +50,46 @@ model MissingCapability {
 }
 
 // ============================================
+// MCP adapter — token vault + downstream OAuth clients
+// ============================================
+//
+// The vault holds per-user, per-provider downstream OAuth tokens for the
+// MCP→backend proxy adapter. Token columns are AES-256-GCM ciphertexts
+// (CORTEX_VAULT_KEY) — never plaintext.
+
+model LinkedAccount {
+  id            String    @id @default(cuid())
+  sub           String // Cortex user (JWT sub)
+  provider      String // proxied MCP server id (CORTEX_MCP_SERVERS entry)
+  accessToken   String    @map("access_token") // encrypted
+  refreshToken  String?   @map("refresh_token") // encrypted
+  expiresAt     DateTime? @map("expires_at")
+  scope         String? // downstream scope string as granted
+  tokenEndpoint String    @map("token_endpoint")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@unique([sub, provider])
+  @@index([provider])
+  @@map("linked_accounts")
+}
+
+// OAuth client obtained via Dynamic Client Registration (RFC 7591) at a
+// downstream provider — one row per provider, so DCR runs once.
+model AdapterOAuthClient {
+  provider              String   @id
+  issuer                String
+  clientId              String   @map("client_id")
+  clientSecret          String?  @map("client_secret") // encrypted
+  authorizationEndpoint String   @map("authorization_endpoint")
+  tokenEndpoint         String   @map("token_endpoint")
+  registrationEndpoint  String?  @map("registration_endpoint")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("adapter_oauth_clients")
+}
+
+// ============================================
 // Audit trail of MCP calls
 // ============================================
 //

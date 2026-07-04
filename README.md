@@ -13,8 +13,8 @@ A **backend** is a dedicated MCP reduced to its essence: a tool catalog plus
 tool invocation (and optional prompts/resources) over bare HTTP JSON-RPC —
 the transport and lifecycle machinery (initialize, sessions, SSE, version
 negotiation) lives once, in the gateway. Because the contract is a semantic
-subset of MCP, a native MCP server can also be federated by fronting it with
-an MCP→backend proxy adapter (see Roadmap).
+subset of MCP, a native MCP server can also be federated through the
+built-in MCP→backend proxy adapter ([docs/mcp-adapter.md](docs/mcp-adapter.md)).
 
 ```
 [MCP agent: Claude Desktop / claude.ai Custom Connector / any MCP client]
@@ -64,7 +64,8 @@ behind one URL with one token. The scope model gives you per-provider
 opt-in, `get_help`/`get_snapshot` give agents self-describing discovery, and
 the audit trail tells you what is actually used. Providers either speak the
 (deliberately tiny) backend contract natively, or — for off-the-shelf MCP
-servers — get fronted by the MCP→backend proxy adapter (see Roadmap).
+servers — get fronted by the built-in MCP→backend proxy adapter
+([docs/mcp-adapter.md](docs/mcp-adapter.md)).
 
 **Free / paid tool tiers.** Scopes are entitlements. Let your authorization
 server grant `mcp:yourapp:basic` to free users and `mcp:yourapp:pro` to
@@ -73,16 +74,20 @@ and allows each caller exactly the tools of their plan — no paywall logic in
 the gateway or the backends, tools just declare their scope. Revocation and
 downgrades propagate through the normal OAuth chain.
 
-## Roadmap
+## Federating native MCP servers (adapter, beta)
 
-- **MCP→backend proxy adapter** — federate existing native MCP servers by
-  projecting them onto the backend contract: the adapter is an MCP client
-  downstream (absorbing initialize/session/transport) and a plain backend
-  upstream, so the gateway itself does not change — a third-party MCP server
-  just becomes one more kind of backend. The protocol mapping is mechanical
-  (the 60s catalog refresh even makes relaying downstream `list_changed`
-  unnecessary); the real work is downstream auth (per-server credentials or
-  token exchange) and assigning scopes to tools that do not declare any.
+The built-in **MCP→backend proxy adapter** lets a bundle mix contract
+backends and off-the-shelf native MCP servers (Canva, Figma, ...): the
+adapter is an MCP client downstream (initialize, sessions, SSE framing) and
+a plain backend upstream, so the gateway core does not change. Per-user
+downstream OAuth is handled by a **token vault** (AES-256-GCM at rest) and a
+**linking flow** (RFC 9728 discovery, Dynamic Client Registration, PKCE):
+each user consents once per provider, then agents are identified on the
+whole bundle with a single Cortex token. See
+[docs/mcp-adapter.md](docs/mcp-adapter.md) for a worked "design bundle"
+example (Canva + Figma + your own backend).
+
+## Roadmap
 - **Machine identity for discovery** — replace the static technical token
   with a `client_credentials` flow once your AS supports it.
 - **Shared event bus / rate-limit store** — for multi-instance deployments.
