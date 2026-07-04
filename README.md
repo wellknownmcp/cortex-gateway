@@ -36,6 +36,46 @@ keeps a pseudonymized audit trail.
   tickets when a tool is missing or insufficient — deduplicated, triaged,
   optionally pushed to a webhook when blocking.
 
+## Use cases
+
+**Company-wide agent surface.** An organization runs N internal apps (CRM,
+quality docs, billing, analytics...). Each app adds the ~120-line backend
+endpoint; the gateway exposes them as ONE MCP connector protected by the
+company's SSO. Employees plug a single URL into Claude Desktop / claude.ai
+and get exactly the tools their token scopes allow, with a central audit
+trail. This is the setup the gateway was born in.
+
+**Product builder.** You ship several products and want agents (yours or your
+customers') to operate them. Instead of maintaining one MCP server per
+product, every product implements the backend contract and the gateway is
+your single, versioned, OAuth-protected agent API. Adding a product to the
+agent surface is one env var.
+
+**Thematic hub / curated registry.** Run a gateway as a *topic* endpoint —
+e.g. "all open-data tools for domain X" — that federates several providers
+behind one URL with one token. The scope model gives you per-provider
+opt-in, `get_help`/`get_snapshot` give agents self-describing discovery, and
+the audit trail tells you what is actually used. Today the providers must
+speak the (deliberately tiny) backend contract; an adapter that lets the
+gateway federate *native MCP servers* downstream is on the roadmap — see
+below.
+
+**Free / paid tool tiers.** Scopes are entitlements. Let your authorization
+server grant `mcp:yourapp:basic` to free users and `mcp:yourapp:pro` to
+paying ones (your billing webhook updates the grant): the gateway then shows
+and allows each caller exactly the tools of their plan — no paywall logic in
+the gateway or the backends, tools just declare their scope. Revocation and
+downgrades propagate through the normal OAuth chain.
+
+## Roadmap
+
+- **Native MCP downstream adapter** — federate existing third-party MCP
+  servers (the gateway acting as MCP client), so a hub can mix
+  contract-backends and off-the-shelf MCP servers.
+- **Machine identity for discovery** — replace the static technical token
+  with a `client_credentials` flow once your AS supports it.
+- **Shared event bus / rate-limit store** — for multi-instance deployments.
+
 ## Features
 
 - MCP spec **2025-06-18** (Streamable HTTP transport: POST JSON-RPC, GET SSE
