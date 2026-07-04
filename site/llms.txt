@@ -17,6 +17,13 @@ Key facts
 - Third-party native MCP servers federate via a built-in proxy adapter (beta)
   with a per-user AES-256-GCM token vault
 - OAuth scopes double as plan entitlements: tools/list is filtered per caller
+- Backends are self-describing: each exposes `<app>_get_help(topic?)`
+  (business concepts, workflows, conventions) and agents are instructed to
+  prefer it over guessing
+- Built-in feedback loop: agents file `report_missing_capability` tickets
+  (deduplicated, triaged, optionally backend-owned) when a capability is
+  missing — unmet agent needs are logged where the domain lives
+- Agent guidance for the repository itself: https://github.com/wellknownmcp/cortex-gateway/blob/main/AGENTS.md
 
 ## Docs
 - [Home](https://cortex-gateway.dev/): positioning and feature overview

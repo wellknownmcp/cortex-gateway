@@ -39,6 +39,44 @@ Any other method name is a **tool**: when the gateway receives
 `tools/call` for `<backendId>_<toolName>`, it POSTs
 `{ "method": "<toolName>", "params": <arguments> }` to the backend.
 
+## `get_help`: describe the business, not just the mechanics
+
+A tool catalog tells an agent *what it can call*; it does not teach the
+agent your domain. In practice an MCP surface only works well when it is
+paired with an explanation of the logic behind it — and the best place for
+that explanation is the backend itself, versioned with the code that owns
+it, not copied into every client. `get_help` is that channel: the gateway's
+server instructions explicitly tell every connected agent to prefer
+`<app>_get_help(topic?)` over guessing.
+
+Recommended topics (return the full structure when `topic` is omitted, or
+one section when it names a topic):
+
+| Topic | Should answer |
+|---|---|
+| `overview` | What this app does, for whom, and what problems its tools solve — the *business*, in a few sentences. |
+| `concepts` | Domain vocabulary and entities (what is a "workspace", a "campaign", a "ticket"?) and the invariants that hold between them. |
+| `workflows` | The 2–5 multi-tool sequences that actually matter, step by step, with the decision points spelled out. |
+| `conventions` | Naming, id formats, pagination, date/locale rules — anything an agent would otherwise learn by trial and error. |
+| `limits` | What the backend deliberately does NOT do, quotas, and what to do instead (often: file a ticket, see below). |
+| `examples` | 2–3 realistic request/response pairs for the most-used tools. |
+
+Keep it structured JSON (arrays of steps, not prose walls) and keep it
+honest — an agent that follows a stale `get_help` into an error will stop
+trusting it. Treat it like user-facing documentation: it ships with the
+feature.
+
+### The feedback loop closes the contract
+
+Self-description handles the known; `report_missing_capability` handles the
+unknown. When an agent hits a gap — a missing tool, an insufficient filter,
+a workflow that cannot be completed — it files a ticket (deduplicated by the
+gateway, optionally webhook-forwarded, or owned by your backend via
+`CORTEX_TICKET_BACKENDS`). Your backlog of unmet agent needs builds itself,
+logged at the backend that owns the domain. Together, `get_help` +
+`report_missing_capability` make a backend *self-describing forward* and
+*self-correcting backward*.
+
 ## Authentication — two token classes
 
 1. **User OAuth JWT** (data methods). The gateway propagates the caller's

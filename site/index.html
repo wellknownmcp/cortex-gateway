@@ -78,6 +78,17 @@
     <tr><td>Context-efficient tools/list</td><td>Backend filtering + a compact search mode (~80% smaller payloads for programmatic agents).</td></tr>
   </table>
 
+  <h2>Self-describing backends, built-in feedback loop</h2>
+  <p>An MCP endpoint alone doesn't teach an agent your domain — tools say <em>what</em> can be called, not <em>why</em> or <em>in which order</em>. Cortex ships the "how and why" server-side, versioned with the app that owns it, instead of being rewritten in every client:</p>
+  <table>
+    <tr><th>Convention</th><th>What it does</th></tr>
+    <tr><td><code>&lt;app&gt;_get_help(topic?)</code></td><td>Each backend documents its own business: domain concepts, workflows, conventions, limits, examples. The gateway's server instructions tell every connected agent to prefer it over guessing.</td></tr>
+    <tr><td><code>whoami</code></td><td>The caller's effective role and capabilities, aggregated across backends — agents know what they can do before trying.</td></tr>
+    <tr><td><code>report_missing_capability</code></td><td>When an agent hits a gap, it files a ticket — deduplicated, triaged, optionally owned by the backend itself. Your backlog of unmet agent needs builds itself.</td></tr>
+    <tr><td><code>list_cortex_tickets</code></td><td>Agents see their own previous filings and follow triage status — no duplicate loops.</td></tr>
+  </table>
+  <p>Details in the <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md">backend contract</a>.</p>
+
   <h2>Connect your client</h2>
   <div class="grid">
     <a class="card" href="/connect/claude-ai/"><b>claude.ai (web &amp; mobile)</b><span>Custom Connectors — the 30-second path</span></a>

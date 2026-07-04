@@ -1,0 +1,39 @@
+# Cortex Gateway — MCP endpoint host
+
+> This host runs Cortex Gateway, an open-source (MIT), self-hosted federated
+> MCP gateway: one OAuth 2.1-protected, spec-compliant MCP server (Streamable
+> HTTP, MCP 2025-06-18) in front of N plain-HTTP backends. Permissions are
+> never mirrored — the gateway propagates the real user identity, so each
+> app's native permission model applies per user.
+
+## Connect
+
+- MCP endpoint: `/mcp` (Streamable HTTP)
+- Auth: OAuth 2.1 with automatic discovery — an unauthenticated call returns
+  `401` + `WWW-Authenticate` pointing at
+  `/.well-known/oauth-protected-resource` (RFC 9728), which names the
+  authorization server (RFC 8414 metadata, dynamic client registration
+  RFC 7591, PKCE). Any compliant MCP client completes the flow on its own.
+- Status page: `/` — backend health and federated tool counts, no auth.
+
+## Conventions once connected
+
+- Every federated tool is prefixed with its backend id (`docs_list_files`,
+  `billing_get_invoice`). Unprefixed tools are gateway builtins: `whoami`,
+  `report_missing_capability`, `list_cortex_tickets`, and `find_tools` in
+  search mode.
+- Each backend should expose `<app>_get_help(topic?)` — structured
+  self-documentation (workflows, domain concepts, examples). Prefer it over
+  guessing.
+- Missing or insufficient capability? File `report_missing_capability`
+  (deduplicated, triaged); `list_cortex_tickets` lists your own tickets.
+- Context saving: the `X-Cortex-Backends: app1,app2` header filters
+  tools/list to the named backends; `X-Cortex-Tool-Mode: search` returns a
+  compact catalog plus a `find_tools` builtin (~80% smaller payloads).
+
+## About the software
+
+- Project site: https://cortex-gateway.dev/
+- Source (MIT): https://github.com/wellknownmcp/cortex-gateway
+- Backend contract: https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md
+- Agent guidance for the repo: https://github.com/wellknownmcp/cortex-gateway/blob/main/AGENTS.md

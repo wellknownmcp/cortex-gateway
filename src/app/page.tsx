@@ -28,20 +28,25 @@ export default async function HomePage() {
   const serverName = process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway';
 
   return (
-    <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px' }}>
-      <h1 style={{ fontSize: 28, marginBottom: 4 }}>{serverName}</h1>
-      <p style={{ color: '#555', marginTop: 0 }}>
+    <main style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px', color: '#111827' }}>
+      <h1 style={{ fontSize: 28, marginBottom: 4, fontFamily: mono }}>{serverName}</h1>
+      <p style={{ color: '#6b7280', marginTop: 0 }}>
         Federated MCP gateway — one OAuth-protected MCP server in front of{' '}
         {backends.length} backend{backends.length === 1 ? '' : 's'}.
       </p>
-      <p style={{ color: '#555' }}>
+      <p style={{ color: '#6b7280' }}>
         MCP endpoint: <code>/mcp</code> · Discovery:{' '}
         <code>/.well-known/oauth-protected-resource</code>
+      </p>
+      <p style={{ color: '#6b7280' }}>
+        To connect: point any MCP client at <code>/mcp</code> — the OAuth 2.1
+        flow (RFC 9728 discovery, dynamic registration, PKCE) is automatic.
+        Agent-readable overview: <a href="/llms.txt">/llms.txt</a>
       </p>
 
       <h2 style={{ fontSize: 18, marginTop: 32 }}>Backends</h2>
       {backends.length === 0 ? (
-        <p style={{ color: '#777' }}>
+        <p style={{ color: '#6b7280' }}>
           No backend configured. Set <code>CORTEX_BACKENDS</code> and{' '}
           <code>CORTEX_BACKEND_&lt;ID&gt;_URL</code>.
         </p>
@@ -68,20 +73,24 @@ export default async function HomePage() {
         </table>
       )}
 
-      <p style={{ color: '#999', fontSize: 13, marginTop: 32 }}>
+      <p style={{ color: '#6b7280', fontSize: 13, marginTop: 32 }}>
         {catalog.tools.size} federated tools · last discovery{' '}
         {catalog.lastRefreshedAt.getTime() === 0
           ? 'never'
           : catalog.lastRefreshedAt.toISOString()}
       </p>
-      <p style={{ color: '#999', fontSize: 13 }}>
+      <p style={{ color: '#6b7280', fontSize: 13 }}>
         <a href="https://github.com/wellknownmcp/cortex-gateway">
           github.com/wellknownmcp/cortex-gateway
-        </a>
+        </a>{' '}
+        · <a href="https://cortex-gateway.dev/">cortex-gateway.dev</a>
       </p>
     </main>
   );
 }
+
+const mono =
+  "ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace";
 
 const cell: React.CSSProperties = {
   border: '1px solid #e5e7eb',
