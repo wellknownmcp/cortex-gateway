@@ -9,7 +9,7 @@ demo is live, add the `remotes` block for a hybrid listing:
 "remotes": [
   {
     "type": "streamable-http",
-    "url": "https://mcp.<DOMAIN>/mcp"
+    "url": "https://mcp.cortex-gateway.dev/mcp"
   }
 ]
 ```

@@ -1,16 +1,15 @@
 # Hosted demo deployment
 
-Runbook for the public Cortex Gateway demo. Replace `<DOMAIN>` everywhere
-once the domain is chosen. The DNS topology mirrors the architecture — that
-is deliberate:
+Runbook for the public Cortex Gateway demo at `cortex-gateway.dev`. The DNS
+topology mirrors the architecture — that is deliberate:
 
 ```
-auth.<DOMAIN>   → cortex-demo-auth   (OAuth 2.1 issuer,   port 3220)
-mcp.<DOMAIN>    → cortex-gateway     (MCP resource,       port 3213)
-                  demo backend       (loopback only,      port 4820)
+auth.cortex-gateway.dev   → cortex-demo-auth   (OAuth 2.1 issuer,   port 3220)
+mcp.cortex-gateway.dev    → cortex-gateway     (MCP resource,       port 3213)
+                            demo backend       (loopback only,      port 4820)
 ```
 
-An MCP client pointed at `https://mcp.<DOMAIN>/mcp` discovers the issuer via
+An MCP client pointed at `https://mcp.cortex-gateway.dev/mcp` discovers the issuer via
 RFC 9728, self-registers (DCR), sends the visitor through magic-link login +
 consent, and lands on a scope-filtered `tools/list`. The whole pitch,
 experienced in ~30 seconds.
@@ -20,7 +19,7 @@ experienced in ~30 seconds.
 - Node 22, PM2, nginx, certbot, PostgreSQL
 - Two databases: `cortex_demo_auth` and `cortex_gateway` (the second is
   optional but recommended: audit + tickets)
-- DNS A records for `auth.<DOMAIN>` and `mcp.<DOMAIN>` pointing at the VM
+- DNS A records for `auth.cortex-gateway.dev` and `mcp.cortex-gateway.dev` pointing at the VM
 
 ## 2. Auth server (port 3220)
 
@@ -28,8 +27,8 @@ experienced in ~30 seconds.
 cd cortex-gateway/demo/auth-server
 npm install
 bash scripts/generate-oauth-keys.sh >> .env
-# complete .env: OAUTH_ISSUER=https://auth.<DOMAIN>,
-#   OAUTH_MCP_AUDIENCE=https://mcp.<DOMAIN>/mcp, AUTH_DATABASE_URL,
+# complete .env: OAUTH_ISSUER=https://auth.cortex-gateway.dev,
+#   OAUTH_MCP_AUDIENCE=https://mcp.cortex-gateway.dev/mcp, AUTH_DATABASE_URL,
 #   RESEND_API_KEY (required for a public demo), INTROSPECT_CLIENT_SECRET
 npx prisma db push
 npm run build
@@ -42,10 +41,10 @@ pm2 start npm --name cortex-demo-auth -- start
 cd cortex-gateway
 npm install && npm run build
 cat > .env <<EOF
-CORTEX_CANONICAL_URI=https://mcp.<DOMAIN>/mcp
+CORTEX_CANONICAL_URI=https://mcp.cortex-gateway.dev/mcp
 CORTEX_SERVER_NAME=cortex-gateway-demo
-OAUTH_ISSUER=https://auth.<DOMAIN>
-OAUTH_INTROSPECT_URL=https://auth.<DOMAIN>/oauth/introspect
+OAUTH_ISSUER=https://auth.cortex-gateway.dev
+OAUTH_INTROSPECT_URL=https://auth.cortex-gateway.dev/oauth/introspect
 OAUTH_INTROSPECT_CLIENT_ID=cortex-gateway
 OAUTH_INTROSPECT_CLIENT_SECRET=<INTROSPECT_CLIENT_SECRET of the auth server>
 CORTEX_BACKENDS=demo
@@ -69,7 +68,7 @@ One server block per host; the important parts:
 
 ```nginx
 server {
-  server_name mcp.<DOMAIN>;
+  server_name mcp.cortex-gateway.dev;
   location / {
     proxy_pass http://127.0.0.1:3213;
     proxy_set_header Host $host;
@@ -83,7 +82,7 @@ server {
 }
 
 server {
-  server_name auth.<DOMAIN>;
+  server_name auth.cortex-gateway.dev;
   location / {
     proxy_pass http://127.0.0.1:3220;
     proxy_set_header Host $host;
@@ -93,30 +92,30 @@ server {
 }
 ```
 
-Then `certbot --nginx -d mcp.<DOMAIN> -d auth.<DOMAIN>`.
+Then `certbot --nginx -d mcp.cortex-gateway.dev -d auth.cortex-gateway.dev`.
 
 ## 5. Smoke tests (must all pass)
 
 ```bash
 # Discovery chain
-curl -s https://mcp.<DOMAIN>/.well-known/oauth-protected-resource | jq .authorization_servers
-curl -s https://auth.<DOMAIN>/.well-known/oauth-authorization-server | jq .authorization_endpoint
-curl -s https://auth.<DOMAIN>/.well-known/jwks.json | jq '.keys[0].kid'
+curl -s https://mcp.cortex-gateway.dev/.well-known/oauth-protected-resource | jq .authorization_servers
+curl -s https://auth.cortex-gateway.dev/.well-known/oauth-authorization-server | jq .authorization_endpoint
+curl -s https://auth.cortex-gateway.dev/.well-known/jwks.json | jq '.keys[0].kid'
 
 # 401 with correct WWW-Authenticate on the MCP endpoint
-curl -si https://mcp.<DOMAIN>/mcp -X POST -H 'Content-Type: application/json' \
+curl -si https://mcp.cortex-gateway.dev/mcp -X POST -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -i www-authenticate
 
 # DCR
-curl -s https://auth.<DOMAIN>/oauth/register -H 'Content-Type: application/json' \
+curl -s https://auth.cortex-gateway.dev/oauth/register -H 'Content-Type: application/json' \
   -d '{"client_name":"smoke","redirect_uris":["https://example.com/cb"]}' | jq .client_id
 
-# The authorize redirect must point at auth.<DOMAIN>, NOT localhost
+# The authorize redirect must point at auth.cortex-gateway.dev, NOT localhost
 # (reverse-proxy issuer gotcha — this is the check that catches it)
-curl -si "https://auth.<DOMAIN>/oauth/authorize?response_type=code&client_id=<id>&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&code_challenge=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&code_challenge_method=S256" | grep -i location
+curl -si "https://auth.cortex-gateway.dev/oauth/authorize?response_type=code&client_id=<id>&redirect_uri=https%3A%2F%2Fexample.com%2Fcb&code_challenge=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&code_challenge_method=S256" | grep -i location
 ```
 
-Then the real thing: add `https://mcp.<DOMAIN>/mcp` as a claude.ai Custom
+Then the real thing: add `https://mcp.cortex-gateway.dev/mcp` as a claude.ai Custom
 Connector (or `npx @modelcontextprotocol/inspector`), complete the magic-link
 + consent flow, and verify `tools/list` returns the `demo_*` tools.
 

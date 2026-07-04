@@ -1,7 +1,7 @@
 # cortex-demo-auth
 
 Demo **OAuth 2.1 authorization server** for the hosted Cortex Gateway demo —
-the issuer behind `auth.<DOMAIN>`. Standalone Next.js app (not part of the
+the issuer behind `auth.cortex-gateway.dev`. Standalone Next.js app (not part of the
 gateway build), following the validated authorization-server blueprint.
 
 ## What it implements
@@ -54,9 +54,9 @@ Wire the gateway to it:
 
 ```bash
 # gateway .env
-OAUTH_ISSUER=https://auth.<DOMAIN>
-CORTEX_CANONICAL_URI=https://mcp.<DOMAIN>/mcp
-OAUTH_INTROSPECT_URL=https://auth.<DOMAIN>/oauth/introspect
+OAUTH_ISSUER=https://auth.cortex-gateway.dev
+CORTEX_CANONICAL_URI=https://mcp.cortex-gateway.dev/mcp
+OAUTH_INTROSPECT_URL=https://auth.cortex-gateway.dev/oauth/introspect
 OAUTH_INTROSPECT_CLIENT_ID=cortex-gateway
 OAUTH_INTROSPECT_CLIENT_SECRET=<same as INTROSPECT_CLIENT_SECRET here>
 ```
