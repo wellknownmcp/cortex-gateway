@@ -19,6 +19,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate && npm run build
 
 FROM node:22-alpine AS runtime
+# Ownership proof required by registry.modelcontextprotocol.io for OCI packages
+LABEL io.modelcontextprotocol.server.name="io.github.wellknownmcp/cortex-gateway"
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

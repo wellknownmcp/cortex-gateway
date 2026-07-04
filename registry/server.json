@@ -16,7 +16,6 @@
   "packages": [
     {
       "registryType": "oci",
-      "registryBaseUrl": "https://ghcr.io",
       "identifier": "ghcr.io/wellknownmcp/cortex-gateway:v0.1.0",
       "transport": {
         "type": "streamable-http",
