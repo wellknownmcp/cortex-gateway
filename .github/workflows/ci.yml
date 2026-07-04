@@ -21,3 +21,21 @@ jobs:
         env:
           CORTEX_CANONICAL_URI: https://mcp.example.com/mcp
           OAUTH_ISSUER: https://auth.example.com
+
+  demo-auth-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo/auth-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          OAUTH_ISSUER: https://auth.example.com
+          OAUTH_MCP_AUDIENCE: https://mcp.example.com/mcp

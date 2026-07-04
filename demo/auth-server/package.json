@@ -1,0 +1,29 @@
+{
+  "name": "cortex-demo-auth",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo OAuth 2.1 authorization server for cortex-gateway (DCR, PKCE, magic-link login)",
+  "scripts": {
+    "dev": "next dev -p 3220",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3220",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "jose": "^5.9.6",
+    "next": "^15.5.18",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "resend": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.2"
+  }
+}
