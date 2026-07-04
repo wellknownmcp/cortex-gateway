@@ -193,6 +193,7 @@ annotated list. The essentials:
 | `CORTEX_ALLOWED_ORIGINS` | prod | Web origins allowed (exact or `*.suffix`) |
 | `CORTEX_DATABASE_URL` | no | PostgreSQL for audit persistence + gateway tickets |
 | `CORTEX_TICKET_WEBHOOK_URL` | no | Webhook for blocking missing-capability tickets |
+| `CORTEX_WEBSITE_URL` | no | `websiteUrl` shown by MCP clients (default: the gateway origin). Server icons: replace `public/icon-{light,dark}.png` |
 
 ## Security model
 

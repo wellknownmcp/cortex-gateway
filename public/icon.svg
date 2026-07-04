@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Cortex Gateway">
+  <style>
+    .ink { stroke: #111827; }
+    .node { fill: #111827; }
+    .core { fill: #059669; }
+    @media (prefers-color-scheme: dark) {
+      .ink { stroke: #e5e7eb; }
+      .node { fill: #e5e7eb; }
+      .core { fill: #34d399; }
+    }
+  </style>
+  <g class="ink" stroke-width="2" stroke-linecap="round">
+    <line x1="16" y1="16" x2="7" y2="7"/>
+    <line x1="16" y1="16" x2="25" y2="7"/>
+    <line x1="16" y1="16" x2="7" y2="25"/>
+    <line x1="16" y1="16" x2="25" y2="25"/>
+  </g>
+  <circle class="node" cx="7" cy="7" r="3"/>
+  <circle class="node" cx="25" cy="7" r="3"/>
+  <circle class="node" cx="7" cy="25" r="3"/>
+  <circle class="node" cx="25" cy="25" r="3"/>
+  <circle class="core" cx="16" cy="16" r="4.5"/>
+</svg>

@@ -4,6 +4,7 @@ export const metadata: Metadata = {
   title: 'Cortex Gateway',
   description: 'Federated MCP gateway',
   robots: { index: false, follow: false },
+  icons: { icon: '/icon.svg' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

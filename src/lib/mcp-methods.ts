@@ -204,9 +204,30 @@ function handleInitialize(id: string | number | null, raw: unknown): JsonRpcResp
   return rpcSuccess(id, {
     protocolVersion: negotiated,
     capabilities: CAPABILITIES,
-    serverInfo: { name: serverName(), version: SERVER_VERSION },
+    serverInfo: buildServerInfo(),
     instructions: buildServerInstructions(healthyBackends),
   });
+}
+
+/**
+ * serverInfo with the `icons` + `websiteUrl` fields introduced in the
+ * 2025-11-25 spec revision. Clients on older negotiated versions ignore the
+ * unknown fields, so they are sent unconditionally. The spec requires icon
+ * URIs to be same-origin with the server (clients reject cross-origin), so
+ * they are derived from the canonical URI; the PNGs ship in `public/` —
+ * replace those files to brand your own deployment.
+ */
+function buildServerInfo() {
+  const origin = new URL(canonicalUri()).origin;
+  return {
+    name: serverName(),
+    version: SERVER_VERSION,
+    websiteUrl: process.env.CORTEX_WEBSITE_URL ?? origin,
+    icons: [
+      { src: `${origin}/icon-light.png`, mimeType: 'image/png', sizes: ['256x256'], theme: 'light' },
+      { src: `${origin}/icon-dark.png`, mimeType: 'image/png', sizes: ['256x256'], theme: 'dark' },
+    ],
+  };
 }
 
 /**
