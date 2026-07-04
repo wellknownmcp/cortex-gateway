@@ -9,6 +9,13 @@ stdio). The gateway discovers their tools, merges them into one MCP catalog,
 enforces OAuth 2.1 + scopes, routes `tools/call` to the owning backend, and
 keeps a pseudonymized audit trail.
 
+A **backend** is a dedicated MCP reduced to its essence: a tool catalog plus
+tool invocation (and optional prompts/resources) over bare HTTP JSON-RPC —
+the transport and lifecycle machinery (initialize, sessions, SSE, version
+negotiation) lives once, in the gateway. Because the contract is a semantic
+subset of MCP, a native MCP server can also be federated by fronting it with
+an MCP→backend proxy adapter (see Roadmap).
+
 ```
 [MCP agent: Claude Desktop / claude.ai Custom Connector / any MCP client]
          │  HTTPS + OAuth 2.1 JWT (Bearer)
@@ -55,10 +62,9 @@ agent surface is one env var.
 e.g. "all open-data tools for domain X" — that federates several providers
 behind one URL with one token. The scope model gives you per-provider
 opt-in, `get_help`/`get_snapshot` give agents self-describing discovery, and
-the audit trail tells you what is actually used. Today the providers must
-speak the (deliberately tiny) backend contract; an adapter that lets the
-gateway federate *native MCP servers* downstream is on the roadmap — see
-below.
+the audit trail tells you what is actually used. Providers either speak the
+(deliberately tiny) backend contract natively, or — for off-the-shelf MCP
+servers — get fronted by the MCP→backend proxy adapter (see Roadmap).
 
 **Free / paid tool tiers.** Scopes are entitlements. Let your authorization
 server grant `mcp:yourapp:basic` to free users and `mcp:yourapp:pro` to
@@ -69,9 +75,14 @@ downgrades propagate through the normal OAuth chain.
 
 ## Roadmap
 
-- **Native MCP downstream adapter** — federate existing third-party MCP
-  servers (the gateway acting as MCP client), so a hub can mix
-  contract-backends and off-the-shelf MCP servers.
+- **MCP→backend proxy adapter** — federate existing native MCP servers by
+  projecting them onto the backend contract: the adapter is an MCP client
+  downstream (absorbing initialize/session/transport) and a plain backend
+  upstream, so the gateway itself does not change — a third-party MCP server
+  just becomes one more kind of backend. The protocol mapping is mechanical
+  (the 60s catalog refresh even makes relaying downstream `list_changed`
+  unnecessary); the real work is downstream auth (per-server credentials or
+  token exchange) and assigning scopes to tools that do not declare any.
 - **Machine identity for discovery** — replace the static technical token
   with a `client_credentials` flow once your AS supports it.
 - **Shared event bus / rate-limit store** — for multi-instance deployments.
