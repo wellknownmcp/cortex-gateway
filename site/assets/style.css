@@ -5,7 +5,9 @@
   --line: #e5e7eb;
   --bg-soft: #f9fafb;
   --accent: #111827;
+  --signal: #059669;
   --code-bg: #f3f4f6;
+  --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
   --max: 760px;
 }
 @media (prefers-color-scheme: dark) {
@@ -15,6 +17,7 @@
     --line: #27272a;
     --bg-soft: #18181b;
     --accent: #e5e7eb;
+    --signal: #34d399;
     --code-bg: #27272a;
   }
   body { background: #0b0b0d; }
@@ -36,10 +39,19 @@ header.site {
   flex-wrap: wrap;
 }
 header.site a { color: var(--ink); text-decoration: none; }
-header.site .brand { font-weight: 700; }
+header.site .brand {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 15.5px;
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+}
+header.site .brand img { display: block; }
 header.site nav { display: flex; gap: 16px; font-size: 14.5px; }
 header.site nav a { color: var(--muted); }
-header.site nav a:hover { color: var(--ink); }
+header.site nav a:hover { color: var(--signal); }
+main a:hover { color: var(--signal); }
 main { max-width: var(--max); margin: 0 auto; padding: 40px 24px 80px; }
 h1 { font-size: 30px; line-height: 1.25; margin: 8px 0 12px; }
 h2 { font-size: 21px; margin-top: 40px; }
@@ -81,8 +93,10 @@ th { background: var(--bg-soft); }
   text-decoration: none;
   font-weight: 600;
   margin: 10px 0;
+  transition: background 0.15s ease;
 }
-@media (prefers-color-scheme: dark) { .cta { color: #0b0b0d; } }
+.cta:hover { background: var(--signal); color: #fff; }
+@media (prefers-color-scheme: dark) { .cta { color: #0b0b0d; } .cta:hover { color: #0b0b0d; } }
 .crumbs { font-size: 13.5px; color: var(--muted); margin-bottom: 4px; }
 .crumbs a { color: var(--muted); }
 footer.site {
