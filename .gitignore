@@ -20,3 +20,7 @@ dist/
 .DS_Store
 *.pem
 npm-debug.log*
+
+# Claude private workspace (never commit)
+CLAUDE.local.md
+.claude/
