@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Claude Desktop to a remote MCP gateway with OAuth | Cortex Gateway</title>
+<meta name="description" content="Step-by-step: connect Claude Desktop to a remote MCP server (Cortex Gateway) — the Connectors UI path, plus the mcp-remote fallback for older versions. OAuth handled automatically.">
+<link rel="canonical" href="https://cortex-gateway.dev/connect/claude-desktop/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Connect Claude Desktop to a remote MCP gateway with OAuth">
+<meta property="og:url" content="https://cortex-gateway.dev/connect/claude-desktop/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "HowTo",
+      "name": "Connect Claude Desktop to a Cortex Gateway MCP endpoint",
+      "totalTime": "PT3M",
+      "step": [
+        { "@type": "HowToStep", "name": "Open Connectors", "text": "Claude Desktop → Settings → Connectors → Add custom connector." },
+        { "@type": "HowToStep", "name": "Enter the gateway URL", "text": "https://mcp.cortex-gateway.dev/mcp (or your own gateway URL)." },
+        { "@type": "HowToStep", "name": "Complete OAuth", "text": "Your browser opens the gateway's login and consent pages; approve them." },
+        { "@type": "HowToStep", "name": "Verify", "text": "In a new conversation, the connector's tools appear in the tools menu." }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Connect", "item": "https://cortex-gateway.dev/connect/claude-ai/" },
+        { "@type": "ListItem", "position": 3, "name": "Claude Desktop" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-ai/">claude.ai</a>
+    <a href="/connect/claude-code/">Claude Code</a>
+    <a href="/connect/openclaw/">OpenClaw</a>
+    <a href="/connect/hermes/">Hermes</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Connect › Claude Desktop</p>
+  <h1>Connect Claude Desktop to a remote MCP gateway with OAuth</h1>
+  <p class="lead">Claude Desktop speaks remote MCP natively: point it at one gateway URL and OAuth discovery, client registration and token refresh are automatic.</p>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Settings → Connectors → <em>Add custom connector</em> → <code>https://mcp.cortex-gateway.dev/mcp</code> → sign in + consent in the browser. Older versions without the Connectors UI: use the <code>mcp-remote</code> bridge in <code>claude_desktop_config.json</code> (below).</p>
+  </div>
+
+  <h2>Path A — Connectors UI (recommended)</h2>
+  <ol>
+    <li>Open <strong>Claude Desktop → Settings → Connectors</strong>.</li>
+    <li>Click <strong>Add custom connector</strong> and paste your gateway URL — for the public demo: <code>https://mcp.cortex-gateway.dev/mcp</code>.</li>
+    <li>Your default browser opens the gateway's login (magic link on the demo) then the consent screen. Approve.</li>
+    <li>Back in Claude Desktop, enable the connector. The tools menu now shows the federated catalog, filtered by your scopes.</li>
+  </ol>
+
+  <h2>Path B — older versions: the mcp-remote bridge</h2>
+  <p>Versions predating remote-connector support only launch local stdio servers from <code>claude_desktop_config.json</code>. The <code>mcp-remote</code> package bridges stdio to a remote OAuth-protected server:</p>
+  <pre><code>{
+  "mcpServers": {
+    "cortex": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.cortex-gateway.dev/mcp"]
+    }
+  }
+}</code></pre>
+  <p>Config file locations: <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS), <code>%APPDATA%\Claude\claude_desktop_config.json</code> (Windows). Restart Claude Desktop; the OAuth flow opens in your browser on first use.</p>
+
+  <h2>Verify it works</h2>
+  <p>Ask Claude to call the gateway's <code>whoami</code> builtin. You should get your identity, your granted scopes, and the health of every federated backend — a one-call sanity check of the whole chain.</p>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th></tr>
+    <tr><td>Browser never opens</td><td>Path B with an old Node: <code>npx mcp-remote</code> needs Node 18+. Run <code>node -v</code>.</td></tr>
+    <tr><td>401 after some time</td><td>Access tokens are short-lived by design; the client refreshes silently. If it persists, remove and re-add the connector (forces a new grant).</td></tr>
+    <tr><td>Tools missing vs a teammate</td><td>Different scopes on your accounts — that's the gateway working as intended. Compare your <code>whoami</code> outputs.</td></tr>
+  </table>
+
+  <p class="note">Self-hosting your own gateway: <a href="https://github.com/wellknownmcp/cortex-gateway">github.com/wellknownmcp/cortex-gateway</a>.</p>
+</main>
+<footer class="site">
+  Other clients: <a href="/connect/claude-ai/">claude.ai</a> · <a href="/connect/claude-code/">Claude Code</a> · <a href="/connect/openclaw/">OpenClaw</a> · <a href="/connect/hermes/">Hermes</a>
+</footer>
+</body>
+</html>

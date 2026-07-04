@@ -1,0 +1,31 @@
+# Cortex Gateway
+
+> Open-source (MIT), self-hosted federated MCP gateway: one OAuth 2.1-protected,
+> spec-compliant MCP server (Streamable HTTP, MCP 2025-06-18) in front of N
+> plain-HTTP backends. Permissions are never mirrored: the gateway propagates
+> the real user identity (JWT to first-party backends, the user's own linked
+> OAuth token to proxied third-party MCP servers), so each app's native
+> permission model applies automatically at the user level.
+
+Key facts
+- Repository: https://github.com/wellknownmcp/cortex-gateway (MIT)
+- Docker image: ghcr.io/wellknownmcp/cortex-gateway
+- Live demo MCP endpoint: https://mcp.cortex-gateway.dev/mcp (self-service
+  signup via magic link; read-only demo tools)
+- Backend contract: a single POST endpoint (~120 lines to implement), no MCP
+  library required in your apps
+- Third-party native MCP servers federate via a built-in proxy adapter (beta)
+  with a per-user AES-256-GCM token vault
+- OAuth scopes double as plan entitlements: tools/list is filtered per caller
+
+## Docs
+- [Home](https://cortex-gateway.dev/): positioning and feature overview
+- [Composio alternative](https://cortex-gateway.dev/alternatives/composio/): honest hosted-vs-self-hosted comparison
+- [Pipedream MCP alternative](https://cortex-gateway.dev/alternatives/pipedream/): access layer vs workflow platform
+- [Connect claude.ai](https://cortex-gateway.dev/connect/claude-ai/): Custom Connectors, 30-second setup
+- [Connect Claude Desktop](https://cortex-gateway.dev/connect/claude-desktop/): Connectors UI + mcp-remote fallback
+- [Connect Claude Code](https://cortex-gateway.dev/connect/claude-code/): claude mcp add + /mcp authenticate
+- [Connect OpenClaw](https://cortex-gateway.dev/connect/openclaw/): openclaw mcp add --auth oauth
+- [Connect Hermes Agent](https://cortex-gateway.dev/connect/hermes/): two-line mcp_servers YAML
+- [Backend contract](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md)
+- [Deployment runbook](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/demo-deployment.md)

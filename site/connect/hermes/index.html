@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Hermes Agent to an MCP gateway (two lines of YAML) | Cortex Gateway</title>
+<meta name="description" content="Step-by-step: connect Nous Research's Hermes Agent to a remote OAuth 2.1 MCP server (Cortex Gateway) — the mcp_servers YAML block, browser login, headless options.">
+<link rel="canonical" href="https://cortex-gateway.dev/connect/hermes/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Connect Hermes Agent to an MCP gateway (two lines of YAML)">
+<meta property="og:url" content="https://cortex-gateway.dev/connect/hermes/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "HowTo",
+      "name": "Connect Hermes Agent to a Cortex Gateway MCP endpoint",
+      "totalTime": "PT3M",
+      "step": [
+        { "@type": "HowToStep", "name": "Declare the server", "text": "In ~/.hermes/config.yaml, add the gateway under mcp_servers with auth: oauth." },
+        { "@type": "HowToStep", "name": "First connect", "text": "Hermes prints an authorize URL and opens the browser; complete login and consent." },
+        { "@type": "HowToStep", "name": "Use the tools", "text": "Tokens are cached in ~/.hermes/mcp-tokens/ and refreshed automatically." }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Connect", "item": "https://cortex-gateway.dev/connect/claude-ai/" },
+        { "@type": "ListItem", "position": 3, "name": "Hermes Agent" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-ai/">claude.ai</a>
+    <a href="/connect/claude-desktop/">Claude Desktop</a>
+    <a href="/connect/claude-code/">Claude Code</a>
+    <a href="/connect/openclaw/">OpenClaw</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Connect › Hermes Agent</p>
+  <h1>Connect Hermes Agent to an MCP gateway — two lines of YAML</h1>
+  <p class="lead">Hermes Agent (Nous Research) ships a full OAuth 2.1 MCP client: dynamic client registration, PKCE, token refresh — all automatic. The config is the shortest of any client on this site.</p>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <pre><code># ~/.hermes/config.yaml
+mcp_servers:
+  cortex:
+    url: "https://mcp.cortex-gateway.dev/mcp"
+    auth: oauth</code></pre>
+    <p>On first connect, Hermes prints an authorize URL and opens your browser. Sign in, approve — done.</p>
+  </div>
+
+  <h2>Steps</h2>
+  <ol>
+    <li><strong>Declare the gateway</strong> in <code>~/.hermes/config.yaml</code> under <code>mcp_servers</code> (block above — replace the URL with your own gateway's <code>/mcp</code> endpoint). If Hermes is running, reload with <code>/reload-mcp</code>.</li>
+    <li><strong>Complete the OAuth flow</strong>: Hermes handles discovery and Dynamic Client Registration against the gateway's authorization server, then waits for the callback on a local loopback port. On the public demo, sign in with a magic link (first sign-in creates your account) and approve the consent screen.</li>
+    <li><strong>Verify</strong>: ask Hermes to call the gateway's <code>whoami</code> tool — identity, scopes, and the health of every federated backend in one response. Tokens live in <code>~/.hermes/mcp-tokens/cortex.json</code> and refresh silently.</li>
+  </ol>
+
+  <h2>Headless / remote machines</h2>
+  <p>No local browser? Two supported options:</p>
+  <ul>
+    <li><strong>Paste-back</strong>: open the printed authorize URL anywhere, then paste the redirect URL back at the Hermes prompt.</li>
+    <li><strong>SSH port forwarding</strong>: tunnel the loopback callback port — <code>ssh -N -L &lt;port&gt;:127.0.0.1:&lt;port&gt; host</code>.</li>
+  </ul>
+
+  <h2>Note on Dynamic Client Registration</h2>
+  <p>Cortex Gateway's demo authorization server accepts DCR (RFC 7591), so the minimal two-line config just works. If you self-host against an authorization server that rejects automatic registration, create the OAuth client manually and add it to the block:</p>
+  <pre><code>mcp_servers:
+  cortex:
+    url: "https://mcp.your-domain.com/mcp"
+    auth: oauth
+    oauth:
+      client_id: "&lt;your-id&gt;"
+      client_secret: "&lt;your-secret&gt;"</code></pre>
+  <p>Then run <code>hermes mcp login cortex</code>.</p>
+
+  <h2>Why this pairing works well</h2>
+  <p>Hermes is a messaging-native agent that acts on your behalf across platforms — the sharpest case for user-level permissions. Behind a gateway, everything it does is bound to <em>your</em> OAuth identity: backends apply your rights, the audit trail shows what the agent did as you, and one revocation cuts it all.</p>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th></tr>
+    <tr><td>Authorize URL printed but flow never completes</td><td>Loopback callback blocked (headless host) — use paste-back or SSH forwarding above.</td></tr>
+    <tr><td>401 on every call after weeks</td><td>Refresh failed (grant revoked or rotated away). Delete <code>~/.hermes/mcp-tokens/cortex.json</code> and reconnect.</td></tr>
+    <tr><td>Fewer tools than expected</td><td>Scope filtering at the gateway — <code>whoami</code> shows your grants.</td></tr>
+  </table>
+
+  <p class="note">Self-hosting your own gateway: <a href="https://github.com/wellknownmcp/cortex-gateway">github.com/wellknownmcp/cortex-gateway</a>.</p>
+</main>
+<footer class="site">
+  Other clients: <a href="/connect/claude-ai/">claude.ai</a> · <a href="/connect/claude-desktop/">Claude Desktop</a> · <a href="/connect/claude-code/">Claude Code</a> · <a href="/connect/openclaw/">OpenClaw</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortex Gateway — the self-hosted MCP gateway with user-level permissions</title>
+<meta name="description" content="Open-source federated MCP gateway: one OAuth 2.1-protected MCP server in front of all your apps. Permissions match the underlying app automatically, at the user level — no service-account flattening.">
+<link rel="canonical" href="https://cortex-gateway.dev/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Cortex Gateway — self-hosted MCP gateway with user-level permissions">
+<meta property="og:description" content="One OAuth 2.1-protected MCP server in front of all your apps. Open source, self-hosted, permissions delegated to the apps that own them.">
+<meta property="og:url" content="https://cortex-gateway.dev/">
+<meta property="og:type" content="website">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "name": "Cortex Gateway",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Linux, macOS, Windows, Docker",
+      "url": "https://cortex-gateway.dev/",
+      "sameAs": "https://github.com/wellknownmcp/cortex-gateway",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "license": "https://github.com/wellknownmcp/cortex-gateway/blob/main/LICENSE",
+      "description": "Federated MCP gateway: one OAuth 2.1-protected, spec-compliant MCP server in front of N plain-HTTP backends, with scope-filtered tools, live discovery and a pseudonymized audit trail."
+    },
+    {
+      "@type": "Organization",
+      "name": "Cortex Gateway",
+      "url": "https://cortex-gateway.dev/",
+      "sameAs": ["https://github.com/wellknownmcp/cortex-gateway"]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/composio/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <h1>One MCP server in front of all your apps — with each app's own permissions, per user</h1>
+  <p class="lead">Cortex Gateway is an open-source, self-hosted MCP gateway. Agents connect to a single OAuth&nbsp;2.1-protected URL; the gateway federates the tools of every app behind it and propagates the <em>real user identity</em> — so each app's native permission model applies automatically, at the user level. Nothing to mirror, nothing to sync, no service-account flattening.</p>
+
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+  <p class="note">MIT-licensed · Docker image on GHCR · <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> you can plug into Claude in 30 seconds</p>
+
+  <h2>How it works</h2>
+  <pre><code>[MCP agent: Claude Desktop / claude.ai / OpenClaw / Hermes / ...]
+         │  HTTPS + OAuth 2.1 JWT (Bearer)
+         ▼
+[cortex-gateway]   ←— thin gateway, no business logic
+         │  the SAME JWT propagated (RFC 8707)
+         ▼
+[your backends]    ←— domain owners, plain HTTP, own their ACLs</code></pre>
+  <p>A <strong>backend</strong> is a dedicated MCP reduced to its essence: a tool catalog plus tool invocation over bare HTTP (~120-line contract, no MCP library). The transport and lifecycle machinery — initialize, sessions, SSE, version negotiation — lives once, in the gateway. Native third-party MCP servers federate through the built-in proxy adapter with a per-user encrypted token vault.</p>
+
+  <h2>What you get</h2>
+  <table>
+    <tr><th>Capability</th><th>How</th></tr>
+    <tr><td>User-level permissions, automatically</td><td>Identity propagation: your JWT to first-party backends, the user's own linked token to third-party MCP servers. The app that owns the permission enforces it.</td></tr>
+    <tr><td>Scope-filtered tool catalog</td><td>Agents only see (and can call) tools their token scopes allow. Scopes double as plan entitlements — free/pro tiers with zero paywall logic.</td></tr>
+    <tr><td>Live federation</td><td>Backends are polled every 60s; new tools appear without redeploying, with SSE <code>tools/list_changed</code> push.</td></tr>
+    <tr><td>Audit &amp; revocation</td><td>One pseudonymized audit line per call; central OAuth revocation cuts every backend at once.</td></tr>
+    <tr><td>Context-efficient tools/list</td><td>Backend filtering + a compact search mode (~80% smaller payloads for programmatic agents).</td></tr>
+  </table>
+
+  <h2>Connect your client</h2>
+  <div class="grid">
+    <a class="card" href="/connect/claude-ai/"><b>claude.ai (web &amp; mobile)</b><span>Custom Connectors — the 30-second path</span></a>
+    <a class="card" href="/connect/claude-desktop/"><b>Claude Desktop</b><span>Remote MCP server with OAuth</span></a>
+    <a class="card" href="/connect/claude-code/"><b>Claude Code</b><span>CLI: one command, OAuth in the browser</span></a>
+    <a class="card" href="/connect/openclaw/"><b>OpenClaw</b><span>openclaw mcp add + oauth login</span></a>
+    <a class="card" href="/connect/hermes/"><b>Hermes Agent</b><span>Two lines of YAML, DCR handled</span></a>
+  </div>
+
+  <h2>Comparing options?</h2>
+  <div class="grid">
+    <a class="card" href="/alternatives/composio/"><b>Composio alternative</b><span>Self-hosted vs hosted tool platform</span></a>
+    <a class="card" href="/alternatives/pipedream/"><b>Pipedream MCP alternative</b><span>Own your token vault and audit trail</span></a>
+  </div>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Is Cortex Gateway free?</h3>
+    <p>Yes — MIT-licensed, self-hosted. You run it on your own infrastructure (a small VM or the <a href="https://github.com/wellknownmcp/cortex-gateway/pkgs/container/cortex-gateway">Docker image</a>). There is no hosted plan and no usage billing.</p>
+    <h3>Does it work with any OAuth server?</h3>
+    <p>Any OAuth 2.1 authorization server that issues RS256 JWTs with a JWKS endpoint works. The repo ships a complete demo authorization server (DCR, PKCE, magic-link signup) you can start from.</p>
+    <h3>Can it federate existing third-party MCP servers?</h3>
+    <p>Yes, through the built-in MCP→backend proxy adapter (beta): it speaks real MCP downstream and holds per-user OAuth tokens in an AES-256-GCM vault, so providers see each user's own account — their seat, their rate limits, their permissions.</p>
+    <h3>How is this different from Composio or Pipedream?</h3>
+    <p>Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny contract for your own apps. See the detailed <a href="/alternatives/composio/">Composio</a> and <a href="/alternatives/pipedream/">Pipedream</a> pages.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> · MIT License
+</footer>
+</body>
+</html>

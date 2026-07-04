@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect claude.ai to an MCP gateway (Custom Connectors) | Cortex Gateway</title>
+<meta name="description" content="Step-by-step: add a Cortex Gateway MCP endpoint to claude.ai as a Custom Connector — OAuth login, consent, and scope-filtered tools in about 30 seconds. Works on web and mobile.">
+<link rel="canonical" href="https://cortex-gateway.dev/connect/claude-ai/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Connect claude.ai to an MCP gateway (Custom Connectors)">
+<meta property="og:url" content="https://cortex-gateway.dev/connect/claude-ai/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "HowTo",
+      "name": "Connect claude.ai to a Cortex Gateway MCP endpoint",
+      "totalTime": "PT2M",
+      "step": [
+        { "@type": "HowToStep", "name": "Open Connectors settings", "text": "In claude.ai, open Settings → Connectors → Add custom connector." },
+        { "@type": "HowToStep", "name": "Paste the gateway URL", "text": "Enter your gateway's MCP endpoint, e.g. https://mcp.cortex-gateway.dev/mcp, and confirm." },
+        { "@type": "HowToStep", "name": "Authenticate", "text": "Claude discovers the OAuth server automatically (RFC 9728), registers itself (DCR) and opens the login page. Sign in and approve the consent screen." },
+        { "@type": "HowToStep", "name": "Use the tools", "text": "Back in the chat, enable the connector. Claude now lists exactly the tools your account's scopes allow." }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Connect", "item": "https://cortex-gateway.dev/connect/claude-ai/" },
+        { "@type": "ListItem", "position": 3, "name": "claude.ai" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Claude Desktop</a>
+    <a href="/connect/claude-code/">Claude Code</a>
+    <a href="/connect/openclaw/">OpenClaw</a>
+    <a href="/connect/hermes/">Hermes</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Connect › claude.ai</p>
+  <h1>Connect claude.ai to an MCP gateway (Custom Connectors)</h1>
+  <p class="lead">The fastest way to see a federated, permission-aware tool catalog inside Claude — on the web or in the mobile apps. Total time: about 30 seconds plus one login.</p>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Settings → Connectors → <em>Add custom connector</em> → paste <code>https://mcp.cortex-gateway.dev/mcp</code> (or your own gateway URL) → sign in → approve. Done: Claude sees exactly the tools your scopes allow.</p>
+  </div>
+
+  <h2>Prerequisites</h2>
+  <ul>
+    <li>A claude.ai account on a plan that includes custom connectors (paid plans; on Team/Enterprise an admin may need to enable them).</li>
+    <li>An MCP gateway URL. No gateway yet? Use the public demo: <code>https://mcp.cortex-gateway.dev/mcp</code> — self-service signup, read-only demo tools.</li>
+  </ul>
+
+  <h2>Steps</h2>
+  <ol>
+    <li><strong>Open</strong> claude.ai → Settings → <strong>Connectors</strong> → <strong>Add custom connector</strong>.</li>
+    <li><strong>Paste the URL</strong>: <code>https://mcp.cortex-gateway.dev/mcp</code>. Claude fetches <code>/.well-known/oauth-protected-resource</code>, finds the authorization server, and registers itself automatically (Dynamic Client Registration) — you configure nothing.</li>
+    <li><strong>Sign in</strong> when the login page opens. On the demo, enter your email and click the magic link you receive — the first sign-in creates your account.</li>
+    <li><strong>Approve the consent screen</strong> (you can remember the decision for 30 days).</li>
+    <li><strong>Enable the connector</strong> in a chat. Ask Claude: <em>"list your tools"</em> — you should see <code>demo_echo</code>, <code>demo_get_time</code>, <code>demo_get_help</code> plus the gateway builtins like <code>whoami</code>.</li>
+  </ol>
+
+  <h2>What just happened (and why it matters)</h2>
+  <p>Claude never received an API key. It obtained an OAuth token bound to <em>you</em>, with <em>your</em> scopes; the gateway filtered <code>tools/list</code> accordingly and will propagate your identity to every backend behind it. Two users connecting the same URL can see different tools — that is <a href="/">scope-based entitlement</a>, with no paywall code anywhere.</p>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th></tr>
+    <tr><td>"Could not connect" right away</td><td>URL missing the <code>/mcp</code> path, or the gateway's <code>CORTEX_ALLOWED_ORIGINS</code> doesn't include <code>https://claude.ai</code>.</td></tr>
+    <tr><td>Login loop / consent never appears</td><td>The authorization server's <code>OAUTH_ISSUER</code> is misconfigured behind the reverse proxy — the authorize redirect must point at the public host.</td></tr>
+    <tr><td>Connected but no tools</td><td>Your account holds none of the scopes the backends require. Check with the <code>whoami</code> builtin.</td></tr>
+  </table>
+
+  <p class="note">Self-hosting your own gateway: <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/demo-deployment.md">deployment runbook</a>.</p>
+</main>
+<footer class="site">
+  Other clients: <a href="/connect/claude-desktop/">Claude Desktop</a> · <a href="/connect/claude-code/">Claude Code</a> · <a href="/connect/openclaw/">OpenClaw</a> · <a href="/connect/hermes/">Hermes</a>
+</footer>
+</body>
+</html>

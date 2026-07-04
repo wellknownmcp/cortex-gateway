@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipedream MCP alternative: own your gateway, vault and audit trail | Cortex Gateway</title>
+<meta name="description" content="Looking for a Pipedream MCP alternative? Cortex Gateway is an open-source, self-hosted MCP gateway: one OAuth 2.1 endpoint for your own apps and third-party MCP servers, with a per-user token vault on your infrastructure.">
+<link rel="canonical" href="https://cortex-gateway.dev/alternatives/pipedream/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Pipedream MCP alternative: self-hosted MCP gateway | Cortex Gateway">
+<meta property="og:description" content="Self-hosted, MIT-licensed MCP gateway. Your token vault, your audit trail, user-level permissions by construction.">
+<meta property="og:url" content="https://cortex-gateway.dev/alternatives/pipedream/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Pipedream MCP alternative: own your gateway, vault and audit trail",
+      "url": "https://cortex-gateway.dev/alternatives/pipedream/",
+      "dateModified": "2026-07-04",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Alternatives", "item": "https://cortex-gateway.dev/alternatives/composio/" },
+        { "@type": "ListItem", "position": 3, "name": "Pipedream MCP alternative" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is a self-hosted alternative to Pipedream MCP?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Cortex Gateway is an MIT-licensed MCP gateway you run on your own infrastructure. It exposes one OAuth 2.1-protected MCP endpoint that federates your own applications (plain-HTTP backend contract) and native third-party MCP servers (proxy adapter with per-user encrypted token vault)." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can Cortex Gateway replace Pipedream workflows?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Pipedream is first a workflow automation platform; Cortex Gateway does not run workflows. It replaces the MCP access layer — the part that decides which tools an agent sees and whose identity reaches the underlying app." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does self-hosting the MCP layer matter?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because the MCP layer concentrates credentials and visibility: it holds user grants to third-party apps and sees every tool call. Keeping the vault and the audit trail on your own infrastructure keeps that concentration inside your security perimeter." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/composio/">Composio</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Alternatives › Pipedream MCP</p>
+  <h1>Pipedream MCP alternative: own your gateway, your vault and your audit trail</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Pipedream brings an enormous app catalog and hosted MCP endpoints on top of its automation platform — excellent when you want reach without infrastructure. <strong>Cortex Gateway is the self-hosted alternative for the MCP access layer</strong>: one OAuth 2.1 endpoint you operate, federating your own apps and third-party MCP servers, with per-user tokens encrypted in a vault you control. It does not replace Pipedream's workflows — it replaces the layer that holds credentials and decides what agents can do.</p>
+  </div>
+
+  <h2>Two different centers of gravity</h2>
+  <p><strong>Pipedream</strong> starts from integration breadth: thousands of connected apps, hosted triggers and workflows, and MCP endpoints that let agents reach that catalog with managed per-user auth. The platform operates everything — including the credential store.</p>
+  <p><strong>Cortex Gateway</strong> starts from the access layer itself. It is a thin, spec-compliant MCP server (Streamable HTTP, MCP 2025-06-18) that hosts no business logic: it validates OAuth 2.1 tokens, filters the federated tool catalog by the caller's scopes, routes each call to the app that owns the tool, and writes a pseudonymized audit line. Identity always travels: first-party backends re-validate your JWT; proxied third-party MCP servers receive the calling user's own linked token.</p>
+
+  <h2>At a glance</h2>
+  <table>
+    <tr><th></th><th>Cortex Gateway</th><th>Pipedream (MCP)</th></tr>
+    <tr><td>Model</td><td>Open source (MIT), self-hosted</td><td>Hosted platform</td></tr>
+    <tr><td>Primary job</td><td>MCP access layer for your stack</td><td>App catalog + workflows, MCP on top</td></tr>
+    <tr><td>Catalog</td><td>Your apps + any MCP server (adapter, beta)</td><td>Thousands of ready-made apps</td></tr>
+    <tr><td>Credential custody</td><td>Your infra — AES-256-GCM vault</td><td>Their platform</td></tr>
+    <tr><td>Workflow engine</td><td>None (by design)</td><td>Yes, mature</td></tr>
+    <tr><td>Scope-based tool visibility</td><td>Built-in (scopes = entitlements)</td><td>Platform-managed</td></tr>
+    <tr><td>Audit</td><td>Your logs + optional PostgreSQL, retention you set</td><td>Platform logs</td></tr>
+    <tr><td>Cost</td><td>Free software + your VM</td><td>Platform pricing</td></tr>
+  </table>
+
+  <h2>Who should pick which</h2>
+  <p><strong>Pick Cortex Gateway if</strong> the tools that matter are your own products, your security review asks who holds user grants, you need EU/self-hosted data residency, or you want scope-tiered tool access (free vs pro) without writing paywall code.</p>
+  <p><strong>Pick Pipedream if</strong> your need is breadth-first — many SaaS apps, event-driven workflows, zero ops — and hosted custody is acceptable. If you rely on its workflow engine, keep it: Cortex Gateway deliberately does not compete there.</p>
+
+  <h2>Using both</h2>
+  <p>A common pattern: Cortex Gateway as the front door your agents authenticate to (identity, scopes, audit, your first-party tools) — and hosted connectors kept for long-tail SaaS until the adapter path covers them. One agent-facing URL, custody where it matters most first.</p>
+
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Try Cortex Gateway →</a>
+  <p class="note">Or plug the <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> into <a href="/connect/claude-ai/">claude.ai</a> in 30 seconds.</p>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Does Cortex Gateway run automations or scheduled jobs?</h3>
+    <p>No. It is deliberately a gateway, not a runtime: agents bring the reasoning, backends bring the tools, the gateway brings identity, filtering and audit. Pair it with whatever scheduler or agent framework you already use.</p>
+    <h3>How hard is self-hosting it, honestly?</h3>
+    <p>One Docker container (or a small Next.js deployment), an OAuth 2.1 issuer (a complete demo authorization server ships in the repo), and one env var per backend. The <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/demo-deployment.md">deployment runbook</a> takes about an hour on a fresh VM, TLS included.</p>
+    <h3>Is there a hosted version of Cortex Gateway?</h3>
+    <p>Only a public demo for evaluation. The product stance is self-hosted — that is the point.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="/alternatives/composio/">Composio alternative</a> ·
+  <a href="/">Home</a>
+</footer>
+</body>
+</html>

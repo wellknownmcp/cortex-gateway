@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect OpenClaw to an MCP gateway with OAuth | Cortex Gateway</title>
+<meta name="description" content="Step-by-step: connect OpenClaw to a remote MCP server (Cortex Gateway) over streamable HTTP with OAuth — openclaw mcp add, mcp login, and the JSON config block.">
+<link rel="canonical" href="https://cortex-gateway.dev/connect/openclaw/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Connect OpenClaw to an MCP gateway with OAuth">
+<meta property="og:url" content="https://cortex-gateway.dev/connect/openclaw/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "HowTo",
+      "name": "Connect OpenClaw to a Cortex Gateway MCP endpoint",
+      "totalTime": "PT3M",
+      "step": [
+        { "@type": "HowToStep", "name": "Add the server", "text": "openclaw mcp add cortex --url https://mcp.cortex-gateway.dev/mcp --transport streamable-http --auth oauth" },
+        { "@type": "HowToStep", "name": "Log in", "text": "openclaw mcp login cortex — complete the browser login and consent." },
+        { "@type": "HowToStep", "name": "Probe", "text": "openclaw mcp doctor --probe verifies the connection and lists the discovered tools." }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Connect", "item": "https://cortex-gateway.dev/connect/claude-ai/" },
+        { "@type": "ListItem", "position": 3, "name": "OpenClaw" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-ai/">claude.ai</a>
+    <a href="/connect/claude-desktop/">Claude Desktop</a>
+    <a href="/connect/claude-code/">Claude Code</a>
+    <a href="/connect/hermes/">Hermes</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Connect › OpenClaw</p>
+  <h1>Connect OpenClaw to an MCP gateway with OAuth</h1>
+  <p class="lead">OpenClaw's MCP client speaks Streamable HTTP with managed OAuth tokens (v1.5.0+). Three commands and your personal agent gets a governed, scope-filtered tool catalog — instead of raw API keys scattered in its config.</p>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <pre><code>openclaw mcp add cortex \
+  --url https://mcp.cortex-gateway.dev/mcp \
+  --transport streamable-http \
+  --auth oauth
+
+openclaw mcp login cortex
+openclaw mcp doctor --probe</code></pre>
+  </div>
+
+  <h2>Steps</h2>
+  <ol>
+    <li><strong>Add the server</strong> with the command above (replace the URL with your own gateway's <code>/mcp</code> endpoint). Optional flags: <code>--timeout 20 --connect-timeout 5</code>.</li>
+    <li><strong>Authenticate</strong>: <code>openclaw mcp login cortex</code> opens the gateway's OAuth flow (magic-link signup on the public demo, then the consent screen). On a headless machine, use <code>openclaw mcp login cortex --code &lt;authorization-code&gt;</code> to paste the code back.</li>
+    <li><strong>Verify</strong>: <code>openclaw mcp doctor --probe</code> should show the server connected and list the federated tools (<code>demo_echo</code>, <code>demo_get_time</code>, <code>whoami</code>, ...).</li>
+  </ol>
+
+  <h2>Equivalent JSON config</h2>
+  <p>If you manage <code>openclaw.json</code> by hand:</p>
+  <pre><code>{
+  "mcp": {
+    "servers": {
+      "cortex": {
+        "url": "https://mcp.cortex-gateway.dev/mcp",
+        "transport": "streamable-http",
+        "auth": "oauth",
+        "timeout": 20,
+        "connectTimeout": 5,
+        "sslVerify": true
+      }
+    }
+  }
+}</code></pre>
+  <p>OAuth tokens are stored by OpenClaw and refreshed automatically after <code>openclaw mcp login</code>.</p>
+
+  <h2>Why this pairing works well</h2>
+  <p>OpenClaw is a personal, always-on agent — exactly the kind of client you don't want holding static API keys to everything. Behind a gateway, it holds a single short-lived OAuth token bound to <em>your</em> identity: every backend applies your permissions, the audit trail records what the agent actually did, and revoking the grant at the OAuth server cuts everything at once.</p>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th></tr>
+    <tr><td>Add succeeds, login fails</td><td>Check the gateway's discovery answers: <code>curl https://mcp.cortex-gateway.dev/.well-known/oauth-protected-resource</code> must list the authorization server.</td></tr>
+    <tr><td>Probe shows 0 tools</td><td>Your account has none of the required scopes — call the <code>whoami</code> builtin to see what your token carries.</td></tr>
+    <tr><td>Old OpenClaw version</td><td>Streamable HTTP is primary from v1.5.0; earlier versions can use <code>--transport sse</code> (deprecated) or should upgrade.</td></tr>
+  </table>
+
+  <p class="note">Self-hosting your own gateway: <a href="https://github.com/wellknownmcp/cortex-gateway">github.com/wellknownmcp/cortex-gateway</a>.</p>
+</main>
+<footer class="site">
+  Other clients: <a href="/connect/claude-ai/">claude.ai</a> · <a href="/connect/claude-desktop/">Claude Desktop</a> · <a href="/connect/claude-code/">Claude Code</a> · <a href="/connect/hermes/">Hermes</a>
+</footer>
+</body>
+</html>

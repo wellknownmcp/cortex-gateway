@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect Claude Code to an MCP gateway (one command) | Cortex Gateway</title>
+<meta name="description" content="Add a Cortex Gateway MCP endpoint to Claude Code with a single claude mcp add command, authenticate via /mcp, and get a scope-filtered federated tool catalog in the CLI.">
+<link rel="canonical" href="https://cortex-gateway.dev/connect/claude-code/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Connect Claude Code to an MCP gateway (one command)">
+<meta property="og:url" content="https://cortex-gateway.dev/connect/claude-code/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "HowTo",
+      "name": "Connect Claude Code to a Cortex Gateway MCP endpoint",
+      "totalTime": "PT2M",
+      "step": [
+        { "@type": "HowToStep", "name": "Add the server", "text": "claude mcp add --transport http cortex https://mcp.cortex-gateway.dev/mcp" },
+        { "@type": "HowToStep", "name": "Authenticate", "text": "Inside Claude Code, run /mcp and choose Authenticate — the OAuth flow opens in your browser." },
+        { "@type": "HowToStep", "name": "Use the tools", "text": "The federated tools (demo_*, whoami, ...) are now callable from the session." }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Connect", "item": "https://cortex-gateway.dev/connect/claude-ai/" },
+        { "@type": "ListItem", "position": 3, "name": "Claude Code" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-ai/">claude.ai</a>
+    <a href="/connect/claude-desktop/">Claude Desktop</a>
+    <a href="/connect/openclaw/">OpenClaw</a>
+    <a href="/connect/hermes/">Hermes</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Connect › Claude Code</p>
+  <h1>Connect Claude Code to an MCP gateway — one command</h1>
+  <p class="lead">Claude Code supports remote MCP servers over Streamable HTTP with built-in OAuth. Ideal for giving a coding agent governed access to your internal tools.</p>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <pre><code>claude mcp add --transport http cortex https://mcp.cortex-gateway.dev/mcp
+# then, inside a session:
+/mcp   →  Authenticate  →  browser login + consent</code></pre>
+  </div>
+
+  <h2>Steps</h2>
+  <ol>
+    <li><strong>Add the server</strong> (from any terminal):
+      <pre><code>claude mcp add --transport http cortex https://mcp.cortex-gateway.dev/mcp</code></pre>
+      Replace the URL with your own gateway. Add <code>--scope user</code> to make it available across all your projects, or leave the default for the current project only.</li>
+    <li><strong>Authenticate</strong>: start Claude Code, run <code>/mcp</code>, select <em>cortex</em> → <em>Authenticate</em>. The browser opens the gateway's login (magic link on the demo) and consent screen.</li>
+    <li><strong>Verify</strong>: ask Claude Code to call <code>whoami</code> — it returns your identity, granted scopes and the health of each federated backend.</li>
+  </ol>
+
+  <h2>Why a gateway (not N servers) for coding agents</h2>
+  <p>Claude Code loads every configured server's tool list into context. A gateway keeps that catalog governed (scope-filtered per user) and lets you trim it further: the <code>X-Cortex-Backends</code> header narrows the catalog to the backends you're working with, and the compact <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/tool-search-mode.md">search mode</a> cuts tools/list payloads by ~80% for programmatic use.</p>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th></tr>
+    <tr><td><code>claude mcp list</code> shows it, but calls fail with 401</td><td>Not authenticated yet — run <code>/mcp</code> → Authenticate. Tokens are stored per user and refresh automatically afterwards.</td></tr>
+    <tr><td>Server unreachable</td><td>Check the URL ends with <code>/mcp</code> and that the gateway answers: <code>curl -si https://mcp.cortex-gateway.dev/mcp -X POST</code> should return 401 with a <code>WWW-Authenticate</code> header — that's healthy.</td></tr>
+    <tr><td>A tool you expect is missing</td><td>Scope filtering. <code>whoami</code> shows what your token carries.</td></tr>
+  </table>
+
+  <p class="note">Self-hosting your own gateway: <a href="https://github.com/wellknownmcp/cortex-gateway">github.com/wellknownmcp/cortex-gateway</a>.</p>
+</main>
+<footer class="site">
+  Other clients: <a href="/connect/claude-ai/">claude.ai</a> · <a href="/connect/claude-desktop/">Claude Desktop</a> · <a href="/connect/openclaw/">OpenClaw</a> · <a href="/connect/hermes/">Hermes</a>
+</footer>
+</body>
+</html>

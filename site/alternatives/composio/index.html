@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Composio alternative: self-hosted MCP gateway with user-level permissions | Cortex Gateway</title>
+<meta name="description" content="Looking for a Composio alternative? Cortex Gateway is an open-source, self-hosted MCP gateway: your token vault, your audit trail, and permissions delegated to the apps that own them. Honest comparison.">
+<link rel="canonical" href="https://cortex-gateway.dev/alternatives/composio/">
+<link rel="stylesheet" href="/assets/style.css">
+<meta property="og:title" content="Composio alternative: self-hosted MCP gateway | Cortex Gateway">
+<meta property="og:description" content="Open-source, self-hosted alternative to hosted tool platforms. Your token vault, your audit trail, user-level permissions by construction.">
+<meta property="og:url" content="https://cortex-gateway.dev/alternatives/composio/">
+<meta property="og:type" content="article">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Composio alternative: a self-hosted MCP gateway with user-level permissions",
+      "url": "https://cortex-gateway.dev/alternatives/composio/",
+      "dateModified": "2026-07-04",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Alternatives", "item": "https://cortex-gateway.dev/alternatives/composio/" },
+        { "@type": "ListItem", "position": 3, "name": "Composio alternative" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the best open-source alternative to Composio?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Cortex Gateway is an MIT-licensed, self-hosted MCP gateway. Instead of a hosted connector catalog, it gives you one OAuth 2.1-protected MCP endpoint that federates your own apps (via a ~120-line HTTP contract) and existing third-party MCP servers (via a proxy adapter with a per-user encrypted token vault). Permissions are enforced by each underlying app on the real user's identity." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Cortex Gateway support per-user authentication like Composio connected accounts?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Each user links their own account per provider (OAuth with dynamic client registration and PKCE); tokens are stored AES-256-GCM-encrypted in a vault on your own infrastructure. Providers see each user's own account — their seat, their rate limits, their permissions." }
+        },
+        {
+          "@type": "Question",
+          "name": "When is Composio the better choice?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When you need hundreds of ready-made connectors immediately, don't want to operate any infrastructure, and are comfortable with a hosted platform holding your users' third-party tokens. Composio's catalog breadth and time-to-first-tool are its real strengths." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/">cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/pipedream/">Pipedream</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Alternatives › Composio</p>
+  <h1>Composio alternative: a self-hosted MCP gateway with user-level permissions</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Composio is a hosted tool platform: a large connector catalog, managed auth, fast to start — and your users' third-party tokens live on their infrastructure. <strong>Cortex Gateway is the self-hosted counterpart</strong>: an MIT-licensed MCP gateway you run yourself, where permissions are never copied — the gateway propagates the real user identity and each app enforces its own rules. Pick Composio for catalog breadth; pick Cortex Gateway for ownership, auditability and first-party apps.</p>
+  </div>
+
+  <h2>Why people look for a Composio alternative</h2>
+  <p>Three reasons come up consistently:</p>
+  <p><strong>Token custody.</strong> A hosted tool platform holds OAuth grants to your users' Gmail, Linear, Notion... For many teams (regulated industries, security-reviewed procurement, European data-residency requirements) that is the sticking point — not the product quality.</p>
+  <p><strong>Permission flattening.</strong> Whenever an integration runs on an app-level API key or a shared service account, every agent inherits the same rights. What evaluators actually want is the property stated bluntly in a much-shared developer tweet: <em>an MCP gateway that matches the permissions of the underlying app automatically at the user level</em>.</p>
+  <p><strong>First-party tools.</strong> Catalogs cover SaaS. Your own internal apps — the CRM you built, your billing service, your document store — still need a clean way to expose tools to agents with your existing authorization model.</p>
+
+  <h2>How Cortex Gateway answers</h2>
+  <p>Cortex Gateway takes an architectural position: <strong>never replicate permissions — delegate them</strong>. Agents authenticate once against your OAuth 2.1 server; the gateway propagates identity downstream:</p>
+  <ul>
+    <li><strong>Your own apps</strong> implement a ~120-line plain-HTTP contract (no MCP library) and re-validate the same JWT. Their existing ACLs apply as-is.</li>
+    <li><strong>Third-party MCP servers</strong> are federated through a proxy adapter: each user links their own account (OAuth, DCR, PKCE), tokens are stored encrypted in a vault <em>on your infrastructure</em>, and the provider enforces its native permissions on the real user.</li>
+  </ul>
+  <p>Nothing to mirror, nothing to drift. Revoking a user at your OAuth server cuts every backend at once, and every call leaves a pseudonymized audit line.</p>
+
+  <h2>At a glance</h2>
+  <table>
+    <tr><th></th><th>Cortex Gateway</th><th>Composio</th></tr>
+    <tr><td>Model</td><td>Open source (MIT), self-hosted</td><td>Hosted platform</td></tr>
+    <tr><td>Connector catalog</td><td>Small: your apps + any MCP server via adapter (beta)</td><td>Very large, ready-made</td></tr>
+    <tr><td>Token custody</td><td>Your infrastructure (encrypted vault)</td><td>Their platform</td></tr>
+    <tr><td>Per-user auth</td><td>Yes — user-linked accounts, identity propagated</td><td>Yes — connected accounts</td></tr>
+    <tr><td>First-party app tools</td><td>Core use case (~120-line HTTP contract)</td><td>Possible via custom tools</td></tr>
+    <tr><td>Permission model</td><td>Delegated to each app, per user, by construction</td><td>Depends on integration and auth mode</td></tr>
+    <tr><td>Entitlements / plans</td><td>OAuth scopes = tiers, no paywall logic</td><td>Platform plans</td></tr>
+    <tr><td>Cost</td><td>Free software + your VM</td><td>Platform pricing</td></tr>
+  </table>
+
+  <h2>Who should pick which</h2>
+  <p><strong>Pick Cortex Gateway if</strong> you are an engineering team that wants agents on top of your own products, needs tokens and audit on your own infrastructure, sells tool access in tiers (scopes as entitlements), or must pass a security review where "who holds the grants?" is question one.</p>
+  <p><strong>Pick Composio if</strong> you need dozens of SaaS integrations working this afternoon, have no infrastructure appetite, and a hosted trust model fits your compliance posture. That trade is legitimate — catalog breadth is exactly what a hosted platform is for.</p>
+
+  <h2>Migration path</h2>
+  <p>The two can coexist: point your agent at Cortex Gateway for first-party tools and keep hosted connectors for the SaaS you haven't migrated. Then move providers one by one to the adapter — each user re-links their account once, and from that point the provider sees them, not a platform.</p>
+
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Try Cortex Gateway →</a>
+  <p class="note">Or plug the <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> into <a href="/connect/claude-ai/">claude.ai</a> in 30 seconds.</p>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Is Cortex Gateway a drop-in Composio replacement?</h3>
+    <p>No — and we'd rather say it plainly. Composio's value is a huge ready-made catalog; Cortex Gateway's value is ownership and architecture. If your need is "500 connectors tomorrow", stay hosted. If your need is "our apps, our users, our audit", self-host.</p>
+    <h3>What about Merge.dev?</h3>
+    <p>Merge is a unified-API product (one normalized API per category, e.g. HR or accounting) rather than an MCP tool platform — a different job. If agents are your interface, an MCP gateway is the more direct fit.</p>
+    <h3>What does "beta" mean for the MCP adapter?</h3>
+    <p>The protocol layer is covered by unit tests against the MCP 2025-06-18 spec (Streamable HTTP, sessions, SSE framing, OAuth discovery, DCR, PKCE), but it has not yet been certified against specific commercial providers. First-party backends via the HTTP contract are the mature path.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="/alternatives/pipedream/">Pipedream alternative</a> ·
+  <a href="/">Home</a>
+</footer>
+</body>
+</html>
