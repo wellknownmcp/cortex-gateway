@@ -28,6 +28,13 @@ built-in MCP→backend proxy adapter ([docs/mcp-adapter.md](docs/mcp-adapter.md)
 
 ## Why
 
+- **Permissions match the underlying app, automatically, at the user
+  level.** The gateway never copies or mirrors permissions — it propagates
+  the real user identity (your JWT to first-party backends, the user's own
+  linked token to proxied third-party MCP servers), so each app's native
+  permission model applies per user, with nothing to sync and no
+  service-account flattening. Unlike hosted tool aggregators, the token
+  vault and the audit trail stay on your infrastructure.
 - **Zero MCP lock-in in your apps.** Backends speak a minimal JSON-RPC
   contract over plain HTTP. Remove the gateway and you can still call them
   directly (tests, batch jobs, other integrations).
