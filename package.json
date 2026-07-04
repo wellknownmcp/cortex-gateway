@@ -1,0 +1,44 @@
+{
+  "name": "cortex-gateway",
+  "version": "0.1.0",
+  "description": "Federated MCP gateway — one spec-compliant MCP server (Streamable HTTP + OAuth 2.1) in front of N plain-HTTP backends",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wellknownmcp/cortex-gateway.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gateway",
+    "federation",
+    "oauth2",
+    "ai-agents"
+  ],
+  "scripts": {
+    "dev": "next dev -p 3213",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3213",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "jose": "^5.9.6",
+    "next": "^15.5.18",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.0.0",
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.8"
+  }
+}

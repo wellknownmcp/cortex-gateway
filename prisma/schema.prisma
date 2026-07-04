@@ -1,0 +1,97 @@
+// Cortex Gateway — Prisma schema
+//
+// The gateway hosts no business data. It persists only:
+//  - missing_capabilities : tickets filed by agents about the gateway itself
+//    (federation, namespacing, cross-backend navigation...)
+//  - cortex_audit_trail   : pseudonymized audit of MCP calls
+//
+// The database is OPTIONAL: without CORTEX_DATABASE_URL the gateway runs
+// fine — audit stays on stdout and gateway-local tickets are disabled.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CORTEX_DATABASE_URL")
+}
+
+// ============================================
+// Missing capabilities (gateway-owned tickets)
+// ============================================
+//
+// Severity and status are free-form strings validated in the handler —
+// shared convention, not frozen into enums, so ad-hoc values stay possible.
+
+model MissingCapability {
+  id             String    @id @default(cuid())
+  whatIWanted    String // Description of the gap
+  userIntent     String // What the user was trying to do
+  contextTool    String? // Tool concerned, when identifiable
+  suggestedShape String? // Suggested signature/shape
+  severity       String // 'blocking' | 'inconvenient' | 'nice_to_have'
+  status         String    @default("open") // 'open' | 'triaged' | 'planned' | 'resolved' | 'wont_fix' | 'duplicate'
+  agentSub       String? // OAuth sub of the reporting agent
+  agentEmail     String? // user email
+  triageNote     String?
+  resolutionNote String?
+  resolvedPrUrl  String? // resolution PR URL when applicable
+  fingerprintSha String? // sha256(whatIWanted + contextTool) for the 24h dedup
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  resolvedAt     DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([agentEmail])
+  @@index([fingerprintSha, createdAt])
+  @@map("missing_capabilities")
+}
+
+// ============================================
+// Audit trail of MCP calls
+// ============================================
+//
+// Persists what `lib/audit-log.ts` already writes to stdout (one JSON line
+// per call). Fire-and-forget writes: stdout stays the real-time source, the
+// table is the queryable source (investigation, compliance).
+//
+// Pseudonymized by design: hashed email (caller_email_hash), hashed params
+// (params_hash), OAuth sub as pseudonym. No cleartext PII. Retention
+// enforced by the /api/cron/purge-audit endpoint.
+
+model CortexAuditTrail {
+  id              String   @id @default(cuid())
+  callerSub       String   @map("caller_sub")
+  callerEmailHash String   @map("caller_email_hash")
+  callerRole      String   @map("caller_role")
+  callerPool      String   @map("caller_pool")
+  tool            String?
+  method          String
+  targetApp       String?  @map("target_app")
+  scopeUsed       String?  @map("scope_used")
+  paramsHash      String?  @map("params_hash")
+  responseSize    Int?     @map("response_size")
+  latencyMs       Int      @map("latency_ms")
+  success         Boolean
+  errorCode       String?  @map("error_code")
+  protocolVersion String?  @map("protocol_version")
+  origin          String?
+  clientId        String   @map("client_id")
+  sessionId       String?  @map("session_id")
+  devBypass       Boolean  @map("dev_bypass")
+  // tools/list metrics (only set for that method)
+  toolsListed     Int?     @map("tools_listed")
+  tokensEstimate  Int?     @map("tokens_estimate")
+  backendsFilter  Json?    @map("backends_filter")
+  toolMode        String?  @map("tool_mode")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([method, createdAt])
+  @@index([callerSub])
+  @@index([success, createdAt])
+  @@index([tool])
+  @@map("cortex_audit_trail")
+}
