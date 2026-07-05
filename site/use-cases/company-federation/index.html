@@ -118,6 +118,9 @@
     <li><strong>An agent hits a gap</strong> → it files <code>report_missing_capability</code>; the owning team triages a deduplicated backlog of real agent needs.</li>
   </ul>
 
+  <h2>The autonomous-agent question</h2>
+  <p>Copilot mode — a person instructing their agent directly — is the easy case. The harder question is already visible: when each employee has a genuinely <em>autonomous</em> agent working as their assistant, "what can it do and who answers for it" stops being a UX detail and becomes a governance question. The architecture above doesn't need to change to answer it: the agent borrows the person's identity, each app keeps enforcing that person's rights, and every call lands in the pseudonymized audit trail. The gateway decides nothing — so scaling from copilots to autonomous assistants adds <strong>nothing new to trust</strong>.</p>
+
   <h2>Try the shape</h2>
   <p>The <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> is this exact architecture at miniature scale: one backend, real OAuth 2.1 with magic-link signup, and two scope tiers you can see filter <code>tools/list</code> live. Connect it from <a href="/connect/claude-ai/">claude.ai</a> in about 30 seconds — then run the real thing yourself:</p>
   <pre><code>docker run ghcr.io/wellknownmcp/cortex-gateway</code></pre>

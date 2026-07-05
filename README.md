@@ -13,6 +13,13 @@ stdio). The gateway discovers their tools, merges them into one MCP catalog,
 enforces OAuth 2.1 + scopes, routes `tools/call` to the owning backend, and
 keeps a pseudonymized audit trail.
 
+Built for one requirement: everyone in a company should be able to hand
+their own agent the keys — with exactly that person's rights, nothing
+more, nothing less. And when agents become autonomous assistants, the
+answer stays the same: the agent borrows the person's identity, the apps
+keep enforcing that person's rights. The gateway decides nothing, so there
+is nothing new to trust.
+
 A **backend** is a dedicated MCP reduced to its essence: a tool catalog plus
 tool invocation (and optional prompts/resources) over bare HTTP JSON-RPC —
 the transport and lifecycle machinery (initialize, sessions, SSE, version
