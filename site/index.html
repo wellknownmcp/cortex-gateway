@@ -36,6 +36,51 @@
       "name": "Cortex Gateway",
       "url": "https://cortex-gateway.dev/",
       "sameAs": ["https://github.com/wellknownmcp/cortex-gateway"]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Cortex Gateway free?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — MIT-licensed and self-hosted. You run it on your own infrastructure (a small VM or the Docker image on GHCR). There is no hosted plan and no usage billing." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Cortex Gateway work with any OAuth server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Any OAuth 2.1 authorization server that issues RS256 JWTs with a JWKS endpoint works. The repository ships a complete demo authorization server (dynamic client registration, PKCE, magic-link signup) to start from." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can Cortex Gateway federate existing third-party MCP servers?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, through the built-in MCP-to-backend proxy adapter (beta): it speaks real MCP downstream and holds per-user OAuth tokens in an AES-256-GCM vault, so providers see each user's own account — their seat, their rate limits, their permissions." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why not connect each MCP server separately?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Separate connectors keep native permissions too — that's the baseline. What they don't give you: one consent surface, central revocation that cuts everything at once, a single pseudonymized audit trail, scopes that work as cross-app entitlements, and a tool catalog that doesn't flood the agent's context. Cortex keeps the per-user permission model of separate connectors with the operational surface of one." }
+        },
+        {
+          "@type": "Question",
+          "name": "How is Cortex Gateway different from Composio or Pipedream?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny HTTP contract for your own apps." }
+        },
+        {
+          "@type": "Question",
+          "name": "How is Cortex Gateway different from other open-source MCP gateways like 1MCP or MCPJungle?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Those aggregate existing MCP servers with downstream credentials configured at the gateway, so every caller shares them and access control is re-implemented as gateway rules. Cortex is an OAuth 2.1 resource server: each user authenticates as themselves, the gateway propagates their identity, and each app enforces its own permissions. They put one credential in front of N MCP servers; Cortex puts each user's own identity in front of N apps." }
+        },
+        {
+          "@type": "Question",
+          "name": "Couldn't I just build this myself, or have an AI agent generate it?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sure — it is MIT-licensed and nothing is sold. The hard part wasn't writing the code but debugging OAuth 2.1 + MCP against real clients: the exact 401 WWW-Authenticate challenge, issuer behind a reverse proxy, per-client registration quirks, SSE session behavior. Those fixes live in the repository, covered by tests and a live demo, so nobody has to pay for them twice." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Cortex Gateway related to Palo Alto Networks Cortex, CNCF Cortex, or Cortex.io?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. This Cortex Gateway is an independent, MIT-licensed MCP federation gateway, not affiliated with Palo Alto Networks' Cortex products, the CNCF Cortex metrics project, or Cortex.io." }
+        }
+      ]
     }
   ]
 }
@@ -117,6 +162,10 @@
     <p>Separate connectors keep native permissions too — that's the baseline, not the differentiator. What they don't give you: one consent surface, central revocation that cuts everything at once, a single pseudonymized audit trail, scopes that work as cross-app entitlements, and a tool catalog that doesn't flood the agent's context. Cortex keeps the per-user permission model of separate connectors with the operational surface of one.</p>
     <h3>How is this different from Composio or Pipedream?</h3>
     <p>Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny contract for your own apps. See the detailed <a href="/alternatives/composio/">Composio</a> and <a href="/alternatives/pipedream/">Pipedream</a> pages.</p>
+    <h3>How is this different from other open-source MCP gateways like 1MCP or MCPJungle?</h3>
+    <p>Those aggregate existing MCP servers behind one endpoint, with downstream credentials configured at the gateway — every caller shares them, and access control has to be re-implemented as gateway rules. Cortex is an OAuth 2.1 resource server: each user authenticates as themselves, the gateway propagates their identity, and each app keeps enforcing its own permissions. In one line: they put one credential in front of N MCP servers; Cortex puts each user's own identity in front of N apps. (They are a good fit for personal setups and for tools that have no per-user permissions.)</p>
+    <h3>Couldn't I just build this myself — or have an AI agent generate it?</h3>
+    <p>Sure — it's MIT-licensed and we sell nothing, so clone it or regenerate it. What took weeks wasn't writing the code: it was debugging OAuth 2.1 + MCP against real clients — the exact <code>401 + WWW-Authenticate</code> challenge claude.ai requires before it starts the flow, issuer-behind-reverse-proxy, per-client registration quirks, SSE session behavior. Those fixes live in this repo, covered by tests and a live demo you can probe, so nobody has to pay for them twice.</p>
     <h3>Is this related to Palo Alto Networks Cortex, CNCF Cortex, or Cortex.io?</h3>
     <p>No. This Cortex Gateway is an independent, MIT-licensed MCP federation gateway and is not affiliated with Palo Alto Networks' Cortex products (XDR, XSIAM, or their Cortex Gateway tenant portal), the CNCF Cortex metrics project, or Cortex.io. If you were searching for one of those, this is not it — if you want a self-hosted MCP gateway with user-level permissions, you are in the right place.</p>
   </div>
