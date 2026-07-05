@@ -8,7 +8,8 @@
  * It exposes:
  *  - list_tools / list_prompts / list_resource_templates  (catalog, static token OK)
  *  - get_snapshot                                          (aggregates, static token OK)
- *  - get_help, whoami, echo, get_time                      (data methods, user token required)
+ *  - get_help, whoami, echo, get_time, list_notes          (data methods, user token required)
+ *  - save_note, delete_note                                (write tools — mcp:demo:write scope)
  *
  * DEMO ONLY: it accepts any Bearer token. A real backend must
  *  1. accept the static token (BACKEND_TOKEN) for catalog methods only,
@@ -49,7 +50,47 @@ const TOOLS = [
     },
     version: '1.0.0',
   },
+  {
+    name: 'list_notes',
+    scope: 'mcp:demo:read',
+    description: 'Lists the shared demo notes (in-memory, reset on restart).',
+    params: {},
+    version: '1.0.0',
+  },
+  {
+    name: 'save_note',
+    scope: 'mcp:demo:write',
+    description: 'Saves a shared demo note. Requires the write scope — read-only callers do not even see this tool.',
+    params: { text: 'string' },
+    version: '1.0.0',
+  },
+  {
+    name: 'delete_note',
+    scope: 'mcp:demo:write',
+    description: 'Deletes a demo note by id. Requires the write scope.',
+    params: { id: 'string' },
+    version: '1.0.0',
+  },
 ];
+
+// In-memory note store — deliberately ephemeral (public demo).
+const MAX_NOTES = 100;
+const MAX_NOTE_LENGTH = 500;
+const notes = new Map();
+let noteSeq = 0;
+
+/**
+ * The backend enforces its own ACLs: the gateway already filters tools/list
+ * by scope, but a well-behaved backend re-checks on invocation ("the gateway
+ * decides nothing"). Demo of the double check.
+ */
+function requireScope(ctx, scope) {
+  if (!ctx.scopes.includes(scope)) {
+    const err = new Error(`Scope ${scope} required`);
+    err.status = 403;
+    throw err;
+  }
+}
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -71,17 +112,39 @@ const handlers = {
   whoami: (_params, ctx) => ({
     email: ctx.email || null,
     role: ctx.role || null,
-    capabilities: ['echo', 'get_time'],
+    capabilities: ctx.scopes.includes('mcp:demo:write')
+      ? ['echo', 'get_time', 'list_notes', 'save_note', 'delete_note']
+      : ['echo', 'get_time', 'list_notes'],
   }),
-  get_help: (params) => ({
+  get_help: (params, ctx) => ({
     topic: params.topic ?? 'overview',
-    help: 'Demo backend for cortex-gateway. Tools: echo(message), get_time(timezone?). All read-only.',
+    help: 'Demo backend for cortex-gateway. Read tools: echo(message), get_time(timezone?), list_notes(). Write tools (mcp:demo:write only): save_note(text), delete_note(id). Notes are shared and in-memory: they demonstrate scope tiering, not storage.',
+    yourScopes: ctx.scopes,
   }),
   echo: (params) => ({ echoed: params.message ?? '' }),
   get_time: (params) => ({
     time: new Date().toISOString(),
     timezone: params.timezone ?? 'utc',
   }),
+  list_notes: () => ({ notes: [...notes.values()] }),
+  save_note: (params, ctx) => {
+    requireScope(ctx, 'mcp:demo:write');
+    const text = String(params.text ?? '').slice(0, MAX_NOTE_LENGTH);
+    if (!text) throw new Error('text is required');
+    if (notes.size >= MAX_NOTES) {
+      // Drop the oldest note — public demo, bounded memory.
+      notes.delete(notes.keys().next().value);
+    }
+    const note = { id: `n${++noteSeq}`, text, at: new Date().toISOString() };
+    notes.set(note.id, note);
+    return { saved: note };
+  },
+  delete_note: (params, ctx) => {
+    requireScope(ctx, 'mcp:demo:write');
+    const id = String(params.id ?? '');
+    const existed = notes.delete(id);
+    return { deleted: existed, id };
+  },
 };
 
 createServer((req, res) => {
@@ -115,7 +178,7 @@ createServer((req, res) => {
     try {
       return json(res, 200, handler(rpc.params ?? {}, ctx));
     } catch (err) {
-      return json(res, 500, { error: String(err?.message ?? err) });
+      return json(res, err?.status ?? 500, { error: String(err?.message ?? err) });
     }
   });
 }).listen(PORT, '127.0.0.1', () => {
