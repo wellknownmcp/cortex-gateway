@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One MCP connector for the whole company: a worked example | Cortex Gateway</title>
+<meta name="description" content="A worked example of enterprise MCP federation: one app per department behind a single OAuth 2.1 MCP gateway. Scopes map to the org chart, each app keeps its own permissions, one revocation cuts everything.">
+<link rel="canonical" href="https://cortex-gateway.dev/use-cases/company-federation/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="One MCP connector for the whole company | Cortex Gateway">
+<meta property="og:description" content="One app per department, one OAuth 2.1 MCP gateway to federate them. Scopes map to the org chart; each app keeps its own permissions.">
+<meta property="og:url" content="https://cortex-gateway.dev/use-cases/company-federation/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "One MCP connector for the whole company: a worked example",
+      "url": "https://cortex-gateway.dev/use-cases/company-federation/",
+      "dateModified": "2026-07-05",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Use cases", "item": "https://cortex-gateway.dev/use-cases/company-federation/" },
+        { "@type": "ListItem", "position": 3, "name": "Company federation" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Meridian a real customer?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No — Meridian is a deliberately fictional company used as a worked example. The architecture is not fictional: it is exactly what Cortex Gateway is built for, and the hosted demo runs the same pattern in miniature (one backend, scope-tiered tools, real OAuth 2.1)." }
+        },
+        {
+          "@type": "Question",
+          "name": "How much work is it to put an internal app behind the gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "One POST endpoint implementing the backend contract — about 120 lines with no MCP library: list_tools, your tool methods, and ideally get_help. Registering it with the gateway is one environment variable. The app keeps validating the same JWTs it already trusts and keeps enforcing its own permissions." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can third-party SaaS tools join the same connector?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, through the built-in MCP proxy adapter (beta): native third-party MCP servers federate behind the same endpoint, with each user's own linked account stored in an AES-256-GCM vault on your infrastructure — providers see the real user, not a service account." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/composio/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Use cases › Company federation</p>
+  <h1>One MCP connector for the whole company: a worked example</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Take a mid-size company with one internal app per department — CRM, delivery docs, billing, staffing. Put a ~120-line HTTP endpoint on each, and Cortex Gateway turns them into <strong>one OAuth 2.1 MCP connector for the whole organization</strong>: every employee's agent sees exactly the tools their scopes allow, every app keeps enforcing its own permissions on the real user's identity, and one revocation cuts everything. The company below is fictional; the architecture is not — the <a href="https://mcp.cortex-gateway.dev/">live demo</a> runs the same pattern in miniature.</p>
+  </div>
+
+  <h2>The setup</h2>
+  <p><strong>Meridian</strong> (fictional) is a 140-person professional-services firm. Like most companies its size, its software estate grew one department at a time:</p>
+  <table>
+    <tr><th>Department</th><th>Internal app</th><th>Typical tools for an agent</th></tr>
+    <tr><td>Sales</td><td>CRM</td><td>search accounts, log a call, draft a proposal</td></tr>
+    <tr><td>Delivery</td><td>Project &amp; docs workspace</td><td>find a document, check a milestone, file a report</td></tr>
+    <tr><td>Finance</td><td>Billing</td><td>read an invoice, check payment status</td></tr>
+    <tr><td>People</td><td>Staffing &amp; HR</td><td>who is available, book a review, read a policy</td></tr>
+  </table>
+  <p>Employees now use MCP-capable agents daily, and every department wants its app reachable from them. The naive path is four separate MCP servers and four connectors per employee — four consents, four token stores, four places to audit, and nothing shared. The dangerous shortcut is one aggregator on a service account — where every agent suddenly holds the union of everyone's rights.</p>
+
+  <h2>The architecture</h2>
+  <pre><code>[every employee's agent: Claude / OpenClaw / Hermes / ...]
+         │  ONE URL · OAuth 2.1 (company SSO issues the JWT)
+         ▼
+[cortex-gateway]        ←— one perimeter, zero business logic
+   │        │       │        │      the SAME user JWT, propagated
+   ▼        ▼       ▼        ▼
+ [CRM]   [docs]  [billing] [staffing]   ←— each app enforces its OWN ACLs</code></pre>
+  <p>Each app adds a single <code>POST /api/cortex/backend</code> endpoint speaking the <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md">backend contract</a> — roughly 120 lines, no MCP library. Registering it with the gateway is one environment variable. The gateway discovers each app's tools every 60 seconds, merges them into one prefixed catalog (<code>crm_search_accounts</code>, <code>billing_get_invoice</code>…), and routes each call with the caller's real JWT.</p>
+  <p>One gateway. It rules nothing — your apps do.</p>
+
+  <h2>Scopes are the org chart</h2>
+  <p>The authorization server grants scopes per user; the gateway filters <code>tools/list</code> accordingly. Nobody writes paywall or role logic in the gateway — visibility falls out of the token:</p>
+  <table>
+    <tr><th>Who</th><th>Scopes</th><th>What their agent sees</th></tr>
+    <tr><td>Sales rep</td><td><code>mcp:crm:write</code></td><td>CRM tools only</td></tr>
+    <tr><td>Project manager</td><td><code>mcp:docs:write mcp:crm:read</code></td><td>Docs tools + read-only CRM</td></tr>
+    <tr><td>CFO</td><td><code>mcp:billing:write mcp:crm:read</code></td><td>Billing + read-only CRM</td></tr>
+    <tr><td>CEO</td><td>all <code>:read</code></td><td>Everything, read-only</td></tr>
+  </table>
+  <p>And scope is only the front door: the CRM still applies its own record-level rules to the authenticated user, exactly as it does in its web UI. A sales rep's agent cannot read another team's pipeline <em>because the CRM says no</em> — not because a gateway rule was kept in sync.</p>
+
+  <h2>Day-2 operations</h2>
+  <ul>
+    <li><strong>Someone leaves</strong> → one revocation at the authorization server; every backend stops honoring the token at once. No per-app cleanup.</li>
+    <li><strong>New app ships</strong> → implement the contract, add one env var; its tools appear in the catalog within a minute, already scope-filtered.</li>
+    <li><strong>Audit</strong> → one pseudonymized line per tool call (who-hash, tool, backend, latency, outcome) on your infrastructure — not spread across four SaaS dashboards.</li>
+    <li><strong>An agent hits a gap</strong> → it files <code>report_missing_capability</code>; the owning team triages a deduplicated backlog of real agent needs.</li>
+  </ul>
+
+  <h2>Try the shape</h2>
+  <p>The <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> is this exact architecture at miniature scale: one backend, real OAuth 2.1 with magic-link signup, and two scope tiers you can see filter <code>tools/list</code> live. Connect it from <a href="/connect/claude-ai/">claude.ai</a> in about 30 seconds — then run the real thing yourself:</p>
+  <pre><code>docker run ghcr.io/wellknownmcp/cortex-gateway</code></pre>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Is Meridian a real customer?</h3>
+    <p>No — Meridian is deliberately fictional; this page is a worked example, not a testimonial. The architecture is not fictional: it is what Cortex Gateway is built for, and the demo runs the same pattern in miniature.</p>
+    <h3>How much work per app?</h3>
+    <p>One POST endpoint, ~120 lines, no MCP library: <code>list_tools</code>, your tool methods, and ideally <code>get_help</code> so agents learn your domain from the source. The app keeps validating the same JWTs it already trusts.</p>
+    <h3>Can third-party SaaS join the same connector?</h3>
+    <p>Yes — native third-party MCP servers federate through the built-in proxy adapter (beta), with each user's own linked account in an encrypted vault on your infrastructure. Providers see the real user, never a service account.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> · MIT License
+</footer>
+</body>
+</html>

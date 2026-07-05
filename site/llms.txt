@@ -39,6 +39,7 @@ Key facts
 
 ## Docs
 - [Home](https://cortex-gateway.dev/): positioning and feature overview
+- [Company federation, worked example](https://cortex-gateway.dev/use-cases/company-federation/): one app per department behind one MCP connector — scopes as the org chart, day-2 operations
 - [Composio alternative](https://cortex-gateway.dev/alternatives/composio/): honest hosted-vs-self-hosted comparison
 - [Pipedream MCP alternative](https://cortex-gateway.dev/alternatives/pipedream/): access layer vs workflow platform
 - [Connect claude.ai](https://cortex-gateway.dev/connect/claude-ai/): Custom Connectors, 30-second setup
