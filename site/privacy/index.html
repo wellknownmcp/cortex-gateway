@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy | Cortex Gateway</title>
+<meta name="description" content="What cortex-gateway.dev and its hosted demo collect, why, and for how long. No cookies, no client-side tracking, truncated IPs, demo accounts purged after 90 days of inactivity.">
+<link rel="canonical" href="https://cortex-gateway.dev/privacy/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Privacy | Cortex Gateway">
+<meta property="og:description" content="No cookies, no client-side tracking, truncated IPs, demo accounts purged after 90 days of inactivity.">
+<meta property="og:url" content="https://cortex-gateway.dev/privacy/">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/composio/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Privacy</p>
+  <h1>Privacy</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>This website sets no cookies and runs no client-side tracking. The hosted demo asks for an email address to sign you in, keeps a pseudonymized audit trail, and deletes inactive accounts automatically. Everything is hosted in the EU. The same data-minimization posture the gateway advertises is applied to this site.</p>
+  </div>
+
+  <h2>The website (cortex-gateway.dev)</h2>
+  <ul>
+    <li><strong>No cookies, no JavaScript, no client-side analytics.</strong> The pages are static HTML.</li>
+    <li><strong>Standard web-server logs</strong> (IP address, user agent, requested URL) are kept for up to <strong>14 days</strong> for security and operations, then rotated away.</li>
+    <li><strong>Aggregate traffic statistics</strong> are derived server-side from those logs; IP addresses are <strong>truncated before import</strong> (last octet removed for IPv4, tail removed for IPv6), so the analytics store never contains full addresses.</li>
+  </ul>
+
+  <h2>The hosted demo (mcp. and auth.cortex-gateway.dev)</h2>
+  <p>The demo exists so you can evaluate the gateway with a real OAuth 2.1 flow. It collects the minimum that flow requires:</p>
+  <table>
+    <tr><th>Data</th><th>Purpose</th><th>Retention</th></tr>
+    <tr><td>Email address</td><td>Magic-link sign-in and account identity</td><td>Deleted after <strong>90 days without sign-in</strong> (with all tokens, sessions and consents)</td></tr>
+    <tr><td>OAuth artifacts (codes, tokens, consents)</td><td>Operating the OAuth 2.1 flow</td><td>Expired items removed within 7 days of expiry; all removed with the account</td></tr>
+    <tr><td>Gateway audit trail</td><td>Demonstrating pseudonymized auditing (hashed identifiers, no raw email)</td><td><strong>90 days</strong></td></tr>
+    <tr><td>Demo notes (write tools)</td><td>Demonstrating scope tiering</td><td>In-memory only — gone on restart, never stored in a database</td></tr>
+  </table>
+  <p>Deletion happens automatically (daily job). To have your demo account removed sooner, open an issue on <a href="https://github.com/wellknownmcp/cortex-gateway/issues">GitHub</a> — no need to include your email publicly; a maintainer will follow up.</p>
+
+  <h2>Processors and hosting</h2>
+  <ul>
+    <li><strong>Hosting</strong>: a server operated by us in the EU (OVH, France).</li>
+    <li><strong>Email delivery</strong>: magic-link emails are sent through <a href="https://resend.com">Resend</a>; your address transits their service for delivery only.</li>
+    <li>No data is sold, shared or used for advertising. There are no other third parties.</li>
+  </ul>
+
+  <h2>If you self-host Cortex Gateway</h2>
+  <p>This page covers <em>this website and demo only</em>. A self-hosted deployment stores everything on your own infrastructure — that is the point of the project — and its privacy posture is yours to define.</p>
+
+  <p class="note">Last updated: 2026-07-05. Material changes to this page will appear in the <a href="https://github.com/wellknownmcp/cortex-gateway/commits/main">repository history</a>.</p>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

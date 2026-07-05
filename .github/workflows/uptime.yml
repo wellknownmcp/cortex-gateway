@@ -1,0 +1,29 @@
+name: Uptime
+
+# External availability check of the hosted demo. A failed run triggers
+# GitHub's workflow-failure notification — that is the whole alerting story.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Site (apex) answers 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 20 https://cortex-gateway.dev/)
+          echo "apex: $code"; [ "$code" = "200" ]
+      - name: MCP endpoint issues the OAuth challenge
+        run: |
+          headers=$(curl -s -D - -o /dev/null -m 20 -X POST https://mcp.cortex-gateway.dev/mcp \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}')
+          echo "$headers" | head -1
+          echo "$headers" | grep -qi "^HTTP/[0-9.]* 401" && echo "$headers" | grep -qi "www-authenticate"
+      - name: Authorization server metadata answers 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -m 20 https://auth.cortex-gateway.dev/.well-known/oauth-authorization-server)
+          echo "auth metadata: $code"; [ "$code" = "200" ]
