@@ -7,6 +7,12 @@
 > OAuth token to proxied third-party MCP servers), so each app's native
 > permission model applies automatically at the user level.
 
+Positioning in one line: aggregation without permission loss. Separate MCP
+connectors keep native per-user permissions but multiply consents, token
+stores and audit surfaces; hosted aggregators unify the surface but flatten
+identity behind service accounts. Cortex keeps both properties: one OAuth
+perimeter, zero flattening.
+
 Key facts
 - Repository: https://github.com/wellknownmcp/cortex-gateway (MIT)
 - Docker image: ghcr.io/wellknownmcp/cortex-gateway

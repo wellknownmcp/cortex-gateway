@@ -112,6 +112,8 @@
     <p>Any OAuth 2.1 authorization server that issues RS256 JWTs with a JWKS endpoint works. The repo ships a complete demo authorization server (DCR, PKCE, magic-link signup) you can start from.</p>
     <h3>Can it federate existing third-party MCP servers?</h3>
     <p>Yes, through the built-in MCP→backend proxy adapter (beta): it speaks real MCP downstream and holds per-user OAuth tokens in an AES-256-GCM vault, so providers see each user's own account — their seat, their rate limits, their permissions.</p>
+    <h3>Why not connect each MCP server separately?</h3>
+    <p>Separate connectors keep native permissions too — that's the baseline, not the differentiator. What they don't give you: one consent surface, central revocation that cuts everything at once, a single pseudonymized audit trail, scopes that work as cross-app entitlements, and a tool catalog that doesn't flood the agent's context. Cortex keeps the per-user permission model of separate connectors with the operational surface of one.</p>
     <h3>How is this different from Composio or Pipedream?</h3>
     <p>Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny contract for your own apps. See the detailed <a href="/alternatives/composio/">Composio</a> and <a href="/alternatives/pipedream/">Pipedream</a> pages.</p>
   </div>

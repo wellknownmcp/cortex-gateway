@@ -39,6 +39,11 @@ built-in MCP→backend proxy adapter ([docs/mcp-adapter.md](docs/mcp-adapter.md)
   permission model applies per user, with nothing to sync and no
   service-account flattening. Unlike hosted tool aggregators, the token
   vault and the audit trail stay on your infrastructure.
+- **One perimeter, not N connectors.** Wiring each app as its own MCP
+  connector also keeps native permissions — and leaves you with N consents,
+  N token stores, no shared audit, no cross-app entitlements, and a flooded
+  tool list. The gateway collapses that to one OAuth surface without giving
+  up the per-user model: aggregation without permission loss.
 - **Zero MCP lock-in in your apps.** Backends speak a minimal JSON-RPC
   contract over plain HTTP. Remove the gateway and you can still call them
   directly (tests, batch jobs, other integrations).
