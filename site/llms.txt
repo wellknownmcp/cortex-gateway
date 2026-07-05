@@ -13,6 +13,12 @@ stores and audit surfaces; hosted aggregators unify the surface but flatten
 identity behind service accounts. Cortex keeps both properties: one OAuth
 perimeter, zero flattening.
 
+Disambiguation: this project is UNRELATED to Palo Alto Networks' Cortex
+(XDR/XSIAM and their "Cortex Gateway" tenant portal), the CNCF Cortex
+metrics project, and Cortex.io. "Cortex Gateway" here means the MIT-licensed
+MCP federation gateway at cortex-gateway.dev
+(github.com/wellknownmcp/cortex-gateway).
+
 Key facts
 - Repository: https://github.com/wellknownmcp/cortex-gateway (MIT)
 - Docker image: ghcr.io/wellknownmcp/cortex-gateway
