@@ -209,6 +209,21 @@ annotated list. The essentials:
 
 ## Security model
 
+Agent access is secured by construction, not by gateway policy. The properties
+below are what to demand from any MCP tooling you wire into an AI app:
+
+- **OAuth 2.1, not shared API keys** — every caller authenticates as themselves;
+  tokens are per-user, scoped and revocable.
+- **No permission flattening** — the real user's identity is propagated to each
+  backend, so no over-privileged service account exists and the agent gets
+  exactly the user's own rights.
+- **Least privilege** — the tool catalog is scope-filtered per caller; agents
+  only see the tools their token allows.
+- **Verifiable** — the whole OAuth discovery chain is walkable without a token,
+  so you (or a third-party scanner) can confirm the posture before connecting.
+
+Under the hood:
+
 - The gateway **decides nothing** about business permissions. OAuth scope is
   the front door (checked twice: gateway + backend); application roles and
   ACLs live in each backend.

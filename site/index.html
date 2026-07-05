@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cortex Gateway — the self-hosted MCP gateway with user-level permissions</title>
-<meta name="description" content="Open-source federated MCP gateway: one OAuth 2.1-protected MCP server in front of all your apps. Permissions match the underlying app automatically, at the user level — no service-account flattening.">
+<meta name="description" content="Open-source, self-hosted MCP gateway that keeps agent access secure: one OAuth 2.1 perimeter in front of all your apps, each app's own permissions per user — no shared API keys, no service-account flattening.">
 <link rel="canonical" href="https://cortex-gateway.dev/">
 <link rel="stylesheet" href="/assets/style.css">
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
@@ -40,6 +40,11 @@
     {
       "@type": "FAQPage",
       "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does Cortex Gateway keep agent access secure?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Every agent connects through an OAuth 2.1 perimeter — no shared API keys. The gateway propagates the real user's identity to each app, so that app's own permission model applies and there is no over-privileged service account (no permission flattening). Agents see only the tools their token scopes allow (least privilege), third-party credentials sit in a per-user AES-256-GCM vault, every call writes one pseudonymized audit line, and a single OAuth revocation cuts access everywhere at once. The gateway enforces nothing itself, so there is nothing new to trust." }
+        },
         {
           "@type": "Question",
           "name": "Is Cortex Gateway free?",
@@ -152,6 +157,8 @@
 
   <h2>FAQ</h2>
   <div class="faq">
+    <h3>How does Cortex Gateway keep agent access secure?</h3>
+    <p>Every agent connects through an OAuth&nbsp;2.1 perimeter — no shared API keys. The gateway propagates the <em>real user's identity</em> to each app, so that app's own permission model applies and there is no over-privileged service account (no permission flattening). Agents see only the tools their token scopes allow (least privilege); third-party credentials sit in a per-user AES-256-GCM vault; every call writes one pseudonymized audit line, and a single OAuth revocation cuts access everywhere at once. The gateway enforces nothing itself, so there is nothing new to trust.</p>
     <h3>Is Cortex Gateway free?</h3>
     <p>Yes — MIT-licensed, self-hosted. You run it on your own infrastructure (a small VM or the <a href="https://github.com/wellknownmcp/cortex-gateway/pkgs/container/cortex-gateway">Docker image</a>). There is no hosted plan and no usage billing.</p>
     <h3>Does it work with any OAuth server?</h3>

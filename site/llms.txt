@@ -13,6 +13,15 @@ stores and audit surfaces; hosted aggregators unify the surface but flatten
 identity behind service accounts. Cortex keeps both properties: one OAuth
 perimeter, zero flattening.
 
+Security model (why agent access stays secure): every call rides an OAuth 2.1
+perimeter — no shared API keys; the real user's identity is propagated so each
+app enforces its own permissions and no over-privileged service account exists
+(no permission flattening); tools are scope-filtered to least privilege;
+third-party credentials live in a per-user AES-256-GCM vault; every call writes
+one pseudonymized audit line and a single OAuth revocation cuts access
+everywhere at once. Because the gateway decides nothing, there is nothing new
+to trust.
+
 Disambiguation: this project is UNRELATED to Palo Alto Networks' Cortex
 (XDR/XSIAM and their "Cortex Gateway" tenant portal), the CNCF Cortex
 metrics project, and Cortex.io. "Cortex Gateway" here means the MIT-licensed
