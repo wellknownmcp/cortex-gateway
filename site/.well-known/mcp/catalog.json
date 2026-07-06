@@ -1,0 +1,11 @@
+{
+  "specVersion": "draft",
+  "entries": [
+    {
+      "identifier": "urn:air:cortex-gateway.dev:cortex-gateway",
+      "displayName": "Cortex Gateway (hosted demo)",
+      "mediaType": "application/mcp-server-card+json",
+      "url": "https://cortex-gateway.dev/.well-known/mcp/server-card.json"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "serverCard": "https://cortex-gateway.dev/.well-known/mcp/server-card.json",
+  "catalog": "https://cortex-gateway.dev/.well-known/mcp/catalog.json",
+  "endpoint": "https://mcp.cortex-gateway.dev/mcp",
+  "_metadata": {
+    "description": "Legacy discovery pointer. Canonical documents: SEP-2127 server card and MCP catalog under /.well-known/mcp/."
+  }
+}
