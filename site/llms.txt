@@ -20,6 +20,14 @@ your existing identity provider into every agent tool call, so the agent inherit
 exactly that user's access. Not a full ZTNA product; the identity-and-access
 layer for agents.
 
+A third framing: the permission layer for AI agents. Before an agent touches
+anything that matters it must prove it is acting on behalf of a specific real
+person and that this person holds the required rights. Cortex answers both on
+every call — OAuth 2.1 delegation binds the agent to a real user, scopes bound
+the authority, each app enforces its own rules on that identity. Most
+agent-economy infrastructure (spend controls, escrow, disputes, liability)
+presupposes this attribution primitive.
+
 Security model (why agent access stays secure): every call rides an OAuth 2.1
 perimeter — no shared API keys; the real user's identity is propagated so each
 app enforces its own permissions and no over-privileged service account exists
@@ -64,6 +72,7 @@ Key facts
 ## Docs
 - [Home](https://cortex-gateway.dev/): positioning and feature overview
 - [Company federation, worked example](https://cortex-gateway.dev/use-cases/company-federation/): one app per department behind one MCP connector — scopes as the org chart, day-2 operations
+- [The permission layer for AI agents](https://cortex-gateway.dev/answers/agent-permission-layer/): how an agent proves it acts for a real person — replicate vs delegate, mechanisms, FAQ
 - [Composio alternative](https://cortex-gateway.dev/alternatives/composio/): honest hosted-vs-self-hosted comparison
 - [Pipedream MCP alternative](https://cortex-gateway.dev/alternatives/pipedream/): access layer vs workflow platform
 - [Connect claude.ai](https://cortex-gateway.dev/connect/claude-ai/): Custom Connectors, 30-second setup

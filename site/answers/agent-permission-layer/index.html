@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The permission layer for AI agents: proving an agent acts for a real person | Cortex Gateway</title>
+<meta name="description" content="What is the permission layer for AI agents? How an agent proves it is acting on behalf of a real person, with exactly that person's rights — and why identity delegation beats permission replication.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/agent-permission-layer/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="The permission layer for AI agents | Cortex Gateway">
+<meta property="og:description" content="How an agent proves it is acting on behalf of a real person, with exactly that person's rights — and why identity delegation beats permission replication.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/agent-permission-layer/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "The permission layer for AI agents: proving an agent acts for a real person",
+      "url": "https://cortex-gateway.dev/answers/agent-permission-layer/",
+      "dateModified": "2026-07-06",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/agent-permission-layer/" },
+        { "@type": "ListItem", "position": 3, "name": "Agent permission layer" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is a permission layer for AI agents?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A permission layer is the infrastructure that lets an AI agent prove two things on every action: that it is acting on behalf of a specific real person, and that this person actually holds the rights the action requires. Without it, agents act through shared API keys or service accounts, which makes every action anonymous and over-privileged. With it, each agent call carries the user's real identity, so the application being called can enforce its own permission model exactly as it does for the human." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does an AI agent prove it is acting on behalf of a real person?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Through OAuth 2.1 delegation: the person authenticates once at an authorization server and consents to the agent acting for them; the agent receives a token bound to that person's identity and scopes. Every subsequent tool call carries that token, and the receiving application verifies it cryptographically. The agent never holds standing credentials of its own — it borrows the person's identity, and one revocation at the authorization server ends the delegation everywhere at once." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is a shared API key or service account not enough for agent access?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because it flattens identity. A service account holds the union of everyone's rights, so any agent using it can do everything any user could do, and the audit trail shows one anonymous actor instead of the person responsible. That is the classic confused-deputy problem, and it breaks the two questions a permission layer must answer: who is this agent acting for, and what may that person do. Per-user delegation keeps both answers intact." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is OAuth 2.1 enough for AI agent authorization?",
+          "acceptedAnswer": { "@type": "Answer", "text": "OAuth 2.1 provides the delegation primitive — proof of identity, scoped authority, and revocation — and the MCP specification already builds on it for agent tool access. What OAuth alone does not give you is the operational bundle across many applications: one consent perimeter instead of N, scopes that work as cross-app entitlements, a single attributable audit trail, and one revocation that cuts everything. That bundle is what a federation gateway like Cortex Gateway adds on top of plain OAuth, without ever making authorization decisions itself." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/composio/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › Agent permission layer</p>
+  <h1>The permission layer for AI agents: proving an agent acts for a real person</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>An AI agent is not a user. Before it touches anything that matters — data, money, other people's systems — it has to answer two questions: <strong>who is it acting for, and what may that person do?</strong> The infrastructure that answers them on every call is the permission layer. There are two ways to build one: <em>replicate</em> permissions into the agent's tooling (and watch the copies drift), or <em>delegate</em> — carry the real person's identity into every call and let each application enforce its own rules. Cortex Gateway is an open-source, self-hosted implementation of the delegation approach.</p>
+  </div>
+
+  <h2>What is the permission layer?</h2>
+  <p>The permission layer for AI agents is the infrastructure that makes every agent action <strong>attributable and bounded</strong>: attributable to a specific real person (or organization) the agent acts for, and bounded by exactly the rights that person holds. It sits between agents and the applications they call, the same place IAM sits between employees and applications today.</p>
+  <p>It is not a firewall, not a prompt guardrail, and not a policy engine bolted onto the agent. Those constrain <em>what the agent tries</em>. The permission layer constrains <em>what the world accepts from it</em> — which is the only side you can actually trust, because it doesn't depend on the agent behaving.</p>
+
+  <h2>Why everything downstream depends on it</h2>
+  <p>Most of the agent-economy infrastructure people are excited about — spend controls, escrow between machines, dispute resolution, insurance for agent actions, agent-to-agent commerce — quietly assumes this layer already exists. Every one of those reduces to the same primitive:</p>
+  <ul>
+    <li><strong>Spend controls</strong> need to know <em>whose budget</em> an action draws on before they can cap it.</li>
+    <li><strong>Escrow</strong> needs to know which principal is bound by the release conditions.</li>
+    <li><strong>Disputes and liability</strong> need a responsible party — and legally, responsibility always rolls up to a person or a company, never to the agent itself.</li>
+    <li><strong>Agent-to-agent payments</strong> need both sides to verify the counterparty's authority, not just its wallet.</li>
+  </ul>
+  <p>None of these can be built on anonymous, over-privileged access. The permission layer isn't one idea on the list of agent infrastructure to build — it is upstream of most of the list.</p>
+
+  <h2>Two ways to build it: replicate or delegate</h2>
+  <table>
+    <tr><th></th><th>Replicate permissions</th><th>Delegate identity</th></tr>
+    <tr><td>How it works</td><td>Copy each app's roles and rules into the agent platform; enforce them there</td><td>Carry the real user's identity into every call; each app enforces its own rules</td></tr>
+    <tr><td>Source of truth</td><td>Two — the app and the copy, which drift apart</td><td>One — the app that owned the rules all along</td></tr>
+    <tr><td>Failure mode</td><td>Stale copies, confused deputy, service accounts holding everyone's rights</td><td>None new: a call with the wrong identity is refused by the app itself</td></tr>
+    <tr><td>Audit</td><td>"The integration did it"</td><td>"This person's agent did it" — one attributable line per call</td></tr>
+    <tr><td>Revocation</td><td>Per app, per copy, hopefully</td><td>One revocation at the authorization server cuts everything</td></tr>
+  </table>
+  <p>Replication is tempting because it looks like control. But every copied permission is a liability with a half-life, and the copies concentrate in exactly the wrong place: a component that talks to everything. Delegation inverts this — the gateway in the middle holds <em>no</em> rights of its own and decides <em>nothing</em>. There is nothing new to trust.</p>
+
+  <h2>What delegation looks like in practice</h2>
+  <p>This is not hypothetical architecture; the pieces are standard and shipping today. Mapped to concrete mechanisms, MCP + OAuth 2.1 already answer each requirement:</p>
+  <table>
+    <tr><th>Requirement</th><th>Mechanism</th></tr>
+    <tr><td>Prove the agent acts for a real person</td><td>OAuth 2.1 authorization code flow: the person logs in and consents once; the agent gets a token bound to their identity</td></tr>
+    <tr><td>Prove the person holds the authority</td><td>Scopes on the token — granted per user by the authorization server, verifiable by every app</td></tr>
+    <tr><td>Keep each app's rules authoritative</td><td>Identity propagation: first-party apps receive the user's JWT; third-party services receive the user's own linked account from a per-user encrypted vault — never a service account</td></tr>
+    <tr><td>Least privilege by default</td><td>The tool catalog itself is filtered by scope: an agent doesn't even see tools its person may not use</td></tr>
+    <tr><td>Accountability</td><td>One pseudonymized audit line per tool call: who-hash, tool, backend, outcome</td></tr>
+    <tr><td>Kill switch</td><td>One OAuth revocation ends the delegation across every connected app at once</td></tr>
+  </table>
+  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> packages exactly this: one OAuth 2.1 MCP endpoint in front of N applications, identity propagated on every call, permissions never mirrored. The <a href="/use-cases/company-federation/">company-federation worked example</a> shows it at organization scale.</p>
+
+  <h2>From copilots to autonomous agents</h2>
+  <p>Today the common case is a copilot: a person watching their agent work. The permission-layer question gets sharper, not different, as agents become autonomous — acting for hours without a human in the loop, possibly spending money. The delegation model already covers it: the agent still borrows a specific person's identity, its authority is still bounded by that person's scopes, every action still lands in the audit trail, and the person (or their organization) is still the accountable party. Autonomy changes how often a human looks, not who answers for the action. An architecture that only works while a human watches was never a permission layer.</p>
+
+  <h2>Try it</h2>
+  <p>The <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> is a live permission layer in miniature: sign up with a magic link, connect from <a href="/connect/claude-ai/">claude.ai</a> or <a href="/connect/claude-code/">Claude Code</a>, and watch <code>whoami</code> and a scope-filtered <code>tools/list</code> prove the delegation on your own account. Then run it yourself:</p>
+  <pre><code>docker run ghcr.io/wellknownmcp/cortex-gateway</code></pre>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What is a permission layer for AI agents?</h3>
+    <p>The infrastructure that lets an agent prove, on every action, that it acts on behalf of a specific real person and that this person holds the required rights. Without it, agent access runs on shared keys and service accounts — anonymous and over-privileged. With it, every call carries the user's real identity and each application enforces its own permission model, exactly as it does for the human.</p>
+    <h3>How does an AI agent prove it is acting on behalf of a real person?</h3>
+    <p>Through OAuth 2.1 delegation: the person authenticates and consents once; the agent receives a token bound to that person's identity and scopes, and presents it on every tool call. The receiving application verifies the token cryptographically. The agent holds no standing credentials of its own, and one revocation ends the delegation everywhere.</p>
+    <h3>Why is a shared API key or service account not enough?</h3>
+    <p>Because it flattens identity: one credential holding the union of everyone's rights, used by every agent, producing an audit trail with one anonymous actor. That is the confused-deputy problem, and it destroys both answers a permission layer exists to give — who the agent acts for, and what that person may do.</p>
+    <h3>Is OAuth 2.1 enough for AI agent authorization?</h3>
+    <p>It provides the primitive — delegated identity, scoped authority, revocation — and MCP builds on it. What it doesn't give you across many apps is the bundle: one consent perimeter instead of N, cross-app entitlements, a single audit trail, one kill switch. That operational bundle is what a federation gateway adds, without making a single authorization decision itself.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
