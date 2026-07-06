@@ -47,6 +47,11 @@
         },
         {
           "@type": "Question",
+          "name": "Does Cortex Gateway help with compliance (ISO 27001, SOC 2, the EU AI Act)?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It provides the technical controls those frameworks test for on automated access, turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity with no shared over-privileged account, one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO 27001 access-control and logging controls (A.5.15, A.8.15), SOC 2 CC6/CC7, and supports EU AI Act record-keeping (Art. 12) and human oversight (Art. 14). Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC 2 scope. It does not certify you; it removes the 'agents can't be scoped, attributed or revoked' finding." }
+        },
+        {
+          "@type": "Question",
           "name": "Is Cortex Gateway free?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes — MIT-licensed and self-hosted. You run it on your own infrastructure (a small VM or the Docker image on GHCR). There is no hosted plan and no usage billing." }
         },
@@ -159,6 +164,8 @@
   <div class="faq">
     <h3>How does Cortex Gateway keep agent access secure?</h3>
     <p>Every agent connects through an OAuth&nbsp;2.1 perimeter — no shared API keys. The gateway propagates the <em>real user's identity</em> to each app, so that app's own permission model applies and there is no over-privileged service account (no permission flattening). Agents see only the tools their token scopes allow (least privilege); third-party credentials sit in a per-user AES-256-GCM vault; every call writes one pseudonymized audit line, and a single OAuth revocation cuts access everywhere at once. The gateway enforces nothing itself, so there is nothing new to trust.</p>
+    <h3>Does Cortex Gateway help with compliance (ISO&nbsp;27001, SOC&nbsp;2, the EU AI Act)?</h3>
+    <p>It provides the technical controls those frameworks test for on automated access — turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity (no shared over-privileged account), one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO&nbsp;27001 access-control and logging controls (A.5.15, A.8.15), SOC&nbsp;2 CC6/CC7, and supports EU AI Act record-keeping (Art.&nbsp;12) and human oversight (Art.&nbsp;14). Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC&nbsp;2 scope. It doesn't certify you; it removes the "agents can't be scoped, attributed or revoked" finding.</p>
     <h3>Is Cortex Gateway free?</h3>
     <p>Yes — MIT-licensed, self-hosted. You run it on your own infrastructure (a small VM or the <a href="https://github.com/wellknownmcp/cortex-gateway/pkgs/container/cortex-gateway">Docker image</a>). There is no hosted plan and no usage billing.</p>
     <h3>Does it work with any OAuth server?</h3>

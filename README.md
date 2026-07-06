@@ -233,6 +233,15 @@ Under the hood:
 - Audit is pseudonymized by design (hashed email, hashed params).
 - Sessions are bound to the token's `sub`; foreign session ids get 404.
 
+**Compliance.** These are the controls audits test for on automated access:
+least-privilege scopes, per-user identity (no over-privileged service account),
+a per-call attributable audit trail, and central revocation. They map to
+ISO 27001 access-control and logging controls (A.5.15, A.8.15), SOC 2 CC6/CC7,
+and support EU AI Act record-keeping (Art. 12) and human oversight (Art. 14).
+Self-hosted means the audit trail and token vault stay in your perimeter — no
+extra sub-processor in your SOC 2 scope. Cortex supplies the controls, not a
+certification.
+
 ## Development
 
 ```bash
