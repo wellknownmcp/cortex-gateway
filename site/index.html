@@ -52,6 +52,11 @@
         },
         {
           "@type": "Question",
+          "name": "Is Cortex Gateway Zero Trust, and how does it relate to IAM?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It applies zero-trust principles to agent access: no implicit trust from the network, every call authenticated as the real user, least-privilege scopes, and verification through the OAuth perimeter on each request. It is not a full ZTNA product — it is the identity-and-access layer for agents. Think of it as the missing link between your IAM (who your users are and what they may do) and the MCP ecosystem (how agents call tools): Cortex carries each user's real identity and rights from your existing identity provider into every agent tool call, so the agent inherits exactly that user's access — nothing implied, nothing flattened." }
+        },
+        {
+          "@type": "Question",
           "name": "Is Cortex Gateway free?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes — MIT-licensed and self-hosted. You run it on your own infrastructure (a small VM or the Docker image on GHCR). There is no hosted plan and no usage billing." }
         },
@@ -109,6 +114,7 @@
 <main>
   <h1>One MCP server in front of all your apps — with each app's own permissions, per user</h1>
   <p class="lead">Cortex Gateway is an open-source, self-hosted MCP gateway. Agents connect to a single OAuth&nbsp;2.1-protected URL; the gateway federates the tools of every app behind it and propagates the <em>real user identity</em> — so each app's native permission model applies automatically, at the user level. Nothing to mirror, nothing to sync, no service-account flattening: everyone hands their agent the keys with exactly their own rights.</p>
+  <p class="lead"><strong>Zero-trust principles for AI agents</strong> — the missing link between your IAM (who your users are, what they may do) and the MCP ecosystem (how agents call tools).</p>
 
   <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
   <p class="note">MIT-licensed · Docker image on GHCR · <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> you can plug into Claude in 30 seconds</p>
@@ -166,6 +172,8 @@
     <p>Every agent connects through an OAuth&nbsp;2.1 perimeter — no shared API keys. The gateway propagates the <em>real user's identity</em> to each app, so that app's own permission model applies and there is no over-privileged service account (no permission flattening). Agents see only the tools their token scopes allow (least privilege); third-party credentials sit in a per-user AES-256-GCM vault; every call writes one pseudonymized audit line, and a single OAuth revocation cuts access everywhere at once. The gateway enforces nothing itself, so there is nothing new to trust.</p>
     <h3>Does Cortex Gateway help with compliance (ISO&nbsp;27001, SOC&nbsp;2, the EU AI Act)?</h3>
     <p>It provides the technical controls those frameworks test for on automated access — turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity (no shared over-privileged account), one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO&nbsp;27001 access-control and logging controls (A.5.15, A.8.15), SOC&nbsp;2 CC6/CC7, and supports EU AI Act record-keeping (Art.&nbsp;12) and human oversight (Art.&nbsp;14). Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC&nbsp;2 scope. It doesn't certify you; it removes the "agents can't be scoped, attributed or revoked" finding.</p>
+    <h3>Is Cortex Gateway Zero Trust, and how does it relate to IAM?</h3>
+    <p>It applies zero-trust principles to agent access: no implicit trust from the network, every call authenticated as the <em>real user</em>, least-privilege scopes, and verification through the OAuth perimeter on each request. It isn't a full ZTNA product — it's the identity-and-access layer for agents. Think of it as the missing link between your <strong>IAM</strong> (who your users are, what they may do) and the <strong>MCP ecosystem</strong> (how agents call tools): Cortex carries each user's real identity and rights from your existing identity provider into every agent tool call, so the agent inherits exactly that user's access — nothing implied, nothing flattened.</p>
     <h3>Is Cortex Gateway free?</h3>
     <p>Yes — MIT-licensed, self-hosted. You run it on your own infrastructure (a small VM or the <a href="https://github.com/wellknownmcp/cortex-gateway/pkgs/container/cortex-gateway">Docker image</a>). There is no hosted plan and no usage billing.</p>
     <h3>Does it work with any OAuth server?</h3>

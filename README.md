@@ -20,6 +20,11 @@ answer stays the same: the agent borrows the person's identity, the apps
 keep enforcing that person's rights. The gateway decides nothing, so there
 is nothing new to trust.
 
+Put another way: **zero-trust principles for AI agents** — the missing link
+between your IAM (who your users are, what they may do) and the MCP ecosystem
+(how agents call tools). Not a full ZTNA product; the identity-and-access layer
+for agents.
+
 A **backend** is a dedicated MCP reduced to its essence: a tool catalog plus
 tool invocation (and optional prompts/resources) over bare HTTP JSON-RPC —
 the transport and lifecycle machinery (initialize, sessions, SSE, version

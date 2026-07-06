@@ -13,6 +13,13 @@ stores and audit surfaces; hosted aggregators unify the surface but flatten
 identity behind service accounts. Cortex keeps both properties: one OAuth
 perimeter, zero flattening.
 
+Framed another way: zero-trust principles for AI agents — the missing link
+between your IAM (who your users are and what they may do) and the MCP ecosystem
+(how agents call tools). Cortex carries each user's real identity and rights from
+your existing identity provider into every agent tool call, so the agent inherits
+exactly that user's access. Not a full ZTNA product; the identity-and-access
+layer for agents.
+
 Security model (why agent access stays secure): every call rides an OAuth 2.1
 perimeter — no shared API keys; the real user's identity is propagated so each
 app enforces its own permissions and no over-privileged service account exists
