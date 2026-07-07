@@ -128,6 +128,7 @@
          ▼
 [your backends]    ←— domain owners, plain HTTP, own their ACLs</code></pre>
   <p>A <strong>backend</strong> is a dedicated MCP reduced to its essence: a tool catalog plus tool invocation over bare HTTP (~120-line contract, no MCP library). The transport and lifecycle machinery — initialize, sessions, SSE, version negotiation — lives once, in the gateway. Native third-party MCP servers federate through the built-in proxy adapter with a per-user encrypted token vault.</p>
+  <p class="note">What does a company put behind its gateway first? Its steering layer. <a href="https://hoshin.app">Hoshin Kanri</a> — a living X-Matrix with review cadences and an MCP server — is the reference steering backend: strategy as standing context for every agent in the company, scoped to each person's position.</p>
 
   <h2>What you get</h2>
   <table>
