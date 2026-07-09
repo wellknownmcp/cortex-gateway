@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI agent access controls for ISO 27001, SOC 2, GDPR and the EU AI Act | Cortex Gateway</title>
+<meta name="description" content="Auditors test four things on automated access: least privilege, attributable identity, a complete log, and revocation. How agent access maps to ISO 27001:2022 Annex A, SOC 2 CC6/CC7 and GDPR — and why the EU AI Act probably does not apply to your agents yet.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/ai-agent-compliance-controls/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="AI agent access controls for ISO 27001, SOC 2, GDPR and the EU AI Act">
+<meta property="og:description" content="Four controls auditors test on automated access, mapped to ISO 27001:2022 and SOC 2 — and an honest read on whether the EU AI Act applies to your agents.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/ai-agent-compliance-controls/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "AI agent access controls for ISO 27001, SOC 2, GDPR and the EU AI Act",
+      "url": "https://cortex-gateway.dev/answers/ai-agent-compliance-controls/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/ai-agent-compliance-controls/" },
+        { "@type": "ListItem", "position": 3, "name": "AI agent compliance controls" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What do auditors actually test when AI agents access company systems?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Four things, and none of them are about the model. Least privilege: can the agent do more than the person it acts for? Attributable identity: does every action name a responsible human, or does the log say the integration did it? Completeness of the record: is every call logged, tamper-resistantly, with retention? Revocation: when someone leaves, does one action cut their agent's access everywhere at once? An agent that runs on a shared API key fails all four, which is why it appears in audit findings as an ungoverned access path rather than as an AI question." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which ISO 27001 controls apply to AI agent access?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The access-control and logging families of ISO/IEC 27001:2022 Annex A, unchanged by the fact that the caller is an agent. A.5.15 Access control, A.5.16 Identity management, A.5.17 Authentication information, A.5.18 Access rights, A.8.2 Privileged access rights, A.8.15 Logging and A.8.16 Monitoring activities all read naturally against agents. The standard does not need an AI clause: an agent acting under a shared service account is simply a violation of A.5.16 and A.8.2 with a new name." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does the EU AI Act require logging of AI agent actions?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only for high-risk AI systems, and most internal agent deployments are not high-risk. Article 12 record-keeping and Article 14 human oversight sit in the high-risk chapter, and following the Digital Omnibus agreed in 2026 those obligations were deferred: to 2 December 2027 for stand-alone Annex III systems, and to 2 August 2028 for AI embedded in regulated products under Annex I. If a vendor tells you their gateway makes you EU AI Act compliant today, they are selling you a control you may not owe, on a deadline that moved." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a self-hosted MCP gateway add a sub-processor to my SOC 2 or GDPR scope?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No, and that is the practical difference from a hosted tool platform. A self-hosted gateway runs on your infrastructure, so the audit trail, the token vault and every tool call stay inside your existing perimeter and inside boundaries you have already described to your auditor. A hosted platform holds your users' tokens and observes every call, which makes it a sub-processor under GDPR Article 28 and a vendor in your SOC 2 scope, with the due-diligence and contractual work that follows." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is a pseudonymized audit trail anonymous under GDPR?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Hashing an email address produces pseudonymized data, which GDPR Article 4(5) still treats as personal data because it can be attributed to an individual with additional information — and in an audit trail it must be, or the log would be useless. Pseudonymization is a security measure recognized by Article 32, not a way out of scope. The record of processing, the retention period and the data-subject rights all continue to apply." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can a gateway make my company compliant?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No software certifies anyone. What infrastructure can do is supply the technical controls a framework tests for, and remove a specific finding: that agents cannot be scoped, attributed or revoked. The policies, the risk assessment, the evidence collection and the audit itself remain yours. Treat any vendor claiming to deliver compliance as a signal about their sales process rather than their product." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › AI agent compliance controls</p>
+  <h1>AI agent access controls for ISO 27001, SOC 2, GDPR and the EU AI Act</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Auditors do not have an opinion about your model. They test four properties of <em>automated access</em>: <strong>least privilege</strong>, <strong>attributable identity</strong>, a <strong>complete record</strong>, and <strong>revocation</strong>. An agent running on a shared API key fails all four, which is why it shows up in findings as an ungoverned access path rather than as an AI question. Existing frameworks already cover this — ISO/IEC 27001:2022 Annex A and SOC 2 CC6/CC7 need no AI clause. And the EU AI Act obligations everyone cites almost certainly <strong>do not apply to your agents</strong>, for two independent reasons set out below.</p>
+  </div>
+
+  <h2>The finding you are trying to close</h2>
+  <p>An auditor looks at a system where AI agents read customer records and asks three questions. Who authorized this access? Which human is accountable for that action on 14 March? If that person left the company yesterday, what happened to the agent?</p>
+  <p>With a shared service account, the answers are: an admin, two years ago, in a config file. Nobody — the log says "the integration". And: nothing, the key still works. That is not an AI governance problem. It is a textbook access-control failure with a fashionable cause, and it maps onto controls that predate the technology by a decade.</p>
+  <p>The reframing is the whole point of this page. <strong>Agents are not a new category of subject; they are a new category of <em>delegate</em>.</strong> Once each agent action carries the identity of the person it acts for, every existing control applies unchanged, and you stop needing an "AI policy" to describe what your access-control policy already says.</p>
+
+  <h2>The four properties auditors test</h2>
+  <table>
+    <tr><th>Property</th><th>The question behind it</th><th>Shared API key</th><th>Per-user delegation</th></tr>
+    <tr><td>Least privilege</td><td>Can the agent do more than the person it acts for?</td><td>Yes — it holds the union of everyone's rights</td><td>No — scopes bound it to a subset of one user's rights</td></tr>
+    <tr><td>Attributable identity</td><td>Who is accountable for this action?</td><td>"The integration"</td><td>A named person, on every call</td></tr>
+    <tr><td>Complete record</td><td>Is every call logged, retained, protected?</td><td>Per application, in N formats, if at all</td><td>One line per call, one place, one format</td></tr>
+    <tr><td>Revocation</td><td>Someone left. Now what?</td><td>Rotate the key, notify every consumer, hope</td><td>One revocation at the authorization server cuts every application at once</td></tr>
+  </table>
+  <p>The mechanism that produces the right-hand column is <a href="/answers/agent-permission-layer/">identity delegation</a>: the agent borrows a specific person's identity through OAuth 2.1, and each application enforces the permission model it already had. Nothing is mirrored, so nothing drifts.</p>
+
+  <h2>ISO/IEC 27001:2022 — Annex A, unchanged</h2>
+  <p>No control here mentions artificial intelligence, and none needs to.</p>
+  <table>
+    <tr><th>Control</th><th>What it requires</th><th>What agent access must show</th></tr>
+    <tr><td>A.5.15 Access control</td><td>Who may access what, on what basis</td><td>The agent's authority is derived from its user's, not granted separately</td></tr>
+    <tr><td>A.5.16 Identity management</td><td>Identity lifecycle across systems</td><td>Agents have no identity of their own — they carry a person's. Nothing to provision or deprovision separately.</td></tr>
+    <tr><td>A.5.17 Authentication information</td><td>Management of secrets, tokens, keys</td><td>No standing credential in the agent. Third-party tokens encrypted at rest, per user.</td></tr>
+    <tr><td>A.5.18 Access rights</td><td>Provisioning, review and <em>removal</em></td><td>Removal is one revocation, effective across every application</td></tr>
+    <tr><td>A.8.2 Privileged access rights</td><td>Restrict and manage privileged access</td><td>No over-privileged service account exists to restrict</td></tr>
+    <tr><td>A.8.15 Logging</td><td>Produce, store and protect activity logs</td><td>One attributable line per tool call: who, what, which application, outcome</td></tr>
+    <tr><td>A.8.16 Monitoring activities</td><td>Monitor for anomalous behaviour</td><td>A single stream to monitor, rather than N application logs to correlate</td></tr>
+  </table>
+  <p>Read the middle column again with an agent in mind. A shared service account is not "an AI risk" — it is a violation of A.5.16 and A.8.2 with a new name.</p>
+
+  <h2>SOC 2 — CC6 and CC7</h2>
+  <p>The Trust Services Criteria land in the same place. <strong>CC6 (logical and physical access controls)</strong> asks whether access is authorized, appropriately provisioned, and — the criterion agents usually fail — <em>removed</em> when it is no longer needed. <strong>CC7 (system operations)</strong> asks whether you monitor, detect and evaluate anomalies.</p>
+  <p>The evidence an auditor will ask for is concrete: show me an agent action, name the human behind it, show me the consent that authorized it, show me what happened when that human was offboarded. Per-user delegation makes those four artefacts one query. A shared key makes them a conversation.</p>
+
+  <h2>The EU AI Act: you are probably not in scope, twice over</h2>
+  <p>This section is where vendors overreach, so read it before you buy anything.</p>
+  <p><strong>First, the articles everyone cites are high-risk articles.</strong> Article 12 (record-keeping) and Article 14 (human oversight) sit in the chapter governing <em>high-risk AI systems</em>. An internal agent that reads your documentation or files a ticket is, in the overwhelming majority of cases, not a high-risk AI system under Annex I or Annex III. If you are not in that category, those articles impose nothing on you.</p>
+  <p><strong>Second, the deadline moved.</strong> Following the Digital Omnibus on AI, agreed and formally endorsed by the European Parliament and Council in 2026, the high-risk obligations were deferred: to <strong>2 December 2027</strong> for stand-alone Annex III systems, and to <strong>2 August 2028</strong> for AI embedded in regulated products under Annex I. The originally scheduled 2 August 2026 date no longer applies.</p>
+  <p><strong>Third, and most often missed: a gateway is not an AI system.</strong> It is access infrastructure. It processes no inputs, produces no inferences, and makes no decisions. Whatever obligations attach, they attach to you as the provider or deployer of an AI system — never to a component of your network.</p>
+  <p>So what is honest to say? If you <em>do</em> deploy a high-risk system, per-call logging with an attributable identity and an effective human kill-switch are the technical substrate Article 12 and Article 14 presuppose, and you will want them well before 2027 regardless. If you do not, build them anyway, because ISO 27001 and SOC 2 ask for them <em>today</em> and neither of those has a grace period.</p>
+  <p class="note">Legislative dates move. This section reflects the position as of July 2026 — verify against the Official Journal before relying on it, and take actual legal advice rather than a vendor's page.</p>
+
+  <h2>GDPR: pseudonymized is not anonymous</h2>
+  <p>An audit trail that hashes the user's email is <strong>pseudonymized</strong>, not anonymous. Article 4(5) is explicit: data that can be attributed to an individual with additional information remains personal data — and in an audit trail it must be attributable, or the log would serve no purpose.</p>
+  <p>What that means in practice, and what a vendor claiming "anonymous logs" is getting wrong:</p>
+  <ul>
+    <li>The audit trail stays inside your record of processing (Article 30) and needs a defined retention period.</li>
+    <li>Pseudonymization is a <em>security measure</em> recognized by Article 32, not an exit from scope. It limits the blast radius of a log leak; it does not remove the log from the regulation.</li>
+    <li>Data-subject rights still apply to it, with the usual tension against the legal grounds for keeping security logs.</li>
+  </ul>
+  <p>Saying this plainly is a better signal of a serious security model than any badge.</p>
+
+  <h2>What self-hosting actually changes</h2>
+  <p>This is the argument a decision-maker should care about, and it is not about features.</p>
+  <p>A hosted agent-tool platform holds your users' OAuth tokens, sees every tool call, and stores the record of it. That makes it a <strong>processor</strong> under GDPR Article 28 and a vendor inside your SOC 2 boundary — with the due diligence, the contract, the sub-processor notice, and the annual review that follow. Sometimes that trade is right. It should be a decision, not a discovery.</p>
+  <p>A self-hosted gateway runs on your infrastructure. The token vault, the audit trail and every call remain inside a perimeter you have already described to your auditor. Nothing new enters the scope, so nothing new has to be assessed. That is the whole compliance argument for self-hosting, stated without embellishment.</p>
+
+  <h2>What no gateway can do for you</h2>
+  <p>It cannot certify you. Software supplies technical controls; frameworks test controls <em>and</em> the policies, risk assessments, evidence and processes around them. What infrastructure removes is one specific finding — <em>agents cannot be scoped, attributed or revoked</em> — and it removes it by construction rather than by procedure.</p>
+  <p>A gateway that decides nothing also adds nothing to trust. <a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> holds no rights of its own, mirrors no permission rules, and makes no authorization decision: it carries each user's identity to the application that owns the data, refuses what the token's scopes forbid, writes one pseudonymized line per call, and lets a single OAuth revocation cut every application at once. Everything else — the policy, the evidence, the auditor — stays where it belongs.</p>
+
+  <h2>Four questions for any agent platform</h2>
+  <ol>
+    <li>When my agent calls an application, <strong>whose credential</strong> arrives at that application — mine, or a shared one?</li>
+    <li>When an employee is offboarded, <strong>how many actions</strong> revoke their agent's access across every system?</li>
+    <li>Where does the <strong>audit trail live</strong>, who can read it, and is that location already in my compliance scope?</li>
+    <li>Where do <strong>third-party OAuth tokens</strong> rest, encrypted with which key, held by whom?</li>
+  </ol>
+  <p>The answers are architecture, not roadmap. A vendor who needs a call to answer question one has already answered it.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What do auditors actually test when AI agents access company systems?</h3>
+    <p>Four things, none about the model. Least privilege: can the agent exceed the person it acts for? Attributable identity: does each action name a responsible human? Completeness: is every call logged and retained? Revocation: does one action cut a departing employee's agent everywhere? A shared API key fails all four — which is why agents appear in findings as an ungoverned access path, not as an AI question.</p>
+    <h3>Which ISO 27001 controls apply to AI agent access?</h3>
+    <p>The access-control and logging families of ISO/IEC 27001:2022 Annex A, unchanged: A.5.15 Access control, A.5.16 Identity management, A.5.17 Authentication information, A.5.18 Access rights, A.8.2 Privileged access rights, A.8.15 Logging, A.8.16 Monitoring activities. The standard needs no AI clause — a shared service account is a violation of A.5.16 and A.8.2 with a new name.</p>
+    <h3>Which SOC 2 criteria do agents touch?</h3>
+    <p>CC6 (logical access: authorization, provisioning, and above all removal) and CC7 (system operations: monitoring and evaluating anomalies). The evidence request is concrete — show an agent action, name the human, show the consent, show what offboarding did. Per-user delegation makes that one query.</p>
+    <h3>Does the EU AI Act require logging of AI agent actions?</h3>
+    <p>Only for high-risk AI systems, and most internal agents are not. Articles 12 and 14 sit in the high-risk chapter, and after the 2026 Digital Omnibus those obligations were deferred to 2 December 2027 (stand-alone Annex III) and 2 August 2028 (Annex I embedded). A vendor promising EU AI Act compliance today is selling a control you may not owe, on a deadline that moved.</p>
+    <h3>Is a gateway itself an AI system under the EU AI Act?</h3>
+    <p>No. It is access infrastructure: no inputs processed, no inferences produced, no decisions made. Obligations attach to the provider or deployer of an AI system, not to a component of the network it runs on.</p>
+    <h3>Does a self-hosted gateway add a sub-processor to my SOC 2 or GDPR scope?</h3>
+    <p>No — and that is the practical difference from a hosted platform. Self-hosted, the token vault and audit trail stay inside a perimeter already described to your auditor. A hosted platform holds your users' tokens and observes every call, making it a processor under GDPR Article 28 and a vendor in your SOC 2 scope.</p>
+    <h3>Is a pseudonymized audit trail anonymous under GDPR?</h3>
+    <p>No. Hashing an email yields pseudonymized data, which Article 4(5) still treats as personal data — and an audit trail must remain attributable or it is useless. Pseudonymization is a security measure under Article 32, not an exit from scope: the record of processing, retention and data-subject rights all still apply.</p>
+    <h3>Can a gateway make my company compliant?</h3>
+    <p>No software certifies anyone. Infrastructure supplies technical controls and removes one finding — that agents cannot be scoped, attributed or revoked. Policies, risk assessment, evidence and the audit stay yours. A vendor claiming to deliver compliance is telling you about their sales process.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

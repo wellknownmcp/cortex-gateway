@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Best open-source MCP gateways (2026): an honest comparison | Cortex Gateway</title>
+<meta name="description" content="Seven self-hosted MCP gateways compared on the two axes that actually differ: whose credential reaches the downstream server, and where the authorization decision is made. 1MCP, Docker MCP Gateway, Lasso, MCPJungle, IBM ContextForge, Cortex Gateway — with the cases where each one wins.">
+<link rel="canonical" href="https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Best open-source MCP gateways (2026): an honest comparison">
+<meta property="og:description" content="Two axes separate them: whose credential goes downstream, and who decides. Seven projects, verified from their repositories — including where each one beats us.">
+<meta property="og:url" content="https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Best open-source MCP gateways (2026): an honest comparison",
+      "url": "https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/",
+      "datePublished": "2026-07-09",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" },
+      "publisher": { "@type": "Organization", "name": "Cortex Gateway", "url": "https://cortex-gateway.dev/" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Alternatives", "item": "https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/" },
+        { "@type": "ListItem", "position": 3, "name": "Open-source MCP gateways" }
+      ]
+    },
+    {
+      "@type": "ItemList",
+      "name": "Open-source MCP gateways, by use case",
+      "numberOfItems": 7,
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "IBM ContextForge", "url": "https://github.com/IBM/mcp-context-forge" },
+        { "@type": "ListItem", "position": 2, "name": "agentgateway", "url": "https://github.com/agentgateway/agentgateway" },
+        { "@type": "ListItem", "position": 3, "name": "MCPJungle", "url": "https://github.com/duaraghav8/MCPJungle" },
+        { "@type": "ListItem", "position": 4, "name": "Docker MCP Gateway", "url": "https://github.com/docker/mcp-gateway" },
+        { "@type": "ListItem", "position": 5, "name": "1MCP", "url": "https://github.com/1mcp-app/agent" },
+        { "@type": "ListItem", "position": 6, "name": "Lasso mcp-gateway", "url": "https://github.com/lasso-security/mcp-gateway" },
+        { "@type": "ListItem", "position": 7, "name": "Cortex Gateway", "url": "https://github.com/wellknownmcp/cortex-gateway" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the best open-source MCP gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "There is no single best one, because these projects solve four different problems under the same name. If you need enterprise federation of MCP, A2A and REST behind one governed endpoint on Kubernetes, IBM ContextForge is the most complete and has a vendor behind it. If you need a policy-driven data plane proxy, agentgateway is a Linux Foundation project built for that. If you need a lightweight self-hosted registry with per-client access control and no OAuth server of your own, MCPJungle is the fastest path. If you are one developer running MCP servers on your laptop, use 1MCP or Docker MCP Gateway. If you need each user's own identity to reach every application, so that each application enforces its own permissions, that is what Cortex Gateway does." }
+        },
+        {
+          "@type": "Question",
+          "name": "What actually differs between MCP gateways?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two architectural questions separate them, and everything else is features. First: whose credential reaches the downstream server — one credential configured at the gateway and shared by every caller, or each end user's own token? Second: where is the authorization decision made — at the gateway, through rules or a policy engine that mirrors what your applications already know, or in the application that owns the data? The answers determine whether your audit trail names a person or an integration, and whether a permission change has to be made in one place or two." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does MCPJungle support OAuth?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not as of version 0.4.5 in July 2026: it authenticates callers with static bearer tokens the gateway issues, and its documentation lists OAuth as not yet supported. Downstream credentials, such as a Hugging Face API token, are supplied when a server is registered and are therefore shared by every caller of that server. Access control is expressed as gateway ACLs, tool groups and admin or standard roles. That is a coherent design for a small team without its own authorization server, and it is a different design from an OAuth 2.1 resource server." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the Docker MCP Gateway a multi-user gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. It is a Docker CLI plugin that powers the MCP Toolkit, and it is designed as a single-user developer tool: it runs MCP servers in isolated containers, gives npx and uvx servers minimal host privileges, and stores credentials through Docker Desktop's secrets management. There is no end-user authentication layer. Its real contribution is sandboxing untrusted MCP servers, which none of the multi-tenant gateways on this page do." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which open-source MCP gateway propagates the end user's identity?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two of the seven do, in different ways. IBM ContextForge supports user-scoped OAuth tokens and forwards a caller's bearer token between federated gateways, alongside encrypted gateway-held credentials — the model is configurable rather than fixed. Cortex Gateway is built only on propagation: it is an OAuth 2.1 resource server that passes the user's JWT to first-party applications and their own linked token, held in a per-user encrypted vault, to third-party MCP servers. It holds no shared credential and makes no authorization decision of its own." }
+        },
+        {
+          "@type": "Question",
+          "name": "When should I not use a gateway at all?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When you have one application and one MCP server. A gateway adds a hop and a component for nothing. Separate connectors also already preserve each provider's per-user permissions, which is the property people wrongly assume a gateway adds. A gateway earns its place when the operational surface of many connectors becomes the problem: one consent perimeter instead of N, one audit trail, one revocation that cuts everything, cross-application scopes, and a tool catalog small enough not to flood the agent's context." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Alternatives › Open-source MCP gateways</p>
+  <h1>Best open-source MCP gateways (2026): an honest comparison</h1>
+
+  <p class="note"><strong>Transparency.</strong> This page is written by the maintainers of Cortex Gateway, one of the seven projects below. We rank nothing. Each entry says what the project is for and where it beats us — three of them beat us at things we do not attempt at all. Everything is verified from each project's own repository and documentation, <strong>last checked 9 July 2026</strong>. No commercial relationship with any project listed. Corrections welcome as a GitHub issue.</p>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Seven projects share the name "MCP gateway" and solve four different problems. Before comparing features, ask the two questions that actually separate them: <strong>whose credential reaches the downstream server</strong> — one shared by every caller, or each user's own? And <strong>where is the authorization decision made</strong> — at the gateway, or in the application that owns the data? Everything else is packaging. If you are one developer on a laptop, none of this matters and you want <em>1MCP</em> or <em>Docker MCP Gateway</em>.</p>
+  </div>
+
+  <h2>The two axes</h2>
+  <p>Feature tables go stale in six weeks. These two questions do not, because they are architecture rather than roadmap.</p>
+  <p><strong>Axis 1 — whose credential goes downstream.</strong> A gateway that stores one API token per backend presents that token for every caller. The backend then sees a single account holding the union of everyone's rights, its rate limits are pooled, and its audit log names the integration. A gateway that carries each user's own token preserves all three. The cost is real: one consent screen per provider per user.</p>
+  <p><strong>Axis 2 — who decides.</strong> Either the gateway holds rules — ACLs, RBAC, a policy engine — that mirror what your applications already know, or it holds none and lets each application enforce its own model on a propagated identity. Mirrors are attractive because they look like control, and they drift: every copied permission is a liability with a half-life, concentrated in the one component that talks to everything.</p>
+  <p>Neither answer is universally right. A Kubernetes data plane <em>should</em> enforce policy at the edge; that is what a data plane is. An enterprise agent platform in front of applications that already have permission models should not re-implement them. Pick the axis position your situation demands, then pick the tool.</p>
+
+  <h2>Pick by what you are actually doing</h2>
+  <table>
+    <tr><th>If you want…</th><th>Use</th></tr>
+    <tr><td>To run several MCP servers for yourself, on your laptop, with your coding agent</td><td><strong>1MCP</strong></td></tr>
+    <tr><td>To sandbox MCP servers you do not trust, in containers, with managed secrets</td><td><strong>Docker MCP Gateway</strong></td></tr>
+    <tr><td>Prompt-injection and PII guardrails between your agent and its tools</td><td><strong>Lasso mcp-gateway</strong></td></tr>
+    <tr><td>A small team, a self-hosted registry with per-client ACLs, and no OAuth server of your own</td><td><strong>MCPJungle</strong></td></tr>
+    <tr><td>Enterprise federation of MCP + A2A + REST behind one governed endpoint, on Kubernetes, with a vendor behind it</td><td><strong>IBM ContextForge</strong></td></tr>
+    <tr><td>A policy-driven data plane proxy for agent traffic, with RBAC as code</td><td><strong>agentgateway</strong></td></tr>
+    <tr><td>Each user's own identity to reach every application, so each application enforces its own permissions — and nothing new to trust in the middle</td><td><strong>Cortex Gateway</strong></td></tr>
+  </table>
+  <p>Note that five of these seven rows are not competitive with the last one. That is the honest state of this category: the word "gateway" is doing far too much work.</p>
+
+  <h2>The seven, in detail</h2>
+
+  <h3><a href="https://github.com/IBM/mcp-context-forge">IBM ContextForge</a> — the enterprise federation platform</h3>
+  <p>Apache-2.0, v1.0.x, reached 1.0 GA in June 2026, roughly 4.1k GitHub stars. Federates MCP servers, A2A servers and REST/gRPC APIs into one MCP-compliant endpoint, with centralized governance and observability across multi-cluster Kubernetes.</p>
+  <p>On axis 1 it is <strong>configurable</strong>, which is worth stating precisely because it is often mischaracterized: it supports user-scoped OAuth tokens and forwards a caller's bearer token between federated gateways, <em>and</em> it can hold gateway-side credentials encrypted with an <code>AUTH_ENCRYPTION_SECRET</code>. You choose. On axis 2 it carries RBAC of its own.</p>
+  <p><strong>Where it beats us:</strong> breadth, plainly. A2A and REST/gRPC federation, multi-cluster operations, observability, and an actual vendor. If you are standardizing agent access across a large organization and you already run Kubernetes, this is the serious answer. <strong>The cost:</strong> it expects real Kubernetes investment and a platform team; rollouts are measured in weeks, not an afternoon.</p>
+
+  <h3><a href="https://github.com/agentgateway/agentgateway">agentgateway</a> — the data plane</h3>
+  <p>Apache-2.0, a Linux Foundation project, roughly 3.8k stars. A proxy built on MCP and A2A for agent-to-tool, agent-to-agent and agent-to-LLM traffic, with JWT, API-key and OAuth authentication, tool federation, and fine-grained RBAC driven by a CEL policy engine.</p>
+  <p>Axis 2 is its entire premise: the authorization decision lives at the gateway, expressed as policy. This is the correct shape for a data plane — it is what Envoy-lineage infrastructure is for, and policy-as-code is a feature, not a compromise, when the gateway <em>is</em> your network's control point.</p>
+  <p><strong>Where it beats us:</strong> if your organization already treats the mesh as the enforcement layer, agentgateway fits your operational model and Cortex does not. It also has performance engineering we have not attempted. <strong>The trade:</strong> your applications' permission rules now exist in two places, and the second copy must be kept honest.</p>
+
+  <h3><a href="https://github.com/duaraghav8/MCPJungle">MCPJungle</a> — the small-team registry</h3>
+  <p>MPL-2.0, v0.4.5, roughly 1.1k stars. A self-hosted MCP gateway and registry in one binary: register servers, discover tools, control which clients reach which servers.</p>
+  <p>Verified on both axes. Downstream credentials — a bearer token, custom headers — are supplied when a server is <em>registered</em>, so every caller of that server shares them. Callers authenticate with static tokens the gateway issues, per MCP client or per human account; its documentation lists OAuth as <strong>not yet supported</strong>. Access control is gateway ACLs, tool groups and admin/standard roles.</p>
+  <p><strong>Where it beats us:</strong> you can be running in ten minutes without owning an OAuth 2.1 authorization server, and for tools that have no per-user permissions to lose — a weather API, a search index — there is nothing to preserve and its model costs you nothing. <strong>Where it does not:</strong> the moment two people in your organization should legitimately see different data, shared downstream credentials cannot express that, and the gateway ACLs become a second permission model to maintain.</p>
+
+  <h3><a href="https://github.com/docker/mcp-gateway">Docker MCP Gateway</a> — the sandbox</h3>
+  <p>MIT, roughly 1.5k stars. The Docker CLI plugin that powers Docker Desktop's MCP Toolkit. Runs MCP servers in isolated containers, gives <code>npx</code> and <code>uvx</code> servers minimal host privileges, and keeps API keys out of environment variables through <code>docker mcp secret</code>. Built-in OAuth flows for connecting to external services.</p>
+  <p>Neither axis applies: there is no end-user authentication layer, because it is a <strong>single-user developer tool</strong>.</p>
+  <p><strong>Where it beats us, unambiguously:</strong> isolation. Running an MCP server you did not write, from an npm package you have not read, directly on your machine is the most under-discussed risk in this ecosystem. Docker's answer is a container. <strong>Cortex does not sandbox anything</strong> — it assumes the backends behind it are yours, or are remote services you reach over HTTPS. These are complementary tools, not alternatives.</p>
+
+  <h3><a href="https://github.com/1mcp-app/agent">1MCP</a> — the personal runtime</h3>
+  <p>Apache-2.0, v0.34.x, roughly 469 stars. A unified runtime that aggregates your MCP servers into one <code>serve</code> process, aimed at coding agents — Claude Code, Codex, Cursor — to cut configuration sprawl and shrink the working surface.</p>
+  <p>Its repository documents configuration and lifecycle rather than credential scoping; we did not find a clear statement of its per-user model and <strong>we make no claim about it here</strong>. The intended shape is a personal aggregator, where "which user" has a single obvious answer.</p>
+  <p><strong>Where it beats us:</strong> it is the right tool for the job we are not doing. One developer, one machine, several MCP servers, less configuration. Deploying an OAuth 2.1 perimeter to solve that would be absurd.</p>
+
+  <h3><a href="https://github.com/lasso-security/mcp-gateway">Lasso mcp-gateway</a> — the guardrail</h3>
+  <p>MIT, roughly 377 stars, Python, latest release January 2026. A <em>local</em> proxy between an LLM and its MCP servers that intercepts requests and responses to detect prompt injection, mask PII, sanitize tokens, and scan server reputation before loading.</p>
+  <p>It is on this list because it is called an MCP gateway and it will appear in your search results. It solves an orthogonal problem: <strong>content</strong> safety, not identity. <strong>Cortex does none of what it does</strong> — no prompt-injection detection, no PII masking, no reputation scanning — and it authenticates no end users. Read them as complementary layers.</p>
+
+  <h3><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> — identity propagation, and nothing else</h3>
+  <p>MIT. An OAuth 2.1 resource server: one spec-compliant MCP endpoint over Streamable HTTP in front of N applications, each of which exposes <a href="/guides/rest-api-to-mcp-server/">one plain HTTP endpoint</a> rather than embedding an MCP library. The user's JWT is propagated to first-party applications; third-party MCP servers receive <a href="/guides/federate-third-party-mcp-servers/">that user's own linked token</a> from a per-user AES-256-GCM vault.</p>
+  <p>On axis 1: per-user, always, with no configuration that would make it otherwise. On axis 2: the gateway makes <strong>no authorization decision</strong>. It enforces the delegation boundary — an agent may not exceed the scopes its user granted — and refuses everything else to the application that owns the data. Because it decides nothing and holds no standing rights, there is nothing new to trust.</p>
+  <p><strong>What it costs you.</strong> An OAuth 2.1 authorization server issuing RS256 JWTs with a JWKS endpoint. The repository ships a complete demo one — dynamic client registration, PKCE, magic-link signup, introspection, revocation — but if you have no identity provider and no intention of getting one, MCPJungle will make you happier this week.</p>
+  <p><strong>What it does not do.</strong> No policy engine. No container sandboxing. No prompt-injection guardrails. No A2A or REST federation. No observability stack. The third-party proxy adapter is <strong>beta</strong> — protocol layer unit-tested against MCP 2025-06-18, not certified against any specific commercial provider, tools only in V1, one scope per proxied provider.</p>
+
+  <h2>The comparison that survives a version bump</h2>
+  <table>
+    <tr><th>Project</th><th>Downstream credential</th><th>Authorization decided</th><th>Scope</th><th>Licence</th></tr>
+    <tr><td>IBM ContextForge</td><td>Configurable — user-scoped OAuth or gateway-held, encrypted</td><td>Gateway RBAC (+ downstream)</td><td>Enterprise, Kubernetes</td><td>Apache-2.0</td></tr>
+    <tr><td>agentgateway</td><td>Gateway</td><td>Gateway, CEL policy engine</td><td>Data plane proxy</td><td>Apache-2.0</td></tr>
+    <tr><td>MCPJungle</td><td>Gateway, set at registration, shared</td><td>Gateway ACLs and roles</td><td>Team registry</td><td>MPL-2.0</td></tr>
+    <tr><td>Docker MCP Gateway</td><td>Local secrets store</td><td>n/a — single user</td><td>Dev tool, sandboxing</td><td>MIT</td></tr>
+    <tr><td>1MCP</td><td>Local configuration</td><td>n/a — single user</td><td>Personal runtime</td><td>Apache-2.0</td></tr>
+    <tr><td>Lasso mcp-gateway</td><td>n/a</td><td>n/a — content guardrails</td><td>Local safety proxy</td><td>MIT</td></tr>
+    <tr><td>Cortex Gateway</td><td>The user's own, per-user encrypted vault</td><td>The application that owns the data</td><td>Access layer</td><td>MIT</td></tr>
+  </table>
+
+  <h2>How we checked</h2>
+  <p>Each project's own repository and documentation, read on 9 July 2026. Licences, version numbers, credential handling and access-control model are taken from primary sources — not from other comparison pages, most of which are published by vendors selling a seventh gateway. Star counts are approximate and are the fastest-moving number here; treat them as a rough maturity signal and nothing more.</p>
+  <p>What we did <strong>not</strong> do: production benchmarks, load testing, or long-running deployments of the six projects that are not ours. Where a repository did not state something clearly — 1MCP's credential scoping — we say so instead of inferring it. If you maintain one of these projects and we have described it wrongly, open an issue on <a href="https://github.com/wellknownmcp/cortex-gateway">our repository</a> and we will correct this page.</p>
+
+  <h2>And the case for no gateway at all</h2>
+  <p>Worth saying, on a page like this. One application and one MCP server: skip the gateway. Separate connectors already preserve each provider's native per-user permissions — that is the baseline, not a differentiator someone sells you. A gateway earns its place when the <em>operational surface</em> of many connectors becomes the problem: one consent perimeter instead of N, one attributable audit trail, one revocation that cuts everything at once, scopes that mean something across applications, and a tool catalog that <a href="/answers/mcp-too-many-tools/">does not flood the agent's context</a>.</p>
+  <p>A gateway that gives you that surface but <em>loses</em> per-user permissions along the way has sold you a downgrade. The point of federation is the operational surface of one connector with the permission model of N. The reasoning in full: <a href="/answers/mcp-gateway-vs-mcp-server/">MCP gateway vs MCP server</a>.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What is the best open-source MCP gateway?</h3>
+    <p>There is no single best one — these projects solve four different problems under one name. Enterprise federation of MCP, A2A and REST on Kubernetes: <strong>IBM ContextForge</strong>. A policy-driven data plane: <strong>agentgateway</strong>. A lightweight self-hosted registry with per-client ACLs and no OAuth server of your own: <strong>MCPJungle</strong>. One developer on a laptop: <strong>1MCP</strong> or <strong>Docker MCP Gateway</strong>. Each user's own identity reaching every application, with each application enforcing its own permissions: <strong>Cortex Gateway</strong>, which is ours.</p>
+    <h3>What actually differs between MCP gateways?</h3>
+    <p>Two questions. Whose credential reaches the downstream server — one shared by every caller, or each user's own? And where is the authorization decision made — at the gateway, or in the application that owns the data? The answers determine whether your audit trail names a person or an integration, and whether a permission change happens in one place or two. Everything else is packaging.</p>
+    <h3>Does MCPJungle support OAuth?</h3>
+    <p>Not as of v0.4.5 (July 2026). Callers authenticate with static bearer tokens the gateway issues; its documentation lists OAuth as not yet supported. Downstream credentials are supplied at server registration and are therefore shared by every caller of that server. That is coherent for a small team without an authorization server — and it is a different design from an OAuth 2.1 resource server.</p>
+    <h3>Is the Docker MCP Gateway a multi-user gateway?</h3>
+    <p>No. It is a Docker CLI plugin powering the MCP Toolkit, designed as a single-user developer tool: isolated containers, minimal host privileges for <code>npx</code>/<code>uvx</code> servers, secrets via Docker Desktop. Its real contribution is sandboxing MCP servers you do not trust — which none of the multi-tenant gateways here do, including ours.</p>
+    <h3>Which open-source MCP gateway propagates the end user's identity?</h3>
+    <p>Two, differently. <strong>ContextForge</strong> supports user-scoped OAuth tokens and forwards a caller's bearer token between federated gateways, alongside encrypted gateway-held credentials — configurable rather than fixed. <strong>Cortex Gateway</strong> is built only on propagation: the user's JWT to first-party applications, their own linked token from a per-user encrypted vault to third-party MCP servers, no shared credential, no authorization decision of its own.</p>
+    <h3>Which one sandboxes untrusted MCP servers?</h3>
+    <p><strong>Docker MCP Gateway.</strong> Running an MCP server you did not write, from a package you have not read, directly on your machine is the most under-discussed risk in this ecosystem. Cortex does not sandbox anything — it assumes the backends behind it are yours, or remote services reached over HTTPS.</p>
+    <h3>Which one protects against prompt injection?</h3>
+    <p><strong>Lasso mcp-gateway</strong>, a local proxy doing prompt-injection detection, PII masking and server-reputation scanning. It authenticates no end users and federates nothing. It is a complementary layer, not an alternative to the identity gateways here.</p>
+    <h3>When should I not use a gateway at all?</h3>
+    <p>One application, one MCP server: a gateway adds a hop for nothing. Separate connectors already preserve each provider's per-user permissions. A gateway earns its place when the operational surface of many connectors becomes the problem — one consent perimeter, one audit trail, one revocation, cross-application scopes, a catalog small enough for the agent's context.</p>
+    <h3>Why should I trust a comparison written by one of the projects?</h3>
+    <p>Check it. Every claim here comes from a repository you can open, and the version numbers and dates are stated so you can see when it went stale. We say where each project beats us, including three that do things we do not attempt. If we have got something wrong, the correction is one issue away — and a comparison that cannot survive its subjects reading it was never worth publishing.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
