@@ -69,7 +69,7 @@
   <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
   <nav>
     <a href="/connect/claude-desktop/">Connect a client</a>
-    <a href="/alternatives/composio/">Alternatives</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
     <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
   </nav>
 </header>
@@ -91,7 +91,7 @@
   <ul>
     <li><strong>Spend controls</strong> need to know <em>whose budget</em> an action draws on before they can cap it.</li>
     <li><strong>Escrow</strong> needs to know which principal is bound by the release conditions.</li>
-    <li><strong>Disputes and liability</strong> need a responsible party — and legally, responsibility always rolls up to a person or a company, never to the agent itself.</li>
+    <li><strong>Disputes and liability</strong> need a responsible party — and legally, responsibility always rolls up to a person or a company, never to the agent itself. The same is true of an audit: see <a href="/answers/ai-agent-compliance-controls/">what auditors actually test on agent access</a>.</li>
     <li><strong>Agent-to-agent payments</strong> need both sides to verify the counterparty's authority, not just its wallet.</li>
   </ul>
   <p>None of these can be built on anonymous, over-privileged access. The permission layer isn't one idea on the list of agent infrastructure to build — it is upstream of most of the list.</p>
@@ -118,7 +118,7 @@
     <tr><td>Accountability</td><td>One pseudonymized audit line per tool call: who-hash, tool, backend, outcome</td></tr>
     <tr><td>Kill switch</td><td>One OAuth revocation ends the delegation across every connected app at once</td></tr>
   </table>
-  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> packages exactly this: one OAuth 2.1 MCP endpoint in front of N applications, identity propagated on every call, permissions never mirrored. The <a href="/use-cases/company-federation/">company-federation worked example</a> shows it at organization scale.</p>
+  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> packages exactly this: one OAuth 2.1 MCP endpoint in front of N applications, identity propagated on every call, permissions never mirrored. The <a href="/use-cases/company-federation/">company-federation worked example</a> shows it at organization scale; <a href="/guides/secure-mcp-with-oauth/">securing an MCP server with OAuth 2.1</a> is the wiring, and <a href="/answers/mcp-gateway-vs-mcp-server/">MCP gateway vs MCP server</a> situates the component that carries the identity.</p>
 
   <h2>From copilots to autonomous agents</h2>
   <p>Today the common case is a copilot: a person watching their agent work. The permission-layer question gets sharper, not different, as agents become autonomous — acting for hours without a human in the loop, possibly spending money. The delegation model already covers it: the agent still borrows a specific person's identity, its authority is still bounded by that person's scopes, every action still lands in the audit trail, and the person (or their organization) is still the accountable party. Autonomy changes how often a human looks, not who answers for the action. An architecture that only works while a human watches was never a permission layer.</p>

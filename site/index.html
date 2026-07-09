@@ -48,7 +48,7 @@
         {
           "@type": "Question",
           "name": "Does Cortex Gateway help with compliance (ISO 27001, SOC 2, the EU AI Act)?",
-          "acceptedAnswer": { "@type": "Answer", "text": "It provides the technical controls those frameworks test for on automated access, turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity with no shared over-privileged account, one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO 27001 access-control and logging controls (A.5.15, A.8.15), SOC 2 CC6/CC7, and supports EU AI Act record-keeping (Art. 12) and human oversight (Art. 14). Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC 2 scope. It does not certify you; it removes the 'agents can't be scoped, attributed or revoked' finding." }
+          "acceptedAnswer": { "@type": "Answer", "text": "It provides the technical controls those frameworks test for on automated access, turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity with no shared over-privileged account, one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO 27001:2022 access-control and logging controls (A.5.15, A.5.16, A.5.18, A.8.2, A.8.15) and to SOC 2 CC6/CC7, which apply today. The EU AI Act articles usually cited (Art. 12 record-keeping, Art. 14 human oversight) govern high-risk AI systems only, and those obligations were deferred by the 2026 Digital Omnibus to 2 December 2027 (Annex III) and 2 August 2028 (Annex I) — most internal agents are not in scope, and a gateway is access infrastructure rather than an AI system. Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC 2 scope. It does not certify you; it removes the 'agents can't be scoped, attributed or revoked' finding." }
         },
         {
           "@type": "Question",
@@ -82,8 +82,8 @@
         },
         {
           "@type": "Question",
-          "name": "How is Cortex Gateway different from other open-source MCP gateways like 1MCP or MCPJungle?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Those aggregate existing MCP servers with downstream credentials configured at the gateway, so every caller shares them and access control is re-implemented as gateway rules. Cortex is an OAuth 2.1 resource server: each user authenticates as themselves, the gateway propagates their identity, and each app enforces its own permissions. They put one credential in front of N MCP servers; Cortex puts each user's own identity in front of N apps." }
+          "name": "How is Cortex Gateway different from other open-source MCP gateways?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two questions separate them. Whose credential reaches the downstream server, and where the authorization decision is made. A team gateway such as MCPJungle takes downstream credentials at server registration, so every caller shares them, and expresses access control as gateway ACLs; a data plane such as agentgateway decides through a policy engine at the edge. Cortex is an OAuth 2.1 resource server that makes no authorization decision at all: each user authenticates as themselves, the gateway propagates their identity, and each app enforces the permission model it already had. They put one credential, or one policy engine, in front of N MCP servers; Cortex puts each user's own identity in front of N apps. Local aggregators like 1MCP and Docker MCP Gateway are single-user developer tools and solve a different problem entirely. Full comparison, verified from each repository, at https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/" }
         },
         {
           "@type": "Question",
@@ -106,7 +106,7 @@
   <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
   <nav>
     <a href="/connect/claude-desktop/">Connect a client</a>
-    <a href="/alternatives/composio/">Alternatives</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
     <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
     <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
   </nav>
@@ -160,12 +160,33 @@
     <a class="card" href="/connect/hermes/"><b>Hermes Agent</b><span>Two lines of YAML, DCR handled</span></a>
   </div>
 
+  <h2>Guides</h2>
+  <div class="grid">
+    <a class="card" href="/guides/rest-api-to-mcp-server/"><b>Expose your REST API as an MCP server</b><span>Why generating from OpenAPI disappoints — and the five-step alternative</span></a>
+    <a class="card" href="/guides/secure-mcp-with-oauth/"><b>Secure your MCP server with OAuth 2.1</b><span>The 401 challenge, audience binding, scopes vs RBAC, multi-tenancy</span></a>
+    <a class="card" href="/guides/federate-third-party-mcp-servers/"><b>Federate third-party MCP servers</b><span>Per-user token vault — the provider sees their account, not yours</span></a>
+    <a class="card" href="/answers/mcp-too-many-tools/"><b>Too many MCP tools</b><span>The catalog is re-sent every turn — measure it, then cut 80%</span></a>
+  </div>
+
+  <h2>Troubleshooting</h2>
+  <p>The failures that cost us weeks, written down so nobody pays for them twice.</p>
+  <div class="grid">
+    <a class="card" href="/answers/mcp-connector-does-nothing/"><b>The connector does nothing</b><span>Five causes, ranked — starting with the missing 401 challenge</span></a>
+    <a class="card" href="/answers/mcp-oauth-issuer-behind-proxy/"><b>Login, then 401, forever</b><span>Issuer and audience behind a reverse proxy</span></a>
+    <a class="card" href="/answers/mcp-tools-list-empty/"><b><code>tools/list</code> comes back empty</b><span>Scopes, cold-boot catalog, backend down — how to tell</span></a>
+    <a class="card" href="/guides/secure-mcp-with-oauth/"><b>Get OAuth right the first time</b><span>The wiring these three pages presuppose</span></a>
+  </div>
+
   <h2>Go deeper</h2>
   <div class="grid">
+    <a class="card" href="/answers/agent-permission-layer/"><b>The permission layer for AI agents</b><span>How an agent proves it acts for a real person</span></a>
+    <a class="card" href="/answers/mcp-gateway-vs-mcp-server/"><b>MCP gateway vs MCP server</b><span>Three archetypes — and what each does with identity</span></a>
+    <a class="card" href="/answers/ai-agent-compliance-controls/"><b>Compliance controls for agent access</b><span>ISO 27001 and SOC 2 apply today — the EU AI Act probably doesn't</span></a>
+    <a class="card" href="/use-cases/company-federation/"><b>Company federation, worked example</b><span>One app per department, one connector for the org</span></a>
+    <a class="card" href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md"><b>The backend contract</b><span>One POST endpoint, ~120 lines, no MCP library</span></a>
+    <a class="card" href="/alternatives/open-source-mcp-gateways/"><b>Open-source MCP gateways compared</b><span>Six projects, two axes — and where each one beats us</span></a>
     <a class="card" href="/alternatives/composio/"><b>Composio alternative</b><span>Self-hosted vs hosted tool platform</span></a>
     <a class="card" href="/alternatives/pipedream/"><b>Pipedream MCP alternative</b><span>Own your token vault and audit trail</span></a>
-    <a class="card" href="/use-cases/company-federation/"><b>Company federation, worked example</b><span>One app per department, one connector for the org</span></a>
-    <a class="card" href="/answers/agent-permission-layer/"><b>The permission layer for AI agents</b><span>How an agent proves it acts for a real person</span></a>
   </div>
 
   <h2>FAQ</h2>
@@ -173,7 +194,7 @@
     <h3>How does Cortex Gateway keep agent access secure?</h3>
     <p>Every agent connects through an OAuth&nbsp;2.1 perimeter — no shared API keys. The gateway propagates the <em>real user's identity</em> to each app, so that app's own permission model applies and there is no over-privileged service account (no permission flattening). Agents see only the tools their token scopes allow (least privilege); third-party credentials sit in a per-user AES-256-GCM vault; every call writes one pseudonymized audit line, and a single OAuth revocation cuts access everywhere at once. The gateway enforces nothing itself, so there is nothing new to trust.</p>
     <h3>Does Cortex Gateway help with compliance (ISO&nbsp;27001, SOC&nbsp;2, the EU AI Act)?</h3>
-    <p>It provides the technical controls those frameworks test for on automated access — turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity (no shared over-privileged account), one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO&nbsp;27001 access-control and logging controls (A.5.15, A.8.15), SOC&nbsp;2 CC6/CC7, and supports EU AI Act record-keeping (Art.&nbsp;12) and human oversight (Art.&nbsp;14). Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC&nbsp;2 scope. It doesn't certify you; it removes the "agents can't be scoped, attributed or revoked" finding.</p>
+    <p>It provides the technical controls those frameworks test for on automated access — turning agents from an ungoverned access path into a controlled one: least-privilege OAuth scopes, per-user identity (no shared over-privileged account), one pseudonymized audit line per call, and central revocation — a single attributable log and one kill-switch across all apps. It maps to ISO&nbsp;27001:2022 access-control and logging controls (A.5.15, A.5.16, A.5.18, A.8.2, A.8.15) and SOC&nbsp;2 CC6/CC7, both of which apply <em>today</em>. The EU AI Act articles usually quoted at you — Art.&nbsp;12 record-keeping, Art.&nbsp;14 human oversight — govern <em>high-risk</em> systems only, and those obligations were deferred to December&nbsp;2027 / August&nbsp;2028; most internal agents aren't in scope, and a gateway is access infrastructure, not an AI system. Self-hosted, so the audit trail and token vault stay in your perimeter — no extra sub-processor in your SOC&nbsp;2 scope. It doesn't certify you; it removes the "agents can't be scoped, attributed or revoked" finding. Full mapping: <a href="/answers/ai-agent-compliance-controls/">AI agent compliance controls</a>.</p>
     <h3>Is Cortex Gateway Zero Trust, and how does it relate to IAM?</h3>
     <p>It applies zero-trust principles to agent access: no implicit trust from the network, every call authenticated as the <em>real user</em>, least-privilege scopes, and verification through the OAuth perimeter on each request. It isn't a full ZTNA product — it's the identity-and-access layer for agents. Think of it as the missing link between your <strong>IAM</strong> (who your users are, what they may do) and the <strong>MCP ecosystem</strong> (how agents call tools): Cortex carries each user's real identity and rights from your existing identity provider into every agent tool call, so the agent inherits exactly that user's access — nothing implied, nothing flattened.</p>
     <h3>Is Cortex Gateway free?</h3>
@@ -186,8 +207,8 @@
     <p>Separate connectors keep native permissions too — that's the baseline, not the differentiator. What they don't give you: one consent surface, central revocation that cuts everything at once, a single pseudonymized audit trail, scopes that work as cross-app entitlements, and a tool catalog that doesn't flood the agent's context. Cortex keeps the per-user permission model of separate connectors with the operational surface of one.</p>
     <h3>How is this different from Composio or Pipedream?</h3>
     <p>Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny contract for your own apps. See the detailed <a href="/alternatives/composio/">Composio</a> and <a href="/alternatives/pipedream/">Pipedream</a> pages.</p>
-    <h3>How is this different from other open-source MCP gateways like 1MCP or MCPJungle?</h3>
-    <p>Those aggregate existing MCP servers behind one endpoint, with downstream credentials configured at the gateway — every caller shares them, and access control has to be re-implemented as gateway rules. Cortex is an OAuth 2.1 resource server: each user authenticates as themselves, the gateway propagates their identity, and each app keeps enforcing its own permissions. In one line: they put one credential in front of N MCP servers; Cortex puts each user's own identity in front of N apps. (They are a good fit for personal setups and for tools that have no per-user permissions.)</p>
+    <h3>How is this different from other open-source MCP gateways?</h3>
+    <p>Two questions separate them, and both are architecture rather than roadmap: <em>whose credential reaches the downstream server</em>, and <em>where the authorization decision is made</em>. A team gateway like <a href="https://github.com/duaraghav8/MCPJungle">MCPJungle</a> takes downstream credentials at server registration — so every caller shares them — and expresses access control as gateway ACLs. A data plane like <a href="https://github.com/agentgateway/agentgateway">agentgateway</a> decides through a policy engine at the edge, which is exactly right for a data plane. Cortex is an OAuth 2.1 resource server that decides <em>nothing</em>: each user authenticates as themselves, the gateway propagates their identity, and each app keeps enforcing the permission model it already had. In one line: they put one credential — or one policy engine — in front of N MCP servers; Cortex puts each user's own identity in front of N apps. Local aggregators like 1MCP and Docker MCP Gateway are single-user developer tools solving a different problem. Full comparison, verified from each repository: <a href="/alternatives/open-source-mcp-gateways/">open-source MCP gateways compared</a>.</p>
     <h3>Couldn't I just build this myself — or have an AI agent generate it?</h3>
     <p>Sure — it's MIT-licensed and we sell nothing, so clone it or regenerate it. What took weeks wasn't writing the code: it was debugging OAuth 2.1 + MCP against real clients — the exact <code>401 + WWW-Authenticate</code> challenge claude.ai requires before it starts the flow, issuer-behind-reverse-proxy, per-client registration quirks, SSE session behavior. Those fixes live in this repo, covered by tests and a live demo you can probe, so nobody has to pay for them twice.</p>
     <h3>Is this related to Palo Alto Networks Cortex, CNCF Cortex, or Cortex.io?</h3>

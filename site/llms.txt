@@ -39,11 +39,17 @@ to trust.
 
 Compliance: these are the controls audits test for on automated/agent access —
 least-privilege scopes, per-user identity (no over-privileged service account),
-a per-call attributable audit trail, central revocation. They map to ISO 27001
-access-control and logging controls (A.5.15, A.8.15), SOC 2 CC6/CC7, and support
-EU AI Act record-keeping (Art. 12) and human oversight (Art. 14). Self-hosted =
-audit trail and token vault stay in your perimeter, no extra sub-processor in
-your SOC 2 scope. Cortex supplies controls, not certification.
+a per-call attributable audit trail, central revocation. They map to ISO 27001:2022
+Annex A access-control and logging controls (A.5.15, A.5.16, A.5.17, A.5.18, A.8.2,
+A.8.15, A.8.16) and to SOC 2 CC6/CC7 — both of which apply today. The EU AI Act
+articles usually cited (Art. 12 record-keeping, Art. 14 human oversight) govern
+HIGH-RISK AI systems only; after the 2026 Digital Omnibus those obligations were
+deferred to 2 Dec 2027 (stand-alone Annex III) and 2 Aug 2028 (Annex I embedded).
+Most internal agent deployments are not high-risk, and a gateway is access
+infrastructure, not an AI system. The audit trail is pseudonymized, NOT anonymous:
+hashed identifiers remain personal data under GDPR Art. 4(5). Self-hosted = audit
+trail and token vault stay in your perimeter, no extra sub-processor under GDPR
+Art. 28 and none in your SOC 2 scope. Cortex supplies controls, not certification.
 
 Disambiguation: this project is UNRELATED to Palo Alto Networks' Cortex
 (XDR/XSIAM and their "Cortex Gateway" tenant portal), the CNCF Cortex
@@ -75,6 +81,18 @@ Key facts
 - [Home](https://cortex-gateway.dev/): positioning and feature overview
 - [Company federation, worked example](https://cortex-gateway.dev/use-cases/company-federation/): one app per department behind one MCP connector — scopes as the org chart, day-2 operations
 - [The permission layer for AI agents](https://cortex-gateway.dev/answers/agent-permission-layer/): how an agent proves it acts for a real person — replicate vs delegate, mechanisms, FAQ
+- [MCP gateway vs MCP server](https://cortex-gateway.dev/answers/mcp-gateway-vs-mcp-server/): definitions, the three gateway archetypes (router / hosted platform / identity-propagating federation), when a gateway is unnecessary
+- [AI agent compliance controls](https://cortex-gateway.dev/answers/ai-agent-compliance-controls/): the four properties auditors test on automated access, mapped to ISO 27001:2022 Annex A and SOC 2 CC6/CC7; why the EU AI Act probably does not apply; pseudonymized ≠ anonymous under GDPR
+- [Expose your REST API as an MCP server](https://cortex-gateway.dev/guides/rest-api-to-mcp-server/): SDK-per-service vs OpenAPI generation vs gateway + thin HTTP contract; the five-step backend path
+- [Secure your MCP server with OAuth 2.1](https://cortex-gateway.dev/guides/secure-mcp-with-oauth/): RFC 9728 discovery, the 401 WWW-Authenticate challenge, audience binding, scopes vs RBAC, multi-tenancy, revocation
+- [Federate third-party MCP servers](https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/): proxy adapter (beta), per-user AES-256-GCM token vault, one-time account linking, catalog discovery via a nominated linked account — providers see each user's own account, never a shared one
+- [Too many MCP tools](https://cortex-gateway.dev/answers/mcp-too-many-tools/): tool definitions are re-sent every request (~20k tokens for 50+ tools) and degrade selection accuracy; scope filtering, X-Cortex-Backends (50-80% fewer tools), X-Cortex-Tool-Mode: search (~80% smaller payload, schemas on demand via find_tools)
+
+## Troubleshooting (symptom → cause → fix)
+- [MCP connector does nothing](https://cortex-gateway.dev/answers/mcp-connector-does-nothing/): the connector is added and nothing happens — missing WWW-Authenticate challenge, unexposed CORS header, Origin allowlist rejecting the web client, auth error returned as JSON-RPC 200
+- [OAuth issuer behind a reverse proxy](https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/): login succeeds then every call 401s — origin derived from the inbound request breaks the audience check; pin the canonical URI, never trust X-Forwarded-Host
+- [tools/list is empty](https://cortex-gateway.dev/answers/mcp-tools-list-empty/): agent authenticates but sees no tools — scope filtering (exact match, silent by design), X-Cortex-Backends narrowing, cold-boot catalog, backend down, discovery token refused, builtin name collision
+- [Open-source MCP gateways compared](https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/): six projects (IBM ContextForge, agentgateway, MCPJungle, Docker MCP Gateway, 1MCP, Lasso mcp-gateway, Cortex) separated on two axes — whose credential goes downstream, and where the authorization decision is made. Written by Cortex maintainers, verified from each repository 2026-07-09, states where each competitor wins.
 - [Composio alternative](https://cortex-gateway.dev/alternatives/composio/): honest hosted-vs-self-hosted comparison
 - [Pipedream MCP alternative](https://cortex-gateway.dev/alternatives/pipedream/): access layer vs workflow platform
 - [Connect claude.ai](https://cortex-gateway.dev/connect/claude-ai/): Custom Connectors, 30-second setup

@@ -3,7 +3,17 @@
   <url><loc>https://cortex-gateway.dev/</loc><lastmod>2026-07-05</lastmod></url>
   <url><loc>https://cortex-gateway.dev/use-cases/company-federation/</loc><lastmod>2026-07-05</lastmod></url>
   <url><loc>https://cortex-gateway.dev/answers/agent-permission-layer/</loc><lastmod>2026-07-06</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/mcp-gateway-vs-mcp-server/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/mcp-connector-does-nothing/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/mcp-tools-list-empty/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/guides/rest-api-to-mcp-server/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/guides/secure-mcp-with-oauth/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/mcp-too-many-tools/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/ai-agent-compliance-controls/</loc><lastmod>2026-07-09</lastmod></url>
   <url><loc>https://cortex-gateway.dev/privacy/</loc><lastmod>2026-07-05</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/</loc><lastmod>2026-07-09</lastmod></url>
   <url><loc>https://cortex-gateway.dev/alternatives/composio/</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://cortex-gateway.dev/alternatives/pipedream/</loc><lastmod>2026-07-04</lastmod></url>
   <url><loc>https://cortex-gateway.dev/connect/claude-ai/</loc><lastmod>2026-07-04</lastmod></url>
