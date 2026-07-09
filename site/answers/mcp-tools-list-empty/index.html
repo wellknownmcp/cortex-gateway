@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP tools/list is empty: six causes and how to tell them apart | Cortex Gateway</title>
+<meta name="description" content="Your agent connects, authenticates, and sees no tools. Six causes — missing scopes, a header narrowing the catalog, a cold-boot cache, a backend that is down, a rejected discovery token, a name collision — and the one call that discriminates between them.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-tools-list-empty/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="MCP tools/list is empty: six causes and how to tell them apart">
+<meta property="og:description" content="The agent authenticates and sees no tools. Scopes, catalog cache, backend health, discovery token — and the one call that tells you which.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-tools-list-empty/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "MCP tools/list is empty: six causes and how to tell them apart",
+      "url": "https://cortex-gateway.dev/answers/mcp-tools-list-empty/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-tools-list-empty/" },
+        { "@type": "ListItem", "position": 3, "name": "tools/list is empty" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why does my MCP agent see no tools after connecting successfully?",
+          "acceptedAnswer": { "@type": "Answer", "text": "If authentication succeeded, the tools were filtered out rather than missing. The most common reason is scopes: a gateway filters tools/list by exact match between each tool's required scope and the scopes carried by the caller's token, so a token that was never granted mcp:docs:read makes every docs tool disappear without any error. The second most common reason is that the tool catalog itself is empty because a backend is unreachable or the gateway has just booted. Call whoami first — it reports your effective scopes and which backends are healthy." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should tools/list ever return literally zero tools?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not on a healthy Cortex Gateway. Gateway builtins such as whoami, list_cortex_resources and report_missing_capability are always listed and are never scope-filtered, so a successful tools/list always contains at least those. If you receive an entirely empty array you are not talking to the gateway's MCP endpoint, or the response you are reading is an error body rather than a JSON-RPC result. Seeing only the builtins is a completely different diagnosis: the catalog is fine and your scopes or your backend filter removed everything else." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does a scope typo silently remove tools instead of raising an error?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because scope filtering is least privilege, not error handling. An agent must not learn that a tool exists if its user may not call it, so a tool whose required scope is absent from the token is removed from the catalog rather than reported as forbidden. This is deliberate, and it means mcp:docs:read and mcp:docs.read behave as two unrelated scopes: exact string comparison, no normalization, no warning." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do my tools disappear right after the gateway restarts?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The federated catalog lives in memory and is rebuilt by polling each backend's list_tools. On a cold boot the first refresh has not completed, so the catalog is briefly empty and tools/list returns only the gateway builtins. It fills within one refresh cycle — sixty seconds in Cortex Gateway. The same mechanism means a backend that is down loses its tools from the catalog rather than breaking the whole list: failure isolation, by design." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is scopes_supported empty in my protected-resource metadata?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because that field is derived from the live federated catalog. On a cold boot, or when every backend is unreachable, there are no tools, therefore no scopes to advertise. A client reading the document at that moment may request no scopes at all and end up with a token that filters every tool out — a chicken-and-egg failure that resolves once the first catalog refresh completes. Wait one refresh cycle before diagnosing anything else." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is one of my backend tools missing while the others are listed?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Three possibilities. Its required scope is not in your token. Its name collides with a gateway builtin — a backend tool called whoami is masked from tools/list because the builtin takes priority at dispatch. Or its backend is declared in the configuration without a URL, in which case it is silently skipped at refresh. The gateway logs the refresh outcome per backend, which distinguishes the third case immediately." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › tools/list is empty</p>
+  <h1><code>tools/list</code> is empty: six causes and how to tell them apart</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>The agent connected, OAuth succeeded, and it sees no tools. Nothing is broken — something <strong>filtered</strong> them. Start by asking which kind of empty you have: <em>only the gateway builtins</em> means the catalog is healthy and your <strong>scopes</strong> (or a backend filter header) removed the rest; <em>literally zero tools</em> means you are not reading a successful <code>tools/list</code> at all. The single most useful next call is <code>whoami</code>: it returns your effective scopes and which backends are alive.</p>
+  </div>
+
+  <h2>First: which kind of empty?</h2>
+  <p>Gateway builtins — <code>whoami</code>, <code>list_cortex_resources</code>, <code>read_cortex_resource</code>, <code>report_missing_capability</code>, <code>list_cortex_tickets</code> — are <strong>always listed and never scope-filtered</strong>, because they belong to the gateway rather than to any federated application. That property turns a vague symptom into a two-way branch:</p>
+  <table>
+    <tr><th>What you see</th><th>What it means</th></tr>
+    <tr><td>The builtins, and nothing else</td><td>The MCP layer works. Your <strong>scopes</strong>, a <strong>backend filter</strong>, or an <strong>empty catalog</strong> removed the application tools. Causes 1 to 5 below.</td></tr>
+    <tr><td>An empty array, no builtins at all</td><td>You are not reading a successful <code>tools/list</code>. Either the response is an error body, or you are hitting the wrong endpoint. Check the HTTP status first — a <code>401</code> here means <a href="/answers/mcp-connector-does-nothing/">the OAuth challenge story</a>.</td></tr>
+    <tr><td>Most tools, one missing</td><td>Cause 6: scope, name collision, or an unconfigured backend.</td></tr>
+  </table>
+
+  <h2>Cause 1 — your token does not carry the scope (most common)</h2>
+  <p>A gateway filters the catalog by <strong>exact string match</strong> between the scope a tool declares and the scopes in the caller's token. A tool requiring <code>mcp:docs:read</code> is removed from <code>tools/list</code> for a token that does not hold it — silently, and on purpose.</p>
+  <p>The silence is the feature. Least privilege means an agent must not even <em>learn</em> that a tool exists if its user may not call it. So there is no warning, no <code>403</code>, no log line saying "hid 14 tools". And because the comparison is literal, <code>mcp:docs:read</code> and <code>mcp:docs.read</code> are two unrelated scopes: a single character makes an entire application vanish.</p>
+  <pre><code>{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"whoami","arguments":{}}}</code></pre>
+  <p><code>whoami</code> returns the scopes your token actually carries, next to the scopes each backend expects. Compare the two strings before suspecting anything else — this is the answer four times out of five.</p>
+  <p>If the scope is genuinely missing, the fix is at the authorization server: the consent screen must offer it and the client must request it.</p>
+
+  <h2>Cause 2 — a header narrowed the catalog</h2>
+  <p>Cortex Gateway accepts <code>X-Cortex-Backends</code> to restrict <code>tools/list</code> to a subset of applications, which cuts 50–80 % of the context an agent spends on tool definitions. A subtlety bites: <strong>an empty value is not "no filter"</strong>.</p>
+  <pre><code>X-Cortex-Backends: docs,billing   → tools of those two apps, plus builtins
+X-Cortex-Backends:                → builtins only
+(header absent)                   → every healthy backend</code></pre>
+  <p>A client that always sets the header, from a config value that happens to be an empty string, ends up asking for nothing and getting exactly that. Same for <code>X-Cortex-Tool-Mode: search</code>, which does not empty the list but returns compact entries — names and one-line descriptions, with schemas fetched on demand through <code>find_tools</code>. An agent expecting full <code>inputSchema</code> objects may read that as "no usable tools".</p>
+
+  <h2>Cause 3 — the gateway just booted</h2>
+  <p>The federated catalog is built by polling each backend's <code>list_tools</code>, and it lives in memory. On a cold start the first refresh has not completed yet, so the catalog is empty and <code>tools/list</code> legitimately returns only the builtins. It fills within one refresh cycle — sixty seconds — and pushes <code>notifications/tools/list_changed</code> to connected clients.</p>
+  <p>Before diagnosing anything else after a deploy or a restart: <strong>wait one cycle</strong>. A surprising share of "the tools disappeared" reports are a screenshot taken twenty seconds after <code>pm2 restart</code>.</p>
+
+  <h2>Cause 4 — a backend is down, and that is not an error</h2>
+  <p>When a backend fails to answer <code>list_tools</code>, it loses its tools from the catalog and the refresh continues. This is failure isolation: one broken application must not take down the tool list of the other four. The consequence is that a backend outage looks exactly like a scope problem from the agent's side — tools quietly absent, no error anywhere.</p>
+  <p>Two things distinguish them. <code>whoami</code> aggregates the health of every backend, so a missing entry there points at the backend, not at your token. And the gateway logs the refresh outcome per backend at every cycle, which names the failure directly.</p>
+  <p>A related trap: a backend id declared in <code>CORTEX_BACKENDS</code> with no matching <code>CORTEX_BACKEND_&lt;ID&gt;_URL</code> is <strong>silently skipped</strong>. It never appears, never errors, and looks identical to a backend that is down.</p>
+
+  <h2>Cause 5 — the backend rejected the discovery token</h2>
+  <p>Catalog discovery does not run as a user. The gateway calls <code>list_tools</code> with a <strong>static technical token</strong> that carries no email and no role, precisely so a compromised catalog call cannot read anyone's data — and the backend contract requires every <em>other</em> method to be refused when authentication comes from that token.</p>
+  <p>Implement that rule slightly too broadly and the backend refuses <code>list_tools</code> as well. The gateway receives a <code>403</code>, treats the backend as unhealthy, and drops its tools. You then debug scopes for an hour while the real problem is a backend that will not describe itself.</p>
+  <p>Reproduce it directly, with no gateway involved:</p>
+  <pre><code>curl -s -X POST https://docs.internal.example.com/api/cortex/backend \
+  -H "Authorization: Bearer $CORTEX_TECHNICAL_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"method":"list_tools","params":{}}' | jq</code></pre>
+  <p>This must return the catalog. The same call with <code>{"method":"list_notes"}</code> must return <code>403</code>. If the first is refused, or the second succeeds, the backend has the rule backwards. Details in the <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md">backend contract</a>, and the surrounding design in <a href="/guides/rest-api-to-mcp-server/">exposing a REST API as an MCP server</a>.</p>
+
+  <h2>Cause 6 — one tool is missing, not all of them</h2>
+  <p>Three candidates, in order:</p>
+  <ul>
+    <li><strong>Scope.</strong> Same as cause 1, restricted to one tool. Write tools are the usual victims: a read-only token sees <code>list_notes</code> but never <code>save_note</code>. That is the system working.</li>
+    <li><strong>Name collision with a builtin.</strong> Every backend exposes <code>whoami</code> by contract, so a federated <code>docs_whoami</code> would duplicate the gateway builtin. The gateway masks it from <code>tools/list</code> — the builtin already aggregates every backend's answer, and takes priority at dispatch.</li>
+    <li><strong>Deprecated, not absent.</strong> A tool marked deprecated is still listed, with its removal date prefixed into the description. Agents that filter on description text have been known to drop them.</li>
+  </ul>
+
+  <h2>The chicken-and-egg you will hit exactly once</h2>
+  <p>The <code>scopes_supported</code> field of <code>/.well-known/oauth-protected-resource</code> is derived from the live catalog: ship a tool with a new scope in any backend and that scope becomes discoverable without touching the gateway. Elegant — and it means that on a cold boot, or when every backend is unreachable, the document advertises <strong>no scopes at all</strong>.</p>
+  <p>A client reading it at that exact moment requests no scopes, receives a token that grants none, and sees a catalog filtered down to the builtins. Everything then looks like cause 1, and re-authenticating fixes it, which teaches you nothing. The rule that saves the hour: <strong>after any restart, let one refresh cycle pass before you let a client run discovery.</strong></p>
+
+  <h2>The diagnostic, in order</h2>
+  <table>
+    <tr><th>#</th><th>Check</th><th>What it rules out</th></tr>
+    <tr><td>1</td><td>Are the builtins listed?</td><td>No → not a catalog problem. Read the HTTP status.</td></tr>
+    <tr><td>2</td><td><code>whoami</code>: scopes + backend health</td><td>Distinguishes cause 1 (scopes) from causes 3–5 (catalog).</td></tr>
+    <tr><td>3</td><td>Is <code>X-Cortex-Backends</code> being sent, possibly empty?</td><td>Cause 2.</td></tr>
+    <tr><td>4</td><td>Has one refresh cycle elapsed since boot?</td><td>Cause 3, and the discovery race above.</td></tr>
+    <tr><td>5</td><td>Gateway refresh logs, per backend</td><td>Causes 4 and 5, by name.</td></tr>
+    <tr><td>6</td><td><code>curl</code> the backend's <code>list_tools</code> with the technical token</td><td>Cause 5, definitively.</td></tr>
+  </table>
+  <p>The <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> is a working reference: connect an agent, call <code>whoami</code>, and compare a read-only token's <code>tools/list</code> with one that also holds the write scope. The write tools are not forbidden — they are <em>invisible</em>, which is what least privilege looks like from the agent's side.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Why does my MCP agent see no tools after connecting successfully?</h3>
+    <p>If OAuth succeeded, the tools were filtered, not lost. Usually scopes: the catalog is filtered by exact match between each tool's required scope and the token's scopes, so a token never granted <code>mcp:docs:read</code> makes every docs tool disappear without an error. Otherwise the catalog itself is empty — a backend is down, or the gateway just booted. Call <code>whoami</code>: it reports your effective scopes and which backends are healthy.</p>
+    <h3>Should tools/list ever return literally zero tools?</h3>
+    <p>Not on a healthy gateway. Builtins like <code>whoami</code> are always listed and never scope-filtered, so a successful <code>tools/list</code> always contains at least those. An entirely empty array means you are reading an error body or hitting the wrong endpoint. Seeing <em>only</em> the builtins is a different diagnosis entirely: the catalog is fine, your scopes or a backend filter removed the rest.</p>
+    <h3>Why does a scope typo silently remove tools instead of raising an error?</h3>
+    <p>Because scope filtering is least privilege, not error handling: an agent must not learn that a tool exists if its user may not call it. The comparison is literal, so <code>mcp:docs:read</code> and <code>mcp:docs.read</code> are unrelated scopes — one character, one invisible application.</p>
+    <h3>Why do my tools disappear right after a restart?</h3>
+    <p>The catalog is in memory and rebuilt by polling each backend. On a cold boot the first refresh has not finished, so only the builtins are listed. It fills within one cycle (60 s) and pushes <code>tools/list_changed</code>. Wait one cycle before diagnosing.</p>
+    <h3>Why is scopes_supported empty in my protected-resource metadata?</h3>
+    <p>It is derived from the live catalog. Cold boot or all backends unreachable means no tools, therefore no scopes advertised — and a client reading it then requests none, gets a token granting none, and sees only builtins. Let one refresh cycle pass before running discovery.</p>
+    <h3>Why is one backend tool missing while the others are listed?</h3>
+    <p>Its scope is not in your token; or its name collides with a gateway builtin (<code>whoami</code> is masked, since the builtin aggregates every backend); or its backend is declared without a URL and is silently skipped at refresh. The per-backend refresh logs settle the third case immediately.</p>
+    <h3>A backend is down. Why is there no error?</h3>
+    <p>Failure isolation: a backend that cannot answer <code>list_tools</code> loses its tools and the refresh continues, so one broken application does not take down the other four. The cost is that an outage looks like a scope problem from the agent's side. <code>whoami</code> and the refresh logs distinguish them.</p>
+    <h3>My tools have no inputSchema. Is the catalog broken?</h3>
+    <p>No — you are in <code>search</code> mode (<code>X-Cortex-Tool-Mode: search</code>), which returns names and one-line descriptions to save context, with full schemas fetched on demand via <code>find_tools</code>. It cuts the <code>tools/list</code> payload by roughly 80 %.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

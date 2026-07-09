@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP OAuth behind a reverse proxy: issuer, audience and the endless 401 loop | Cortex Gateway</title>
+<meta name="description" content="Your MCP server logs in, then immediately asks to log in again. The cause is an origin computed from the inbound request behind a proxy: the challenge points at localhost, or the token's audience does not match the canonical resource URI. Why it happens and how to pin it.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="MCP OAuth behind a reverse proxy: issuer, audience and the endless 401 loop">
+<meta property="og:description" content="Log in, get 401, log in again. Why deriving your origin from the inbound request breaks OAuth discovery and audience validation — and the one-line fix.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "MCP OAuth behind a reverse proxy: issuer, audience and the endless 401 loop",
+      "url": "https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/" },
+        { "@type": "ListItem", "position": 3, "name": "OAuth issuer behind a reverse proxy" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Why does my MCP client log in successfully and then get 401 again?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The token is valid but it was minted for a different resource than the one your server expects. Your MCP server compares the token's aud claim against its canonical resource URI. If that URI is computed from the inbound request behind a reverse proxy, the server expects http://localhost:3000/mcp while the client requested a token for https://mcp.example.com/mcp. Every call then fails validation, the client re-authenticates, and the loop never ends. Pin the canonical URI in configuration instead of deriving it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my OAuth discovery document point at localhost?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because the framework built the URL from the request it received. Behind a reverse proxy, the inbound request carries the internal host and scheme — localhost:3000, HTTP — not the public origin the client used. Every URL derived that way is wrong for the client: the WWW-Authenticate challenge, the resource field of the protected-resource metadata, and the redirect URIs. The fix is to configure the public canonical URI explicitly and never read it from the request." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I trust X-Forwarded-Host to reconstruct the public origin?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. X-Forwarded-Host and X-Forwarded-Proto are set by whatever spoke to your process last, and they are trivially spoofable unless every hop is trusted and validated. Using them to build a security-relevant identifier means an attacker who can reach your origin server directly can redirect discovery and audience validation to a host they control. The canonical resource URI is a constant of the deployment, so it belongs in configuration, not in a header." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the audience of an MCP access token?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It is the canonical URI of the MCP resource the token is for — for example https://mcp.example.com/mcp. RFC 8707 resource indicators let the client ask its authorization server for a token scoped to exactly that resource, and the server must reject any token whose aud claim does not match. Accepting any well-signed token from your authorization server means a token granted to an unrelated, low-trust application is silently honoured by your MCP endpoint." }
+        },
+        {
+          "@type": "Question",
+          "name": "What must the OAuth issuer URL be behind a proxy?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The public HTTPS URL of the authorization server, identical to the iss claim it stamps into its tokens and to the authorization_servers entry your resource advertises. The three strings are compared literally, so a trailing slash, an http scheme, or an internal hostname breaks validation. The JWKS is fetched from that issuer, so a wrong issuer also means the signature cannot be verified." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I verify the canonical URI of a deployed MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Fetch the protected-resource metadata over the public URL and read the resource field: curl -s https://mcp.example.com/.well-known/oauth-protected-resource | jq .resource. It must return the public MCP endpoint, not localhost and not an internal hostname. Then decode an access token your client obtained and confirm its aud claim is that same string, character for character." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › OAuth issuer behind a reverse proxy</p>
+  <h1>MCP OAuth behind a reverse proxy: the endless 401 loop</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>The user logs in, consents, comes back — and the very next call returns <code>401</code>, so the client logs in again. Forever. The cause is almost always that your server <strong>computed a URL from the inbound request</strong>. Behind a reverse proxy that request says <code>localhost:3000</code> over HTTP, while the client is talking to <code>https://mcp.example.com</code>. Every URL derived from it is wrong: the discovery challenge, the <code>resource</code> in your metadata, and — the one that causes the loop — the <strong>expected token audience</strong>. Pin the canonical URI in configuration. Never read it from a header.</p>
+  </div>
+
+  <h2>Two symptoms, one root cause</h2>
+  <p>Deriving the origin from the request produces two different failures depending on where the wrong URL surfaces first.</p>
+  <table>
+    <tr><th>Symptom</th><th>Where the wrong URL appears</th></tr>
+    <tr><td>The connector does nothing at all, no login prompt</td><td>In the <code>WWW-Authenticate</code> challenge: the client fetches <code>http://localhost:3213/.well-known/…</code>, finds nothing, stops. (See <a href="/answers/mcp-connector-does-nothing/">connector does nothing</a>, cause 5.)</td></tr>
+    <tr><td>Login succeeds, then every call returns <code>401</code>, and the client re-authenticates in a loop</td><td>In the <strong>audience check</strong>: the client obtained a token for <code>https://mcp.example.com/mcp</code>, your server expects <code>http://localhost:3213/mcp</code>. The token is perfectly valid and perfectly rejected.</td></tr>
+  </table>
+  <p>The second is the more confusing of the two, because everything <em>works</em>: the flow completes, the token is signed, the user sees a consent screen. The failure is a string comparison nobody thought to log.</p>
+
+  <h2>Why frameworks get this wrong by default</h2>
+  <p>Web frameworks build absolute URLs from the request they received: <code>new URL(req.url).origin</code>, <code>request.base_url</code>, <code>url_for(_external=True)</code>. On a laptop, that origin is the public origin, so everything works. In production the process sits behind nginx, a load balancer, or a platform router, and it receives <code>http://127.0.0.1:3000</code>. The framework is not wrong — it is answering the question it was asked. The question was wrong.</p>
+  <p>What makes this a security question and not merely a configuration one: the canonical resource URI is the value your server compares the token's <code>aud</code> claim against. It is an identifier, not a convenience.</p>
+
+  <h2>Do not reconstruct it from X-Forwarded-Host</h2>
+  <p>The reflex is to read <code>X-Forwarded-Host</code> and <code>X-Forwarded-Proto</code> and rebuild the origin. Resist it. Those headers are set by whatever spoke to your process last. Unless every hop strips and re-sets them, an attacker who can reach your origin server directly controls the value — and therefore controls where discovery points and which audience you accept.</p>
+  <p>The public URL of your MCP endpoint is <strong>a constant of the deployment</strong>. It does not vary per request. It belongs in configuration:</p>
+  <pre><code>CORTEX_CANONICAL_URI=https://mcp.example.com/mcp   # the resource identifier = expected audience
+OAUTH_ISSUER=https://auth.example.com              # JWKS at <issuer>/.well-known/jwks.json</code></pre>
+  <p>Everything else derives from those two strings: the <code>resource_metadata</code> URL in the challenge, the <code>resource</code> field of the discovery document, and the audience the verifier enforces. One source of truth, no request involved.</p>
+
+  <h2>The audience check is the point, not an obstacle</h2>
+  <p>It is tempting, once you understand the loop, to "fix" it by skipping the <code>aud</code> check. That trades a visible bug for an invisible vulnerability.</p>
+  <p>A token is not valid; it is valid <em>for a resource</em>. If your MCP server accepts any well-signed token from your authorization server, then a token your user granted to an unrelated application — an internal dashboard, a partner integration, a low-trust script — is silently honoured by your high-trust MCP endpoint. RFC 8707 resource indicators exist so the client can request a token scoped to exactly one resource, and the audience check is where that scoping becomes real. Bind it to the canonical URI and reject everything else.</p>
+
+  <h2>Three strings that must match exactly</h2>
+  <p>OAuth compares these literally. A trailing slash breaks them. An <code>http</code> scheme breaks them. An internal hostname breaks them.</p>
+  <table>
+    <tr><th>String</th><th>Produced by</th><th>Consumed by</th></tr>
+    <tr><td>Issuer</td><td>The <code>iss</code> claim in the token, and the authorization server's own metadata</td><td>Your verifier; the JWKS is fetched from it</td></tr>
+    <tr><td>Canonical resource URI</td><td>Your configuration</td><td>The <code>aud</code> check, the <code>resource</code> field of your metadata, and the challenge URL</td></tr>
+    <tr><td>Authorization server URL</td><td>The <code>authorization_servers</code> array you advertise</td><td>The client, to find the token endpoint</td></tr>
+  </table>
+  <p>If the authorization server also runs behind a proxy — and it usually does — it has the same disease: its <code>iss</code> claim and its own discovery document must carry the public URL, not the internal one.</p>
+
+  <h2>Verify it on the deployed URL</h2>
+  <p>These checks cannot fail on localhost, which is exactly why they must run against production.</p>
+  <pre><code># 1. The metadata must describe the public resource
+curl -s https://mcp.example.com/.well-known/oauth-protected-resource | jq .resource
+# → "https://mcp.example.com/mcp"   (never localhost, never an internal host)
+
+# 2. The challenge must point at the public metadata URL
+curl -si -X POST https://mcp.example.com/mcp -d '{}' | grep -i www-authenticate
+
+# 3. The token's audience must equal that same string, character for character
+echo "$ACCESS_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '.aud, .iss'</code></pre>
+  <p>Make check 1 a smoke test in your deployment pipeline. It is one HTTP call, it catches the whole family, and it is the difference between finding this in CI and finding it in a support thread.</p>
+
+  <h2>What Cortex Gateway does</h2>
+  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> refuses to guess. The canonical URI is configuration (<code>CORTEX_CANONICAL_URI</code>), the expected audience defaults to it (overridable with <code>OAUTH_AUDIENCE</code> for the RFC 8707 audience-per-resource pattern), and the <code>WWW-Authenticate</code> challenge is built from it rather than from the inbound request. The issuer is required at boot — the process refuses to start without <code>OAUTH_ISSUER</code> — because a resource server that does not know its own authorization server has nothing useful to do.</p>
+  <p>The broader rule, worth carrying to any protocol: <strong>a value used in a security comparison must never be derived from the message being checked.</strong></p>
+  <p>Full wiring, including scopes and revocation: <a href="/guides/secure-mcp-with-oauth/">securing your MCP server with OAuth 2.1</a>.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Why does my MCP client log in successfully and then get 401 again?</h3>
+    <p>The token is valid but minted for a different resource than the one your server expects. Your server compares <code>aud</code> against its canonical resource URI; if that URI came from the inbound request behind a proxy, it says <code>localhost</code> while the token says <code>https://mcp.example.com/mcp</code>. Every call fails, the client re-authenticates, and the loop never ends.</p>
+    <h3>Why does my OAuth discovery document point at localhost?</h3>
+    <p>Because the framework built the URL from the request it received, and behind a proxy that request carries the internal host and scheme. Configure the public canonical URI explicitly; never read it from the request.</p>
+    <h3>Should I trust X-Forwarded-Host to reconstruct the public origin?</h3>
+    <p>No. Those headers are set by the previous hop and are spoofable unless every hop is trusted. The canonical URI does not vary per request — it is a constant of the deployment, so it belongs in configuration, not in a header.</p>
+    <h3>What is the audience of an MCP access token?</h3>
+    <p>The canonical URI of the MCP resource, e.g. <code>https://mcp.example.com/mcp</code>. RFC 8707 lets the client request a token scoped to exactly that resource, and your server must reject any token whose <code>aud</code> does not match — otherwise a token granted to an unrelated application is accepted by your MCP endpoint.</p>
+    <h3>Can I just disable the audience check to stop the loop?</h3>
+    <p>You can, and you will have replaced a visible bug with an invisible vulnerability. Any well-signed token from your authorization server — including one your user granted to a low-trust app — would then be honoured. Fix the URI instead; it is one environment variable.</p>
+    <h3>What must the OAuth issuer URL be behind a proxy?</h3>
+    <p>The public HTTPS URL of the authorization server, identical to the <code>iss</code> claim in its tokens and to the <code>authorization_servers</code> entry you advertise. The three are compared literally: a trailing slash or an <code>http</code> scheme breaks validation, and a wrong issuer also means the JWKS cannot be fetched.</p>
+    <h3>How do I verify the canonical URI of a deployed server?</h3>
+    <p><code>curl -s https://mcp.example.com/.well-known/oauth-protected-resource | jq .resource</code>. It must return the public MCP endpoint. Then decode an access token and confirm <code>aud</code> is that same string, character for character.</p>
+    <h3>The challenge is right and the audience matches, but tools/list is empty. Same bug?</h3>
+    <p>No — OAuth is working. That is a catalog or scope problem: see <a href="/answers/mcp-tools-list-empty/">why <code>tools/list</code> comes back empty</a>.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
