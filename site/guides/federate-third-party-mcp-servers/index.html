@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Federate third-party MCP servers behind one endpoint, without sharing credentials | Cortex Gateway</title>
+<meta name="description" content="Aggregate several native MCP servers behind a single OAuth 2.1 URL while each provider still sees the user's own account. How a proxy adapter, a per-user encrypted token vault and a one-time linking flow replace the shared service account.">
+<link rel="canonical" href="https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Federate third-party MCP servers without sharing credentials">
+<meta property="og:description" content="One OAuth endpoint in front of several native MCP servers, and each provider still sees the user's own account — proxy adapter, per-user token vault, linking flow.">
+<meta property="og:url" content="https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Federate third-party MCP servers behind one endpoint, without sharing credentials",
+      "url": "https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/" },
+        { "@type": "ListItem", "position": 3, "name": "Federate third-party MCP servers" }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Federate native MCP servers behind one OAuth endpoint with per-user tokens",
+      "description": "Aggregate several remote MCP servers behind a single OAuth 2.1 URL, keeping each provider's per-user permissions by storing every user's own downstream token in an encrypted vault.",
+      "totalTime": "PT2H",
+      "step": [
+        { "@type": "HowToStep", "name": "Declare the downstream MCP servers", "text": "List the proxied servers and their endpoints, and give each one a Cortex scope. The adapter speaks MCP downstream and exposes the plain backend contract upstream, so the gateway federates it like any other backend." },
+        { "@type": "HowToStep", "name": "Federate each adapter route as a loopback backend", "text": "Point a backend entry at the gateway's own adapter route for that server. Tool names then come out namespaced per provider, in one uniform, scope-filtered catalog." },
+        { "@type": "HowToStep", "name": "Provision the token vault", "text": "Set a 32-byte AES key and a database URL. Downstream access and refresh tokens are stored AES-256-GCM encrypted at rest, keyed by the user's OAuth subject." },
+        { "@type": "HowToStep", "name": "Have each user link their accounts once", "text": "The linking flow discovers the provider's authorization server (RFC 9728), registers dynamically when no static client is configured (RFC 7591), runs PKCE, and stores the resulting grant in the vault. Linked once, identified across the whole bundle." },
+        { "@type": "HowToStep", "name": "Configure catalog discovery", "text": "Most commercial MCP servers require authentication even for tools/list, while the gateway's periodic refresh uses a static token with no downstream identity. Nominate one linked account whose token serves discovery only; every actual tool call uses the calling user's own token." }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I aggregate several MCP servers behind one endpoint?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Put a gateway in front that terminates MCP for the agent and acts as an MCP client toward each downstream server. The gateway absorbs initialize, sessions, protocol negotiation and SSE framing, then presents one uniform catalog with tools namespaced per provider. The design question is not the routing but the credentials: whether the gateway presents one shared token for every caller, or each user's own token." }
+        },
+        {
+          "@type": "Question",
+          "name": "How can a proxied MCP server still see each user's own account?",
+          "acceptedAnswer": { "@type": "Answer", "text": "By storing each user's own OAuth grant for that provider, encrypted, and presenting it at call time. The user links their account once through an authorization code flow at the provider; the resulting access and refresh tokens are sealed in a vault keyed by that user's subject. When their agent calls a tool, the adapter looks up their token, refreshes it if needed, and speaks MCP to the provider as them. The provider sees their seat, their rate limits, their permissions, and their audit trail — never a shared service account." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does an MCP proxy have to hold one shared credential for all users?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No, and that is the difference between an aggregating router and an identity-propagating gateway. Configuring downstream credentials at the proxy means every caller shares them, so the provider's per-user permissions are flattened and the audit trail names the integration rather than the person. Per-user token storage preserves both, at the cost of one consent screen per provider per user — which is non-negotiable OAuth, not an implementation shortcut." }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens when a user has not linked a provider yet?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two layers answer. If the authorization server grants the provider's scope only to users who completed linking, the provider's tools are filtered out of tools/list entirely and the agent never sees them. If the scope is present but no grant is stored, the call returns an ACL-shaped 403 carrying the link URL, deliberately distinct from a missing-scope error so the agent asks the user to link rather than to consent to more scopes." }
+        },
+        {
+          "@type": "Question",
+          "name": "How does a gateway discover the tools of an authenticated third-party MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Catalog refresh runs with a static technical token that carries no downstream identity, but most commercial MCP servers require authentication even for tools/list. The resolution is to nominate one linked account whose stored token is used for discovery only, while every actual tool invocation uses the calling user's own token. It keeps a background job from needing anyone's live session, and keeps invocation identity honest." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does federating a provider's MCP server give my users access to their product?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Federation moves access, not licences. Each user links their own account at the provider and must hold whatever plan or seat that provider requires; the gateway never grants entitlements it does not have. Check each provider's terms before re-exposing their MCP server to your users, because re-exposing a service under a shared account is exactly what per-user linking is designed to avoid." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Guides › Federate third-party MCP servers</p>
+  <h1>Federate third-party MCP servers without sharing credentials</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Putting several native MCP servers behind one endpoint is easy. Doing it <em>without flattening identity</em> is the whole problem. The usual aggregator configures one credential per downstream server, so every caller shares it and the provider sees a single over-privileged account. The alternative: each user <strong>links their own account once</strong>, their grant is sealed in a per-user encrypted vault, and at call time the proxy presents <em>their</em> token. The provider sees their seat, their rate limits, their audit trail. One consent per provider per user — that part is non-negotiable OAuth, not a design choice.</p>
+    <p class="note">Status: the proxy adapter is <strong>beta</strong>. Its protocol layer is covered by unit tests against the MCP specification (2025-06-18); it is not certified against any particular commercial provider. Tools only in V1 — downstream prompts and resources are not projected, and interactive features (sampling, elicitation) do not cross the bridge.</p>
+  </div>
+
+  <h2>What the adapter actually is</h2>
+  <p>It is an MCP <em>client</em> pointed downstream, wearing the plain backend contract upstream. It absorbs everything protocol-shaped — <code>initialize</code>, sessions, version negotiation, SSE framing — and exposes the same one-endpoint HTTP contract that <a href="/guides/rest-api-to-mcp-server/">your own applications</a> implement. The gateway core does not learn anything new: it federates the adapter like any other backend.</p>
+  <pre><code>[Agent] ──our JWT──▶ [gateway] ──our JWT──▶ [adapter route]
+                                                 │  the USER's downstream token (vault)
+                                                 ▼
+                                        [mcp.provider.example / ...]</code></pre>
+  <p>Notice where the identity changes hands. Your OAuth JWT never leaves your perimeter; the adapter is the translator, mapping your subject to that user's provider token. Two identity domains, one explicit boundary, no shared account anywhere.</p>
+
+  <h2>1. Declare the downstream servers, federate them as loopback backends</h2>
+  <p>Each proxied server gets an id, an endpoint, and a Cortex scope. Then each is federated by pointing a backend entry back at the gateway's own adapter route:</p>
+  <pre><code># downstream targets
+CORTEX_MCP_SERVERS=canva,figma
+CORTEX_MCP_CANVA_URL=https://mcp.canva.com/mcp
+CORTEX_MCP_FIGMA_URL=https://mcp.figma.com/mcp
+
+# federate them like any backend — pointing back at the gateway itself
+CORTEX_BACKENDS=studio,canva,figma
+CORTEX_BACKEND_STUDIO_URL=http://127.0.0.1:4001          # your own application
+CORTEX_BACKEND_CANVA_URL=http://127.0.0.1:3213
+CORTEX_BACKEND_CANVA_PATH=/api/mcp-adapter/canva/backend
+CORTEX_BACKEND_FIGMA_URL=http://127.0.0.1:3213
+CORTEX_BACKEND_FIGMA_PATH=/api/mcp-adapter/figma/backend</code></pre>
+  <p>Tools come out as <code>canva_*</code>, <code>figma_*</code>, <code>studio_*</code>: one uniform catalog, namespaced by source, <a href="/guides/secure-mcp-with-oauth/">filtered per caller by scope</a>. Your own application and a third-party service are indistinguishable to the agent — which is the point.</p>
+
+  <h2>2. Provision the vault</h2>
+  <pre><code>CORTEX_VAULT_KEY=<32 bytes, base64>     # openssl rand -base64 32
+CORTEX_DATABASE_URL=postgresql://...    # required by the vault</code></pre>
+  <p>Downstream access and refresh tokens are AES-256-GCM encrypted at rest, keyed by the user's OAuth subject. The key lives only in <code>CORTEX_VAULT_KEY</code>. Rotating it invalidates every stored grant and forces users to re-link — which is the correct behaviour, and a real operational event to plan for rather than discover.</p>
+  <p>Treat the vault database and its key as crown jewels. They are the one place in this architecture where holding something valuable is unavoidable, and the reason the gateway is <strong>self-hosted</strong>: on a hosted tool platform, that vault is somebody else's.</p>
+
+  <h2>3. Each user links their accounts, once</h2>
+  <p>Every provider demands its own consent screen. No architecture removes that, and any product that claims to has put a shared account somewhere.</p>
+  <pre><code>GET /api/link/canva/start?token=&lt;the user's Cortex JWT&gt;
+  → 302 to the provider's consent screen → callback → "canva linked ✓"</code></pre>
+  <p>Under the hood, the flow does what a well-behaved OAuth client does: RFC 9728 discovery of the provider's authorization server, dynamic client registration (RFC 7591) when no static client is configured, PKCE, and an AES-GCM-sealed self-contained <code>state</code> so no server-side session is needed. The resulting grant lands in the vault, and the adapter refreshes it silently from then on.</p>
+  <p><strong>Linked once, identified on the whole bundle.</strong> A user unlinks with <code>POST /api/link/&lt;server&gt;/unlink</code>.</p>
+
+  <h2>4. Runtime: whose token, and when</h2>
+  <p>The agent calls <code>canva_create_design</code>. The gateway routes to the adapter; the adapter verifies the Cortex JWT, looks up <em>that caller's</em> Canva token in the vault, refreshes it if expired, speaks real MCP to the provider, and returns the result.</p>
+  <p>Two failure modes, deliberately distinguishable — because they demand opposite things from the agent:</p>
+  <table>
+    <tr><th>Situation</th><th>What the agent sees</th><th>What it should do</th></tr>
+    <tr><td>User has not linked the provider</td><td><code>403</code>, ACL-shaped, carrying the link URL</td><td>Ask the user to link. More scopes will not help.</td></tr>
+    <tr><td>Token lacks the provider's Cortex scope</td><td>The provider's tools are <strong>absent from <code>tools/list</code></strong></td><td>Nothing — it never saw them. Least privilege.</td></tr>
+  </table>
+  <p>These compose usefully. If your authorization server grants <code>mcp:canva:read</code> only to users who completed linking, unlinked users never see the <code>canva_*</code> tools at all: the gateway already filters the catalog by scope. Downstream <code>401</code>s are mapped to that ACL-shaped <code>403</code> upstream — "re-link your account" — and never confused with a missing Cortex scope. A caller told to fetch more scopes for what is actually a broken link will loop through consent forever.</p>
+
+  <h2>5. The non-obvious part: discovering the catalog</h2>
+  <p>Here is the problem nobody anticipates. The gateway refreshes its catalog every 60 seconds by calling <code>list_tools</code> with a <strong>static technical token</strong> that carries no identity — deliberately, so a compromised catalog call can read nobody's data. But most commercial MCP servers require authentication even for <code>tools/list</code>. The background job therefore has no way to ask what tools exist.</p>
+  <p>The resolution is to nominate one linked account for discovery only:</p>
+  <pre><code>CORTEX_MCP_CANVA_CATALOG_SUB=&lt;the sub of a linked account&gt;</code></pre>
+  <p>That account's token is used to enumerate the provider's tools, and <strong>only</strong> for that. Every actual tool invocation still uses the calling user's own token. The distinction is the whole security argument in miniature: reading a catalog is not acting on data, and the two must not share a credential.</p>
+  <p>If discovery quietly returns nothing, the symptom looks exactly like every other empty-catalog cause — see <a href="/answers/mcp-tools-list-empty/">why <code>tools/list</code> comes back empty</a>.</p>
+
+  <h2>What you are and are not buying</h2>
+  <table>
+    <tr><th>Property</th><th>Shared-credential aggregator</th><th>Per-user vault</th></tr>
+    <tr><td>Provider sees</td><td>One account, everyone's rights</td><td>Each user's own account</td></tr>
+    <tr><td>Rate limits, seats</td><td>Pooled, and exhausted by the noisiest user</td><td>Per user, as the provider intends</td></tr>
+    <tr><td>Provider-side audit</td><td>"the integration did it"</td><td>"this person did it"</td></tr>
+    <tr><td>Consent screens</td><td>One, at setup, by an admin</td><td>One per provider per user</td></tr>
+    <tr><td>Blast radius of a breach</td><td>Every user's data at that provider</td><td>The vault — encrypted, in your perimeter</td></tr>
+  </table>
+  <p>The honest cost is the consent screens. Per-user linking is more friction than an admin pasting an API key once, and if a provider genuinely has no per-user permissions to preserve, that friction buys you nothing but the audit trail. Decide per provider.</p>
+
+  <h2>Limits worth knowing before you commit</h2>
+  <ul>
+    <li><strong>Tools only, in V1.</strong> Downstream prompts and resources are not projected upstream. Interactive MCP features — sampling, elicitation — do not cross the bridge.</li>
+    <li><strong>One scope per provider.</strong> All tools of a downstream server share a single Cortex scope; per-tool scope mapping is future work. If a provider mixes read and write tools, your scope is as coarse as its worst tool.</li>
+    <li><strong>Session cache is in-process.</strong> Multi-instance deployments re-initialize per instance. Harmless — just extra handshakes.</li>
+    <li><strong>Licensing.</strong> Federation moves <em>access</em>, not licences. Each user links their own account and must hold the appropriate plan or seat. Read each provider's terms before re-exposing their MCP server; re-exposing a service under a shared account is precisely what per-user linking exists to avoid.</li>
+  </ul>
+
+  <h2>Where this sits</h2>
+  <p>This is the third gateway archetype from <a href="/answers/mcp-gateway-vs-mcp-server/">MCP gateway vs MCP server</a>, applied to servers you did not write. A router puts one credential in front of N MCP servers. This puts <em>each user's own identity</em> in front of them — and the gateway in the middle still decides nothing, holds no standing rights of its own, and mirrors no permission rules.</p>
+  <p>Full configuration reference: <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/mcp-adapter.md">the MCP adapter documentation</a>.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>How do I aggregate several MCP servers behind one endpoint?</h3>
+    <p>Put a gateway in front that terminates MCP for the agent and acts as an MCP client toward each downstream server, absorbing <code>initialize</code>, sessions, negotiation and SSE, then presenting one uniform catalog namespaced per provider. The design question is not routing but credentials: one shared token, or each user's own.</p>
+    <h3>How can a proxied MCP server still see each user's own account?</h3>
+    <p>The user links their account once through an authorization code flow at the provider; the resulting grant is sealed in a vault keyed by their subject. At call time the adapter presents <em>their</em> token, refreshing as needed. The provider sees their seat, their rate limits, their audit trail — never a shared service account.</p>
+    <h3>Does an MCP proxy have to hold one shared credential for all users?</h3>
+    <p>No, and that is what separates an aggregating router from an identity-propagating gateway. Downstream credentials configured at the proxy are shared by every caller, flattening the provider's per-user permissions and naming the integration in its audit log. Per-user tokens preserve both, at the cost of one consent screen per provider per user.</p>
+    <h3>What happens when a user has not linked a provider?</h3>
+    <p>If the scope is granted only to linked users, the provider's tools never appear in <code>tools/list</code>. If the scope is present but no grant is stored, the call returns an ACL-shaped <code>403</code> carrying the link URL — deliberately distinct from a missing-scope error, so the agent asks the user to link rather than to consent to more scopes.</p>
+    <h3>How does the gateway discover the tools of an authenticated third-party server?</h3>
+    <p>The periodic refresh uses a static technical token with no downstream identity, but commercial MCP servers usually require auth even for <code>tools/list</code>. Nominate one linked account (<code>CORTEX_MCP_&lt;ID&gt;_CATALOG_SUB</code>) whose token serves discovery <em>only</em>; every real invocation uses the calling user's own token.</p>
+    <h3>Does federating a provider give my users access to their product?</h3>
+    <p>No. Federation moves access, not licences. Each user links their own account and must hold whatever plan or seat the provider requires. Check their terms before re-exposing their MCP server.</p>
+    <h3>What happens if I rotate the vault key?</h3>
+    <p>Every stored grant becomes unreadable and users must re-link. That is correct behaviour, and a planned operational event — not something to discover during an incident.</p>
+    <h3>Is the adapter production-ready?</h3>
+    <p>It is beta. The protocol layer is unit-tested against the MCP specification (2025-06-18) but not certified against any specific commercial provider, and V1 projects tools only. Treat a new provider as an integration to validate, not a checkbox.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

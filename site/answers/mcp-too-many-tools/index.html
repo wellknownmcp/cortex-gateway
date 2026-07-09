@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Too many MCP tools: how tools/list eats your agent's context | Cortex Gateway</title>
+<meta name="description" content="Tool definitions are re-sent on every request, so 50+ federated tools cost 20k+ tokens before any work happens — and degrade tool selection. Measure it, then cut it: scope filtering, backend filtering, and a compact tools/list with schemas fetched on demand.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-too-many-tools/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Too many MCP tools: how tools/list eats your agent's context">
+<meta property="og:description" content="50+ tools cost 20k+ tokens at session boot, most never used. Measure it, then cut it — three reductions, ranked by what they cost you.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-too-many-tools/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Too many MCP tools: how tools/list eats your agent's context",
+      "url": "https://cortex-gateway.dev/answers/mcp-too-many-tools/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-too-many-tools/" },
+        { "@type": "ListItem", "position": 3, "name": "Too many MCP tools" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How many tools is too many for an MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "There is no fixed number, because the cost is measured in tokens and in selection accuracy rather than in tools. Full JSON schemas for fifty-odd tools easily reach twenty thousand tokens of agent context at session boot, and that payload is re-sent on every request while most of it is never used. The practical test is whether an agent still picks the right tool: when near-duplicate names and overlapping descriptions start appearing, the catalog is past its useful size regardless of the count." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why do MCP tool definitions cost tokens on every request?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because the model has no memory of them between turns. The tool definitions an agent may call are part of the prompt, so the whole catalog — names, descriptions, JSON schemas — is serialized into context at each request. A tool that is never called still costs its schema every single turn. This is why a large tools/list is a recurring tax rather than a one-time setup cost." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a bigger tool catalog make an agent worse at choosing tools?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Tool selection is a discrimination problem, and every additional definition adds noise to it. Catalogs grown by federation are especially prone to this because different applications name similar operations differently — search, find, query, list — so the model must disambiguate between tools that look interchangeable from their descriptions. Reducing the catalog to what the caller may actually use improves accuracy independently of any token saving." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I reduce the size of tools/list without removing tools?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Three reductions compose. Scope filtering removes tools the caller's token does not permit, which costs nothing because least privilege already requires it. Backend filtering narrows the catalog to the applications a session actually works with, typically removing 50 to 80 percent of the tools. Search mode returns compact entries — name and one-line description — and lets the agent fetch full schemas on demand, cutting the tools/list payload by roughly 80 percent. None of them deletes a tool; they change who sees what, and when." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the Tool Search Tool pattern in MCP?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Instead of shipping every tool's full JSON schema up front, the server returns a compact catalog of names and one-line descriptions, plus one extra tool that resolves full schemas on request. The agent scans the compact list, decides which two or three tools it needs, and calls that resolver to load their schemas. In Cortex Gateway the header X-Cortex-Tool-Mode: search enables this and exposes a find_tools builtin that accepts either exact names or a fuzzy query." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I merge many tools into one tool with an action parameter?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. It trades a legible catalog for an illegible schema: the model now has to infer which combinations of parameters are valid for which action, with no type system to guide it, and errors surface at call time instead of selection time. It also breaks scope filtering, because one tool can carry only one required scope, so a read-only user sees a tool that can write. Fewer, task-shaped tools are the goal; one omnibus tool is a different failure." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › Too many MCP tools</p>
+  <h1>Too many MCP tools: how <code>tools/list</code> eats your agent's context</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Tool definitions are part of the prompt, so the entire catalog is re-sent on <strong>every request</strong>. Full JSON schemas for fifty-odd federated tools easily reach <strong>20 000 tokens</strong> at session boot, and most of them are never called. Worse than the cost is the noise: tool selection is a discrimination problem, and a federated catalog is full of near-duplicates. Three reductions compose — <strong>scope filtering</strong> (free, you owe it to least privilege anyway), <strong>backend filtering</strong> (50–80 % fewer tools), and a <strong>compact <code>tools/list</code></strong> with schemas fetched on demand (~80 % of the payload). None of them deletes a tool.</p>
+  </div>
+
+  <h2>Why the catalog is a recurring tax, not a setup cost</h2>
+  <p>A model has no memory of your tools between turns. Whatever it may call must be serialized into its context on each request: names, descriptions, JSON schemas, enums, nested objects. A tool that is never invoked still costs its full schema, every single turn, for the whole conversation.</p>
+  <p>This is the fact that makes federation dangerous. Connecting one application is fine. Connecting eight — each with a dozen honest, well-documented tools — produces a catalog nobody designed, and the agent pays for all of it before it does any work.</p>
+
+  <h2>The cost you don't see: selection accuracy</h2>
+  <p>Tokens are the visible half. The invisible half is that the model must now <em>discriminate</em> between more options, and federated catalogs are adversarial by construction: different teams name the same operation <code>search</code>, <code>find</code>, <code>query</code>, <code>list</code>, and describe them in similar words. From the model's side these tools look interchangeable, and it picks by vibes.</p>
+  <p>So a smaller catalog is not merely cheaper. It is <strong>more accurate</strong>, and the accuracy gain arrives even when the token budget was never a constraint. If you take one thing from this page: shrinking the catalog is a correctness intervention wearing a performance costume.</p>
+
+  <h2>Measure before you cut</h2>
+  <p>Guessing which application bloats the context is a good way to optimize the wrong one. Cortex Gateway audits every <code>tools/list</code> call with the four fields that answer the question:</p>
+  <table>
+    <tr><th>Field</th><th>What it tells you</th></tr>
+    <tr><td><code>tools_listed</code></td><td>How many tools this caller actually received, after scope filtering</td></tr>
+    <tr><td><code>tokens_estimate</code></td><td>Approximate context cost of the payload (characters ÷ 4)</td></tr>
+    <tr><td><code>backends_filter</code></td><td>Which applications the session asked for, if any</td></tr>
+    <tr><td><code>tool_mode</code></td><td><code>normal</code> (full schemas) or <code>search</code> (compact)</td></tr>
+  </table>
+  <p>They land in the stdout JSON lines, and in the <code>cortex_audit_trail</code> table when a database is configured. Compare a session before and after each mitigation rather than trusting the percentages below — your catalog is not the one they were measured on.</p>
+
+  <h2>Reduction 1 — scope filtering (you already owe this)</h2>
+  <p>The catalog is filtered by exact match between each tool's required scope and the scopes in the caller's token. A read-only user does not see the write tools. This is <a href="/guides/secure-mcp-with-oauth/">least privilege</a>, and it happens whether or not you care about context — but it is also, quietly, the first and cheapest reduction: a per-user catalog is smaller than the union of everyone's tools.</p>
+  <p>The corollary matters for design. Scopes that carve the catalog along the lines of what people actually do give you both security and a smaller prompt. Scopes that are all-or-nothing give you neither.</p>
+  <p>(If this filtering surprises you by removing <em>everything</em>, that is a different page: <a href="/answers/mcp-tools-list-empty/">why <code>tools/list</code> comes back empty</a>.)</p>
+
+  <h2>Reduction 2 — backend filtering, when the session knows its scope of work</h2>
+  <p>Most sessions touch one or two applications. Say so, and the rest of the catalog never enters the context:</p>
+  <pre><code>X-Cortex-Backends: docs,billing</code></pre>
+  <p><code>tools/list</code> then returns only the tools of those applications. Gateway builtins — <code>whoami</code>, <code>report_missing_capability</code> — always stay visible, because they are not attached to any backend. Typical gain: <strong>50–80 % fewer tools</strong>, plus the selection-accuracy improvement that comes with removing the noise.</p>
+  <p>One sharp edge, and it has bitten people: <strong>an empty value is not "no filter"</strong>. <code>X-Cortex-Backends:</code> with nothing after it means "no backends", and you get the builtins alone. A client that always sets the header from a config variable that happens to be empty asks for nothing and receives exactly that.</p>
+
+  <h2>Reduction 3 — compact catalog, schemas on demand</h2>
+  <p>When the session does <em>not</em> know in advance which applications it needs, you cannot narrow the catalog — but you can stop paying for schemas nobody reads. This is the Tool Search Tool pattern, adapted to MCP:</p>
+  <pre><code>X-Cortex-Tool-Mode: search</code></pre>
+  <p>With that header, <code>tools/list</code> returns compact entries — name, a one-line description, and a minimal <code>inputSchema</code> of <code>{ "type": "object" }</code> — and one extra builtin appears:</p>
+  <pre><code>find_tools({ names: ["docs_search_documents", "billing_get_invoice"] })  // exact, cheapest
+find_tools({ query: "invoice" })                                        // fuzzy, max 10 results</code></pre>
+  <p>The agent scans the compact list, picks the two or three tools it needs, and loads their full schemas. Typical gain on the <code>tools/list</code> payload: <strong>~80 %</strong>. The trade is one extra round trip before the first call, which is nearly free next to a model turn.</p>
+  <p>The two reductions compose: a programmatic agent that knows it works on <code>docs</code> can send both headers and pay for almost nothing.</p>
+
+  <h2>Compatibility is the default</h2>
+  <p>Send no header and behaviour is unchanged: full schemas, one <code>tools/list</code>, maximum compatibility with clients that pre-load the whole palette and never call a resolver. That matters, because you do not control which client an employee plugs in. Both mitigations are opt-in, per request, and a client that ignores them still works.</p>
+
+  <h2>The reduction that isn't a header: design the catalog</h2>
+  <p>Every mitigation above hides tools. None of them fixes a catalog that should not exist. Two anti-patterns produce most of the bloat.</p>
+  <p><strong>One tool per REST endpoint.</strong> Generating the catalog from an OpenAPI document turns a hundred routes into a hundred tools that mirror your router rather than the agent's task. The unit of an MCP catalog is the task someone performs, not the resource your REST design happened to expose — the argument in full is on <a href="/guides/rest-api-to-mcp-server/">exposing a REST API as an MCP server</a>.</p>
+  <p><strong>The omnibus tool.</strong> The overcorrection: collapse twelve tools into <code>do_thing({ action, ...params })</code>. The catalog shrinks and the schema becomes unreadable — the model must infer which parameters are legal for which action, with no types to guide it, and errors move from selection time to call time. It also breaks scope filtering, since one tool carries one required scope: your read-only user now sees a tool that can write. Fewer tools is the goal; one tool is a different failure.</p>
+  <p>Between the two: <strong>coarse, task-shaped tools</strong>, each spanning several internal calls if that is what the task means, each with a description that says <em>when</em> to use it rather than what it wraps.</p>
+
+  <h2>And when the agent still doesn't know what to do</h2>
+  <p>A trimmed catalog tells an agent what it <em>can</em> call. It still doesn't teach it your domain — which sequence accomplishes anything, what a "workspace" means in your product. Shrinking <code>tools/list</code> by 80 % and then watching the agent flail is a real outcome. The missing half lives server-side, versioned with the application that owns it:</p>
+  <ul>
+    <li><code>&lt;app&gt;_get_help(topic?)</code> — concepts, the two to five workflows that matter, conventions, limits. Connected agents are instructed to prefer it over guessing, and it costs nothing until it is called.</li>
+    <li><code>report_missing_capability</code> — when the agent hits a gap, it files a ticket instead of inventing a tool. Your backlog of unmet agent needs writes itself.</li>
+  </ul>
+  <p>That is the honest resolution of the tension: a small catalog plus on-demand documentation beats a large catalog plus hope.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>How many tools is too many for an MCP server?</h3>
+    <p>There is no fixed number — the cost is tokens and selection accuracy, not tools. Full schemas for fifty-odd tools reach roughly 20 000 tokens at session boot, re-sent every turn, mostly unused. The practical test: when near-duplicate names and overlapping descriptions appear, the catalog is past its useful size whatever the count.</p>
+    <h3>Why do tool definitions cost tokens on every request?</h3>
+    <p>The model has no memory of them between turns, so the whole catalog is serialized into context at each request. A tool that is never called still costs its schema every turn. A large <code>tools/list</code> is a recurring tax, not a setup cost.</p>
+    <h3>Does a bigger catalog make the agent worse at choosing tools?</h3>
+    <p>Yes. Selection is discrimination, and every extra definition adds noise. Federated catalogs are the worst case: different applications call the same operation <code>search</code>, <code>find</code>, <code>query</code>, <code>list</code>. Reducing the catalog improves accuracy even when tokens were never a constraint.</p>
+    <h3>How do I shrink tools/list without removing tools?</h3>
+    <p>Three composable reductions: scope filtering (free — least privilege already requires it), backend filtering via <code>X-Cortex-Backends</code> (50–80 % fewer tools), and search mode via <code>X-Cortex-Tool-Mode: search</code> (~80 % of the payload, schemas on demand). None deletes a tool; they change who sees what, and when.</p>
+    <h3>What is the Tool Search Tool pattern?</h3>
+    <p>Return a compact catalog — names and one-line descriptions — plus one builtin that resolves full schemas on request. The agent scans, picks two or three tools, loads their schemas. In Cortex Gateway, <code>find_tools</code> accepts exact <code>names</code> or a fuzzy <code>query</code> (max 10 results).</p>
+    <h3>Should I merge tools into one tool with an action parameter?</h3>
+    <p>No. You trade a legible catalog for an illegible schema, move errors from selection time to call time, and break scope filtering — one tool carries one scope, so read-only users see a tool that can write. Fewer, task-shaped tools; not one omnibus tool.</p>
+    <h3>Will these headers break clients that don't know them?</h3>
+    <p>No. Both are opt-in and per request. Send nothing and you get the unchanged behaviour: full schemas, one <code>tools/list</code>. Clients that pre-load the whole palette keep working.</p>
+    <h3>My tools have no inputSchema. Is something broken?</h3>
+    <p>You are in <code>search</code> mode. The compact entries carry a minimal <code>{ "type": "object" }</code> schema on purpose; call <code>find_tools</code> to get the real one.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
