@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to expose your REST API as an MCP server | Cortex Gateway</title>
+<meta name="description" content="Three ways to turn a REST API into an MCP server — an SDK per service, generation from OpenAPI, or a gateway plus a thin HTTP contract. Why auto-generated wrappers disappoint, and a five-step path that keeps per-user permissions intact.">
+<link rel="canonical" href="https://cortex-gateway.dev/guides/rest-api-to-mcp-server/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="How to expose your REST API as an MCP server">
+<meta property="og:description" content="SDK per service, OpenAPI generation, or a gateway with a thin HTTP contract — the trade-offs, and a five-step path that keeps per-user permissions intact.">
+<meta property="og:url" content="https://cortex-gateway.dev/guides/rest-api-to-mcp-server/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "How to expose your REST API as an MCP server",
+      "url": "https://cortex-gateway.dev/guides/rest-api-to-mcp-server/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://cortex-gateway.dev/guides/rest-api-to-mcp-server/" },
+        { "@type": "ListItem", "position": 3, "name": "REST API to MCP server" }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Expose a REST API as an MCP server through a gateway",
+      "description": "Add one HTTP endpoint to an existing web application so an MCP gateway can federate its tools, with the real user's identity propagated on every call.",
+      "totalTime": "PT1H",
+      "step": [
+        { "@type": "HowToStep", "name": "Add one POST endpoint", "text": "Expose POST /api/cortex/backend accepting { method, params } and returning plain JSON. No MCP library, no stdio, no SSE — the transport lives in the gateway." },
+        { "@type": "HowToStep", "name": "Declare a tool catalog", "text": "Implement the list_tools method. Each tool declares a name, a description, an input schema and the OAuth scope it requires, in the form mcp:<domain>:<action>." },
+        { "@type": "HowToStep", "name": "Verify the caller", "text": "For catalog methods the gateway sends a static technical token that carries no identity; refuse every other method when it is used. For data methods it propagates the user's OAuth JWT — validate it against your authorization server and apply your existing ACLs." },
+        { "@type": "HowToStep", "name": "Register the backend with the gateway", "text": "Add the backend id to CORTEX_BACKENDS and point CORTEX_BACKEND_<ID>_URL at the service. The gateway polls the catalog every 60 seconds; new tools appear without redeploying it." },
+        { "@type": "HowToStep", "name": "Connect an MCP client", "text": "Point any spec-compliant MCP client at the gateway's single OAuth 2.1-protected URL. Tools appear namespaced as <backendId>_<toolName>, filtered by the caller's scopes." }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Can I turn a REST API into an MCP server automatically from its OpenAPI spec?",
+          "acceptedAnswer": { "@type": "Answer", "text": "You can generate one, and it will work as a demo. It rarely survives contact with a real agent. An OpenAPI document describes endpoints, not tasks: a hundred CRUD routes become a hundred tools, which floods the agent's context and offers no guidance on which sequence accomplishes anything. It also says nothing about authorization, so generated wrappers ship a single API key shared by every caller. The useful unit of an MCP catalog is the task an agent performs, not the route your REST design happened to expose." }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an MCP SDK inside my application?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not if a gateway handles the protocol. MCP's transport and lifecycle — initialize, session handling, Streamable HTTP, SSE, version negotiation — are the same for every server, so they belong in one place. Behind a gateway your application stays a normal web service exposing one JSON endpoint, which you can still call directly from tests, batch jobs and other integrations. The reference backend in the Cortex Gateway repository implements the whole contract in about 120 lines of dependency-free Node." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do I add an MCP server to my website or SaaS?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Decide first who the agent acts for. If every visitor's agent gets the same data, a standalone read-only MCP server is enough. If the agent acts on behalf of a signed-in user, the MCP endpoint must be an OAuth 2.1 resource server so each call carries that user's identity and your existing permission model still applies. A gateway gives you that perimeter once, in front of every application you run, instead of once per service." }
+        },
+        {
+          "@type": "Question",
+          "name": "How many tools should an MCP server expose?",
+          "acceptedAnswer": { "@type": "Answer", "text": "As few as make each real workflow completable. Every tool definition sits in the agent's context window on every request, so a large catalog degrades selection accuracy and costs tokens before any work happens. Prefer coarse task-shaped tools over thin endpoint mirrors, scope-filter the catalog so a caller only sees what they may use, and for very large surfaces serve a compact tools/list and let the agent fetch full schemas on demand." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is the difference between an MCP wrapper and an MCP gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A wrapper is one adapter in front of one API; you get one per service, each with its own connector, consent screen and credential. A gateway is a single MCP server that federates many services behind one endpoint, one OAuth perimeter and one audit trail. The distinction that matters is what happens to identity: a wrapper usually holds a shared credential, while an identity-propagating gateway carries the real user's token through to each application." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Guides › REST API to MCP server</p>
+  <h1>How to expose your REST API as an MCP server</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>There are three ways to put an existing API in front of AI agents: embed an <strong>MCP SDK in every service</strong>, <strong>generate a wrapper from your OpenAPI spec</strong>, or run <strong>one gateway</strong> and give each service a thin HTTP contract. The first duplicates protocol machinery per service. The second produces a catalog shaped like your routes rather than like the agent's task, and has no answer for authorization. The third keeps the protocol in one place and — if the gateway propagates identity rather than holding a credential — keeps each application's own per-user permissions intact. This guide walks the third path in five steps.</p>
+  </div>
+
+  <h2>Start with the question the code doesn't ask</h2>
+  <p>"How do I turn my REST API into an MCP server" is usually the second question. The first one is <em>who will the agent be acting for</em>, because the answer changes the architecture:</p>
+  <ul>
+    <li><strong>Nobody in particular.</strong> Public documentation, a product catalog, a status page. A standalone read-only MCP server is fine. No auth, no gateway, ship it.</li>
+    <li><strong>A specific signed-in user.</strong> Their invoices, their tickets, their documents. Now the MCP endpoint has to be an OAuth 2.1 resource server, every call has to carry that person's identity, and your existing permission model has to still apply. This is where most integrations quietly cheat — one API key, one service account, everyone's data — and where the <a href="/answers/agent-permission-layer/">permission layer</a> stops being optional.</li>
+  </ul>
+  <p>Everything below assumes the second case, because the first one needs no guide.</p>
+
+  <h2>Three approaches, honestly compared</h2>
+  <table>
+    <tr><th></th><th>MCP SDK per service</th><th>Generate from OpenAPI</th><th>Gateway + thin contract</th></tr>
+    <tr><td>Protocol code</td><td>In every service, upgraded in every service</td><td>In the generator's runtime</td><td>Once, in the gateway</td></tr>
+    <tr><td>Catalog shape</td><td>Whatever you write</td><td>Mirrors your routes — one tool per endpoint</td><td>Whatever you write, per domain</td></tr>
+    <tr><td>Authorization</td><td>You implement OAuth in each service</td><td>Usually a single shared API key</td><td>One OAuth perimeter; each app keeps its own ACLs</td></tr>
+    <tr><td>Agent sees</td><td>N connectors, N consent screens</td><td>N connectors, one credential's worth of rights</td><td>One endpoint, scope-filtered tools</td></tr>
+    <tr><td>Audit</td><td>Per service</td><td>"The integration did it"</td><td>One attributable line per call</td></tr>
+    <tr><td>Good when</td><td>You ship one product and MCP <em>is</em> the product</td><td>Prototype, internal tool, read-only public API</td><td>Several apps, real users, real permissions</td></tr>
+  </table>
+
+  <h2>Why "just generate it from the OpenAPI spec" disappoints</h2>
+  <p>It is the tempting move and it demos well. Three things go wrong once an agent actually uses it.</p>
+  <p><strong>An endpoint is not a task.</strong> REST decomposes a domain into resources; an agent needs the workflow that spans them. <code>POST /orders</code>, <code>GET /orders/{id}</code>, <code>PATCH /orders/{id}/status</code> and <code>GET /customers/{id}</code> are four tools that together mean "place an order for this customer" — a sequence the agent has to rediscover by trial and error on every conversation, because nothing in the spec says the third call requires the first.</p>
+  <p><strong>Catalogs cost context.</strong> Every tool definition is re-sent on every request. A hundred generated tools push out the room the model needs to reason, and measurably degrade which tool it picks. Ten task-shaped tools beat a hundred endpoint mirrors, every time.</p>
+  <p><strong>OpenAPI has nothing to say about who is calling.</strong> Security schemes describe <em>how</em> a credential travels, not <em>whose</em> it is. So the generated server holds one key, that key holds the union of everyone's rights, and the audit log names the integration instead of the person. That is the confused-deputy problem, shipped by default.</p>
+  <p class="note">None of this means the spec is useless — it is a fine inventory of what your API <em>can</em> do while you decide which handful of tools an agent should <em>see</em>.</p>
+
+  <h2>The gateway path, in five steps</h2>
+  <p>With <a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> in front, an application never becomes an MCP server. It stays a plain web service and exposes one endpoint the gateway knows how to call — the <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md">backend contract</a>, about 120 lines to implement from scratch.</p>
+
+  <h3>1. Add one POST endpoint</h3>
+  <p>One route, JSON in, JSON out. No MCP library, no stdio, no SSE — <code>initialize</code>, sessions, Streamable HTTP and version negotiation live in the gateway, once.</p>
+  <pre><code>POST /api/cortex/backend
+Content-Type: application/json
+Authorization: Bearer &lt;token&gt;
+X-Cortex-User-Id / -User-Email / -User-Role / -Scopes
+
+{ "method": "search_documents", "params": { "query": "q3 report" } }</code></pre>
+  <p>The response is the method's return value, with ordinary HTTP status codes. Because it is just HTTP, the same endpoint remains callable from your tests, batch jobs and other integrations.</p>
+
+  <h3>2. Declare a tool catalog, not a route list</h3>
+  <p>The single method every backend must implement is <code>list_tools</code>. Each tool names the OAuth scope it requires; the gateway filters the catalog per caller, so a read-only user never even sees the write tools.</p>
+  <pre><code>{
+  "name": "search_documents",
+  "scope": "mcp:docs:read",
+  "description": "Search documents by keyword.",
+  "params": { "query": "string", "limit": "number?" },
+  "version": "1.0.0"
+}</code></pre>
+  <p>Scopes follow <code>mcp:&lt;domain&gt;:&lt;action&gt;</code>. Write it for the agent, not for your router: name the task, describe when to use it, and let one tool span several internal calls if that is what the task means.</p>
+
+  <h3>3. Verify the caller — two token classes, one rule</h3>
+  <p>The gateway sends two kinds of Bearer token, and conflating them is the one security mistake that matters here.</p>
+  <table>
+    <tr><th>Token</th><th>Sent for</th><th>Your backend must</th></tr>
+    <tr><td>Static technical token</td><td>Catalog discovery only — <code>list_tools</code>, <code>list_prompts</code>, <code>list_resource_templates</code>, <code>get_snapshot</code></td><td>Accept it for those methods and <strong>refuse every other method with 403</strong>. It carries no email and no role: it is not an identity.</td></tr>
+    <tr><td>The user's OAuth JWT</td><td>Every data method</td><td>Re-validate it against the same authorization server (signature, issuer, audience, expiry) and apply your existing ACLs. The <code>X-Cortex-*</code> headers are a convenience; the JWT stays the source of truth.</td></tr>
+  </table>
+  <p>Note what did <em>not</em> happen: you did not write a permission model for agents. The rules you already enforce for the human are the rules the agent inherits, because the call arrives as that human. See <a href="/guides/secure-mcp-with-oauth/">securing an MCP server with OAuth 2.1</a> for the validation details.</p>
+
+  <h3>4. Distinguish "wrong scope" from "wrong role" in errors</h3>
+  <p>A caller holding the right scope but lacking the role must not be told to go fetch more scopes — they will loop through consent forever.</p>
+  <table>
+    <tr><th>Status</th><th>Meaning</th></tr>
+    <tr><td><code>403</code> with <code>{ "required": "mcp:docs:write" }</code></td><td>Missing OAuth scope — the agent can ask for it</td></tr>
+    <tr><td><code>403</code> without <code>required</code></td><td>Application ACL: this person may not do this. No amount of consent changes that.</td></tr>
+    <tr><td><code>400</code>/<code>500</code> with <code>{ "error": "..." }</code></td><td>Business error, propagated verbatim to the agent</td></tr>
+  </table>
+
+  <h3>5. Register the backend and connect a client</h3>
+  <pre><code>CORTEX_BACKENDS=docs,billing
+CORTEX_BACKEND_DOCS_URL=https://docs.internal.example.com
+CORTEX_BACKEND_BILLING_URL=https://billing.internal.example.com</code></pre>
+  <p>The gateway polls each catalog every 60 seconds, so shipping a new tool in your app makes it appear to connected agents without redeploying the gateway. Tools arrive namespaced — <code>docs_search_documents</code> — and any spec-compliant MCP client can reach them through one OAuth 2.1-protected URL.</p>
+
+  <h2>Teach the agent your domain, not just your signatures</h2>
+  <p>A tool catalog says <em>what</em> can be called. It never says <em>why</em>, or <em>in what order</em>, or what a "workspace" is in your product. That explanation belongs in the application that owns the domain, versioned with the code, rather than copied into every client's system prompt. The contract reserves a method for it:</p>
+  <ul>
+    <li><code>get_help(topic?)</code> — your domain concepts, the two to five workflows that actually matter, naming and pagination conventions, quotas, and what the backend deliberately does not do. Connected agents are instructed to prefer it over guessing.</li>
+    <li><code>report_missing_capability</code> — when an agent hits a gap, it files a ticket instead of hallucinating a tool. Your backlog of unmet agent needs assembles itself, at the backend that owns the domain.</li>
+  </ul>
+  <p>Keep <code>get_help</code> honest and structured. An agent that follows stale documentation into an error stops trusting it, and you have lost more than you gained.</p>
+
+  <h2>Connecting your SaaS to Claude and other agents</h2>
+  <p>Once an application sits behind the gateway, "connect it to an agent" is no longer per-application work. The user adds one connector, authenticates once against your authorization server, consents to a set of scopes, and their agent sees exactly the tools those scopes allow across every application you federated. One consent surface, one audit trail, and a single revocation that cuts access everywhere at once.</p>
+  <p>Client-side, it is a URL: see <a href="/connect/claude-ai/">claude.ai</a>, <a href="/connect/claude-desktop/">Claude Desktop</a>, <a href="/connect/claude-code/">Claude Code</a>, <a href="/connect/openclaw/">OpenClaw</a> or <a href="/connect/hermes/">Hermes</a>. Any client implementing MCP over Streamable HTTP with OAuth 2.1 works the same way — the gateway implements the specification, not a particular vendor.</p>
+  <p>Already running third-party MCP servers? <a href="/guides/federate-third-party-mcp-servers/">They federate too</a>, through a proxy adapter that holds each user's own linked OAuth token in an encrypted per-user vault — so the provider sees the user's own account, seat and rate limits, never a shared service account.</p>
+
+  <h2>Try it in five minutes</h2>
+  <p>Clone the repository and run the reference backend — a single dependency-free file implementing the full contract — then point the gateway at it:</p>
+  <pre><code>node examples/demo-backend/server.mjs   # your "REST API", ~120 lines
+docker run ghcr.io/wellknownmcp/cortex-gateway</code></pre>
+  <p>Or skip the setup and probe the <a href="https://mcp.cortex-gateway.dev/">hosted demo</a>: sign up with a magic link, connect an agent, and watch a scope-filtered <code>tools/list</code> come back for your own account.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Can I turn a REST API into an MCP server automatically from its OpenAPI spec?</h3>
+    <p>You can generate one, and it will demo well. It rarely survives a real agent. OpenAPI describes endpoints, not tasks: a hundred CRUD routes become a hundred tools that flood the context window and say nothing about which sequence accomplishes anything. It is also silent on authorization, so generated wrappers ship one API key shared by every caller. The useful unit of an MCP catalog is the task the agent performs, not the route your REST design happened to expose.</p>
+    <h3>Do I need an MCP SDK inside my application?</h3>
+    <p>Not behind a gateway. Transport and lifecycle — <code>initialize</code>, sessions, Streamable HTTP, SSE, version negotiation — are identical for every server, so they belong in one place. Your app stays a normal web service exposing one JSON endpoint, still callable from tests and batch jobs. The repository's reference backend implements the whole contract in about 120 dependency-free lines.</p>
+    <h3>How do I add an MCP server to my website or SaaS?</h3>
+    <p>Decide who the agent acts for. Same data for everyone: a standalone read-only MCP server is enough. Acting for a signed-in user: the endpoint must be an OAuth 2.1 resource server, so each call carries that person's identity and your existing permission model still applies. A gateway gives you that perimeter once, in front of every app you run, rather than once per service.</p>
+    <h3>How many tools should an MCP server expose?</h3>
+    <p>As few as make each real workflow completable. Tool definitions are re-sent on every request, so a large catalog costs tokens and degrades selection accuracy before any work happens. Prefer coarse, task-shaped tools; scope-filter the catalog so a caller sees only what they may use; and for large surfaces, serve a compact <code>tools/list</code> and let the agent fetch full schemas on demand.</p>
+    <h3>What is the difference between an MCP wrapper and an MCP gateway?</h3>
+    <p>A wrapper is one adapter in front of one API — you end up with one per service, each with its own connector, consent screen and credential. A gateway is a single MCP server federating many services behind one endpoint, one OAuth perimeter and one audit trail. What really separates them is identity: a wrapper typically holds a shared credential, while an identity-propagating gateway carries the real user's token through to each application. More in <a href="/answers/mcp-gateway-vs-mcp-server/">MCP gateway vs MCP server</a>.</p>
+    <h3>Does my backend need to speak MCP to third-party agents directly?</h3>
+    <p>No, and it is usually a mistake to try. Speaking MCP means owning session state, protocol version negotiation and an OAuth resource-server implementation in every service. Behind a gateway those exist once. Your services keep the one thing they cannot delegate: their own permission rules.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

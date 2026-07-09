@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP gateway vs MCP server: what's the difference? | Cortex Gateway</title>
+<meta name="description" content="An MCP server exposes its own tools; an MCP gateway is an MCP server whose tools come from elsewhere. The three gateway archetypes — router, hosted platform, identity-propagating federation — when you need one, and when you don't.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-gateway-vs-mcp-server/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="MCP gateway vs MCP server: what's the difference?">
+<meta property="og:description" content="An MCP server exposes its own tools; a gateway is an MCP server whose tools come from elsewhere. Three archetypes, and what happens to identity in each.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-gateway-vs-mcp-server/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "MCP gateway vs MCP server: what's the difference?",
+      "url": "https://cortex-gateway.dev/answers/mcp-gateway-vs-mcp-server/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-gateway-vs-mcp-server/" },
+        { "@type": "ListItem", "position": 3, "name": "MCP gateway vs MCP server" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between an MCP gateway and an MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "An MCP server implements the Model Context Protocol and exposes tools it owns. An MCP gateway is also an MCP server — clients cannot tell the difference and should not have to — but the tools it exposes belong to other systems: applications, APIs, or other MCP servers. The gateway owns the protocol; the systems behind it own the domain. The interesting question is never whether something is a gateway, but what it does with identity: whether it holds one credential in front of everything, or carries each user's own identity through to the system that enforces their permissions." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is an MCP gateway just an API gateway for MCP?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only superficially. An API gateway routes requests to services and applies cross-cutting concerns such as rate limiting and authentication. An MCP gateway also has to federate a catalog: it aggregates tool definitions from every backend, filters them per caller, keeps them fresh as backends deploy, and pushes changes to connected agents. That catalog is a first-class object that has no API-gateway equivalent, and it is what makes the tools/list payload — the thing that occupies the agent's context on every request — a design concern rather than an implementation detail." }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an MCP gateway for a single MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. One application, one server, one connector — a gateway adds a hop and a component for nothing. Gateways start paying for themselves at the point where users would otherwise install several connectors: one consent surface instead of N, one audit trail instead of N, one revocation that cuts everything, cross-application scopes, and a tool catalog you can filter so it does not flood the agent's context." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is an MCP router?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It is the aggregation archetype: one endpoint in front of several existing MCP servers, dispatching each tool call to the server that owns it. Routers usually configure downstream credentials at the router itself, which means every caller shares them and per-user permissions are lost on the way through. They fit personal setups and tools that have no per-user permissions to lose. They are the wrong shape for an organization where different people legitimately see different data." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a gateway add latency to MCP tool calls?",
+          "acceptedAnswer": { "@type": "Answer", "text": "One extra hop, typically inside your own network, on calls that are already dominated by the model's own generation time and by the backend's work. Catalog operations do not even reach the backends: tools/list is served from a cache the gateway refreshes in the background. In exchange the agent's context carries one filtered catalog instead of several unfiltered ones, which usually saves far more time than the hop costs." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should the gateway enforce permissions?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It should enforce the delegation boundary — an agent must not exceed the scopes its user granted — and nothing else. Fine-grained authorization belongs to the application that owns the data, because a gateway that decides who may read what must mirror every application's rules, and mirrors drift. Worse, it concentrates authority in the one component that talks to everything. A gateway that decides nothing adds no new thing to trust." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › MCP gateway vs MCP server</p>
+  <h1>MCP gateway vs MCP server: what's the difference?</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>An <strong>MCP server</strong> implements the protocol and exposes tools it owns. An <strong>MCP gateway</strong> is also an MCP server — clients cannot tell, and should not have to — but its tools belong to other systems. The gateway owns the protocol; the systems behind it own the domain. Whether something is called a gateway, a router, a proxy or a hub matters far less than one question: <strong>what happens to the user's identity as a call passes through it?</strong> Either it is replaced by a shared credential, and every caller becomes the same over-privileged actor, or it is propagated, and each application keeps enforcing its own rules.</p>
+  </div>
+
+  <h2>The definitions, briefly</h2>
+  <table>
+    <tr><th></th><th>MCP server</th><th>MCP gateway</th></tr>
+    <tr><td>Speaks MCP to the client</td><td>Yes</td><td>Yes — indistinguishable from a server</td></tr>
+    <tr><td>Owns the tools</td><td>Yes — it <em>is</em> the domain</td><td>No — they come from applications, APIs or other MCP servers</td></tr>
+    <tr><td>Tool catalog</td><td>Static, written in the code</td><td>Federated: aggregated from backends, refreshed as they deploy</td></tr>
+    <tr><td>Typical count</td><td>One per application</td><td>One per organization</td></tr>
+    <tr><td>The client sees</td><td>One connector per application</td><td>One connector, tools namespaced by their source</td></tr>
+  </table>
+  <p>Note what the gateway is not: it is not a proxy in the transparent sense. It terminates the protocol, holds the session, answers <code>initialize</code>, and hands the agent a catalog assembled from several places. The backends behind it may not speak MCP at all.</p>
+
+  <h2>Three things people call a gateway</h2>
+  <p>The word covers three architectures with very different consequences. The interesting axis is not features; it is what happens to identity.</p>
+
+  <h3>The router (aggregation)</h3>
+  <p>One endpoint in front of several existing MCP servers, dispatching each call to whichever server owns the tool. Downstream credentials are configured at the router, so every caller shares them and any per-user permissions the underlying servers had are flattened on the way through. Access control, if any, is re-implemented as router rules — a second permission model, drifting from the first.</p>
+  <p>This is a genuinely good fit for a personal setup, or for tools that have no per-user permissions to lose in the first place. It is the wrong shape the moment two people in an organization should legitimately see different data.</p>
+
+  <h3>The hosted tool platform</h3>
+  <p>A vendor runs the connectors, holds the OAuth tokens for hundreds of SaaS products, and gives your agent one endpoint. The catalog is enormous and you maintain none of it. In exchange the vendor's infrastructure holds your users' tokens, sees every tool call, and becomes a sub-processor in your compliance scope. Perfectly reasonable trade — as long as it was a trade you made on purpose. The <a href="/alternatives/composio/">Composio</a> and <a href="/alternatives/pipedream/">Pipedream</a> pages compare that model to self-hosting without pretending either is universally right.</p>
+
+  <h3>The identity-propagating federation gateway</h3>
+  <p>One OAuth 2.1 perimeter, and nothing behind it holds anyone else's rights. The user authenticates once against <em>your</em> authorization server; the gateway validates the token, filters the catalog to that user's scopes, and passes their identity through to each application, which applies the permission model it already had. For third-party MCP servers, it passes the user's <em>own</em> linked token from a per-user encrypted vault, so the provider sees that person's account, seat and rate limits.</p>
+  <p>The defining property is what the gateway does <em>not</em> do: it makes no authorization decision, holds no standing credential, and mirrors no permission rules. It carries identity and refuses what the scopes forbid. There is nothing new to trust — which is the only property that makes a component sitting in front of everything acceptable.</p>
+
+  <table>
+    <tr><th></th><th>Router</th><th>Hosted platform</th><th>Federation gateway</th></tr>
+    <tr><td>Identity reaching the backend</td><td>The router's credential</td><td>The vendor's stored token</td><td>The real user's</td></tr>
+    <tr><td>Permission model</td><td>Re-implemented at the router</td><td>The vendor's, plus the app's</td><td>Unchanged — the app's own</td></tr>
+    <tr><td>Audit line reads</td><td>"the router"</td><td>"the platform"</td><td>"this person's agent"</td></tr>
+    <tr><td>Revocation</td><td>Rotate the shared credential</td><td>At the vendor</td><td>One OAuth revocation, everywhere</td></tr>
+    <tr><td>Token custody</td><td>Config file</td><td>The vendor</td><td>Your perimeter, per user, encrypted</td></tr>
+  </table>
+
+  <h2>When you do not need a gateway</h2>
+  <p>One application, one MCP server, one connector. A gateway adds a hop and a moving part in exchange for nothing. Ship the server.</p>
+  <p>The same holds for a handful of MCP servers used by one person on one laptop: separate connectors already keep each provider's native per-user permissions, which is the property that matters. Aggregation is not a virtue in itself.</p>
+
+  <h2>When a gateway starts paying for itself</h2>
+  <p>Not when you have "several servers" — when the <em>operational surface</em> of those servers becomes the problem:</p>
+  <ul>
+    <li><strong>Consent.</strong> N connectors mean N authorization flows per employee, N times to onboard, N to offboard. One perimeter means one.</li>
+    <li><strong>Revocation.</strong> Someone leaves. Either one revocation cuts every application at once, or you go hunting.</li>
+    <li><strong>Audit.</strong> One pseudonymized line per call, in one place, naming the person — instead of N logs in N formats naming N integrations.</li>
+    <li><strong>Entitlements.</strong> Scopes that mean something across applications: a scope is granted once and gates tools in three systems. Free and paid tiers with no paywall logic anywhere.</li>
+    <li><strong>Context budget.</strong> Every tool definition is re-sent on every request. One filtered catalog beats several unfiltered ones — and filtering by the caller's scopes means an agent never sees a tool its user may not call.</li>
+  </ul>
+  <p>Notice that per-user permissions are absent from this list. Separate connectors already give you those. A gateway that <em>loses</em> them in exchange for the items above is a bad trade; the point of federation is to get the operational surface of one connector while keeping the permission model of N.</p>
+
+  <h2>What a gateway must never do</h2>
+  <p>Because it sits in front of everything, a gateway's failure modes are the organization's failure modes. Two rules follow.</p>
+  <p><strong>It must not hold rights of its own.</strong> A gateway with a credential for each backend is a single component holding the union of everyone's access. Compromise it and the blast radius is total; audit it and every line names the gateway.</p>
+  <p><strong>It must not re-implement the applications' rules.</strong> Mirrored permissions are copies with a half-life. The application that owns a record already knows who may read it — and will still know after next quarter's refactor, which the mirror will not survive. Enforce the delegation boundary at the gateway (an agent may not exceed its user's granted scopes), and everything else where the data lives. Re-check at both layers; defense in depth is cheap when neither layer is inventing anything.</p>
+  <p>This is the <a href="/answers/agent-permission-layer/">replicate-versus-delegate</a> distinction, applied to the component in the middle.</p>
+
+  <h2>Concretely</h2>
+  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> is the third archetype, self-hosted and MIT-licensed: one spec-compliant MCP server over Streamable HTTP, protected by OAuth 2.1, federating applications that expose <a href="/guides/rest-api-to-mcp-server/">a single plain-HTTP endpoint</a> — no MCP library in your services. Catalogs refresh in the background, so a tool shipped in one application appears to connected agents without a gateway redeploy. Native third-party MCP servers federate through a proxy adapter with a per-user encrypted token vault.</p>
+  <p>The <a href="/use-cases/company-federation/">company-federation worked example</a> shows the shape at organization scale: one application per department, scopes as the org chart, one connector for everyone. If you are earlier than that, the <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> takes about thirty seconds.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What is the difference between an MCP gateway and an MCP server?</h3>
+    <p>A server implements MCP and exposes tools it owns. A gateway is also an MCP server — clients cannot tell — but its tools belong to other systems. The gateway owns the protocol; the systems behind it own the domain. The question that actually matters is what it does with identity: hold one credential in front of everything, or carry each user's identity through to the system that enforces their permissions.</p>
+    <h3>Is an MCP gateway just an API gateway for MCP?</h3>
+    <p>Only superficially. Both route and apply cross-cutting concerns. Only the MCP gateway has to federate a <em>catalog</em>: aggregate tool definitions from every backend, filter them per caller, keep them fresh, and push changes to connected agents. That catalog is re-sent to the model on every request, which makes its size a design concern with no API-gateway equivalent.</p>
+    <h3>Do I need an MCP gateway for a single MCP server?</h3>
+    <p>No. One application, one connector — a gateway would add a hop for nothing. It starts paying at the point where users would otherwise install several connectors: one consent surface, one audit trail, one revocation, cross-application scopes, and a catalog you can filter.</p>
+    <h3>What is an MCP router?</h3>
+    <p>The aggregation archetype: one endpoint in front of several existing MCP servers. Routers typically configure downstream credentials at the router, so every caller shares them and per-user permissions are flattened. Good for personal setups and for tools with no per-user permissions to lose; wrong wherever two people should legitimately see different data.</p>
+    <h3>Does a gateway add latency to tool calls?</h3>
+    <p>One hop, usually inside your own network, on calls already dominated by model generation and backend work. Catalog operations do not reach the backends at all — <code>tools/list</code> is served from a cache refreshed in the background. The filtered catalog usually saves more model time than the hop costs.</p>
+    <h3>Should the gateway enforce permissions?</h3>
+    <p>It should enforce the delegation boundary — an agent may not exceed the scopes its user granted — and nothing else. Fine-grained authorization belongs to the application that owns the data. A gateway that decides who may read what must mirror every application's rules, and mirrors drift while concentrating authority in the one component that talks to everything.</p>
+    <h3>Can a gateway federate MCP servers it did not write?</h3>
+    <p>Yes, through a proxy adapter that speaks MCP downstream. The design question is whose credential it presents. Holding one shared token for all callers re-creates the router's flattening; holding each user's own linked token in a per-user encrypted vault preserves the provider's per-user permissions, seats and rate limits. Worked example: <a href="/guides/federate-third-party-mcp-servers/">federating third-party MCP servers</a>.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

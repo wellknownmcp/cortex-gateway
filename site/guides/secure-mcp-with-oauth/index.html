@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secure your MCP server with OAuth 2.1: authentication, scopes, RBAC, multi-tenancy | Cortex Gateway</title>
+<meta name="description" content="How MCP authentication actually works: the 401 challenge clients wait for, RFC 9728 discovery, JWT validation with audience binding, scopes versus RBAC, multi-tenant isolation — and the four gotchas that break real clients.">
+<link rel="canonical" href="https://cortex-gateway.dev/guides/secure-mcp-with-oauth/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Secure your MCP server with OAuth 2.1">
+<meta property="og:description" content="The 401 challenge clients wait for, RFC 9728 discovery, JWT validation with audience binding, scopes vs RBAC, multi-tenancy — and the gotchas that break real clients.">
+<meta property="og:url" content="https://cortex-gateway.dev/guides/secure-mcp-with-oauth/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Secure your MCP server with OAuth 2.1: authentication, scopes, RBAC, multi-tenancy",
+      "url": "https://cortex-gateway.dev/guides/secure-mcp-with-oauth/",
+      "dateModified": "2026-07-09",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://cortex-gateway.dev/guides/secure-mcp-with-oauth/" },
+        { "@type": "ListItem", "position": 3, "name": "Secure MCP with OAuth" }
+      ]
+    },
+    {
+      "@type": "HowTo",
+      "name": "Protect an MCP server with OAuth 2.1",
+      "description": "Turn an MCP endpoint into an OAuth 2.1 resource server: publish protected-resource metadata, answer unauthenticated calls with the challenge clients expect, validate the JWT with audience binding, and enforce scopes without replicating your application's permissions.",
+      "totalTime": "PT2H",
+      "step": [
+        { "@type": "HowToStep", "name": "Publish protected-resource metadata", "text": "Serve /.well-known/oauth-protected-resource (RFC 9728) listing the canonical resource URI, the authorization servers that may issue tokens for it, and the scopes supported." },
+        { "@type": "HowToStep", "name": "Answer unauthenticated calls with a challenge", "text": "Return 401 with WWW-Authenticate: Bearer resource_metadata=\"https://your-server/.well-known/oauth-protected-resource\". Clients such as claude.ai will not begin the authorization flow without this header." },
+        { "@type": "HowToStep", "name": "Validate the access token", "text": "Fetch the authorization server's JWKS, verify the RS256 signature, then check issuer, expiry, and above all the audience: the token must have been minted for this resource URI, not merely be a valid token from your authorization server." },
+        { "@type": "HowToStep", "name": "Enforce scopes on the catalog and on every call", "text": "Filter tools/list by the caller's scopes so an agent never sees a tool it may not use, and re-check the scope on tools/call. Scopes are coarse capabilities, not roles." },
+        { "@type": "HowToStep", "name": "Delegate the fine-grained decision to the application", "text": "Propagate the user's identity to the application that owns the data and let it apply its existing ACLs. Distinguish a missing scope, which the agent can request, from a denied role, which no consent will fix." }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does MCP require OAuth?",
+          "acceptedAnswer": { "@type": "Answer", "text": "For remote servers, the MCP authorization specification models the MCP server as an OAuth 2.1 resource server and the client as an OAuth client, with PKCE, protected-resource metadata (RFC 9728) and authorization-server metadata (RFC 8414). Locally launched stdio servers inherit the trust of the process that spawned them and use no OAuth at all. So the honest answer is: an MCP server reachable over HTTP by someone else's agent needs OAuth; one running on your laptop as a subprocess does not." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why is a static API key not enough for an MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because it answers neither question that matters. A key does not say who the agent is acting for, so the audit trail records the integration rather than the person. And a key held by an agent serving many users holds the union of everyone's rights, so any user's agent can reach any user's data — the confused-deputy problem. OAuth 2.1 replaces the standing credential with a delegation bound to one person, scoped to one resource, revocable in one place." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do OAuth scopes relate to RBAC in an MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They answer different questions and must not be merged. A scope is a coarse capability the user consented to delegate to this agent — mcp:billing:write. A role is what your application already decided the person may do. Scopes bound the agent's authority to a subset of the user's; roles bound the user's authority itself. Encoding roles as scopes duplicates your permission model inside tokens, where it goes stale and cannot be revoked per resource. Filter the tool catalog by scope, then let the application enforce the role, and keep the two failures distinguishable in your error responses." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do you make an MCP server multi-tenant?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Never derive the tenant from a tool argument — an agent can pass any value. Derive it from the verified token: a tenant or pool claim, checked at the perimeter, then propagated as verified user context to the applications behind it, which scope every query by it. Audience binding matters here too: a token minted for another resource, even by the same authorization server, must be rejected rather than trusted." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does a valid JWT mean the token has not been revoked?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. A JWT is valid until it expires, whatever happened at the authorization server afterwards. If you need revocation to take effect immediately rather than at the end of the access token's lifetime, add RFC 7662 token introspection with a short cache — typically a minute — or keep access-token lifetimes short and rely on refresh-token rotation. Choose deliberately: this is the one place where the stateless-token story has a real cost." }
+        },
+        {
+          "@type": "Question",
+          "name": "Which authorization server works with MCP?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Any OAuth 2.1 authorization server that issues RS256 JWTs, publishes a JWKS endpoint and supports PKCE. Dynamic client registration (RFC 7591) matters in practice, because agent clients are not pre-registered with your server and cannot be onboarded by hand. Cortex Gateway ships a complete demo authorization server — dynamic client registration, PKCE, magic-link signup, introspection and revocation — as a starting point rather than a dependency." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Guides › Secure MCP with OAuth</p>
+  <h1>Secure your MCP server with OAuth 2.1</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>A remote MCP server is an <strong>OAuth 2.1 resource server</strong>. You are not designing an authentication scheme; you are implementing four things the specification already fixed: publish <code>/.well-known/oauth-protected-resource</code>, answer unauthenticated calls with the exact <code>401</code> challenge clients wait for, validate the JWT <em>including its audience</em>, and enforce scopes. Then stop. The fifth thing — deciding whether <em>this</em> person may read <em>that</em> record — belongs to the application that owns the record, not to the MCP layer.</p>
+  </div>
+
+  <h2>The specification decided this for you</h2>
+  <p>MCP's authorization model does not invent anything. It composes existing RFCs, which means the interoperability problem is already solved and your job is to not get creative:</p>
+  <table>
+    <tr><th>Concern</th><th>Standard</th><th>Who implements it</th></tr>
+    <tr><td>Where is the authorization server for this resource?</td><td>RFC 9728 — protected resource metadata</td><td>Your MCP server</td></tr>
+    <tr><td>What endpoints does that authorization server have?</td><td>RFC 8414 — authorization server metadata</td><td>Your authorization server</td></tr>
+    <tr><td>How does an unknown agent client register?</td><td>RFC 7591 — dynamic client registration</td><td>Your authorization server</td></tr>
+    <tr><td>How is the code exchange protected?</td><td>RFC 7636 — PKCE (mandatory in OAuth 2.1)</td><td>Client + authorization server</td></tr>
+    <tr><td>Which resource is this token for?</td><td>RFC 8707 — resource indicators</td><td>Client, authorization server, and <strong>your audience check</strong></td></tr>
+    <tr><td>How does the resource read the token?</td><td>RFC 6750 — Bearer + <code>WWW-Authenticate</code></td><td>Your MCP server</td></tr>
+    <tr><td>Has this token been revoked?</td><td>RFC 7662 — introspection (optional)</td><td>Your MCP server, if you need it</td></tr>
+  </table>
+  <p>Local stdio servers are outside all of this: a subprocess your client spawned inherits the trust of the user who launched it. OAuth becomes non-negotiable the moment the endpoint is reachable over the network by an agent you did not start yourself.</p>
+
+  <h2>Why the API key you were about to use does not work</h2>
+  <p>It fails on both questions a permission layer exists to answer.</p>
+  <p><strong>Who is the agent acting for?</strong> A key has no subject. Your audit log records "the integration", which is worth nothing during an incident and worth less during an audit.</p>
+  <p><strong>What may that person do?</strong> A key held by an agent that serves many users must hold the union of everyone's rights. Any user's agent can therefore reach any user's data — not by malice, just by asking. That is the confused deputy, and no amount of prompt engineering closes it, because the constraint has to live where the data does.</p>
+  <p>OAuth 2.1 replaces a standing credential with a <em>delegation</em>: bound to one person, scoped to one resource, revocable in one place. The <a href="/answers/agent-permission-layer/">permission layer</a> page argues the architecture; this page is the wiring.</p>
+
+  <h2>1. Publish protected-resource metadata</h2>
+  <p>One JSON document at a fixed path tells any client which authorization server may mint tokens for you, and which scopes exist.</p>
+  <pre><code>GET /.well-known/oauth-protected-resource
+
+{
+  "resource": "https://mcp.example.com/mcp",
+  "authorization_servers": ["https://auth.example.com"],
+  "bearer_methods_supported": ["header"],
+  "scopes_supported": ["mcp:docs:read", "mcp:billing:read", "mcp:billing:write"],
+  "resource_documentation": "https://example.com/docs"
+}</code></pre>
+  <p>Keep <code>scopes_supported</code> derived from the live tool catalog rather than hand-maintained. In Cortex Gateway it is computed from the federated tools at request time, so shipping a tool with a new scope in one application makes that scope discoverable without touching the gateway.</p>
+
+  <h2>2. Answer with the challenge clients are waiting for</h2>
+  <p>This is the single most common reason a connector "just doesn't work". An unauthenticated call must return <code>401</code> <em>with</em> a <code>WWW-Authenticate</code> header pointing at your metadata (RFC 9728 §5.1):</p>
+  <pre><code>HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"</code></pre>
+  <p>A bare <code>401</code>, or a <code>403</code>, or a JSON-RPC error with status <code>200</code>, all produce the same symptom: the client never starts the authorization flow and the user sees a connector that fails silently. Clients such as claude.ai discover your authorization server <em>from this header</em> — there is no other input.</p>
+  <p class="note">If the client is a browser, also expose the header across origins: <code>Access-Control-Expose-Headers: WWW-Authenticate, Mcp-Session-Id</code>. A challenge the browser cannot read is a challenge that was not sent.</p>
+
+  <h2>3. Validate the token — and check the audience</h2>
+  <p>Fetch the authorization server's JWKS, verify the RS256 signature, check <code>iss</code> and <code>exp</code>. Then check the one field people skip: <strong><code>aud</code></strong>.</p>
+  <p>A token is not "valid"; it is valid <em>for a resource</em>. If your MCP server accepts any well-signed token from your authorization server, then a token your user granted to an unrelated application — a low-trust internal tool, a partner's integration — is silently accepted by your high-trust MCP endpoint. RFC 8707 exists precisely so the client can say which resource it wants a token for. Bind the audience to your canonical resource URI and reject everything else.</p>
+  <pre><code>OAUTH_ISSUER=https://auth.example.com          # JWKS at <issuer>/.well-known/jwks.json
+CORTEX_CANONICAL_URI=https://mcp.example.com/mcp   # = expected audience</code></pre>
+  <p>On revocation, be deliberate. A JWT stays valid until it expires, whatever happened at the authorization server in the meantime. If a revocation must take effect within seconds rather than within a token lifetime, add RFC 7662 introspection with a short cache; otherwise keep access tokens short-lived and rotate refresh tokens. There is no third option, and pretending otherwise is how "we revoked their access" becomes false in an incident report.</p>
+
+  <h2>4. Scopes, roles, and the line between them</h2>
+  <p>Scopes and RBAC answer different questions, and merging them is the design error that quietly re-creates every problem OAuth was meant to solve.</p>
+  <table>
+    <tr><th></th><th>OAuth scope</th><th>Application role / ACL</th></tr>
+    <tr><td>Question answered</td><td>What did the user allow <em>this agent</em> to do on their behalf?</td><td>What may <em>this user</em> do at all?</td></tr>
+    <tr><td>Granularity</td><td>Coarse capability — <code>mcp:billing:write</code></td><td>Per record, per team, per state</td></tr>
+    <tr><td>Lives in</td><td>The token</td><td>The application that owns the data</td></tr>
+    <tr><td>Changes when</td><td>The user consents or revokes</td><td>Your business rules change</td></tr>
+    <tr><td>If you confuse them</td><td colspan="2">Your permission model is copied into tokens, drifts from the source of truth, and can no longer be changed without re-issuing consent.</td></tr>
+  </table>
+  <p>Enforce the scope twice — filter <code>tools/list</code> so an agent never sees a tool it may not call, then re-check on <code>tools/call</code> — and let the application enforce the role. Keep the two refusals distinguishable, because they mean opposite things to an agent:</p>
+  <table>
+    <tr><th>Response</th><th>What the agent should do</th></tr>
+    <tr><td><code>403</code> with <code>{ "required": "mcp:billing:write" }</code></td><td>Ask the user to grant that scope</td></tr>
+    <tr><td><code>403</code> without <code>required</code></td><td>Stop. This person may not do this, and consent will not change it.</td></tr>
+  </table>
+  <p>An agent told to "go get more scopes" for what is actually a role denial will loop through your consent screen forever.</p>
+
+  <h2>5. Multi-tenancy: never trust a tool argument</h2>
+  <p>The tenant is not a parameter. An agent can put any string in <code>{ "tenantId": "..." }</code>, and a model that has been talked into it will. Derive the tenant from the <em>verified token</em> — a <code>pool</code> or tenant claim checked at the perimeter — then propagate it as verified user context to the applications behind, which scope every query by it. The rule generalizes: <strong>anything an agent can type is untrusted input</strong>, including identifiers that look like plumbing.</p>
+  <p>Cortex Gateway can additionally refuse any token whose <code>pool</code> claim does not match the deployment, which turns a shared authorization server into isolated populations without a per-tenant deployment.</p>
+
+  <h2>The four gotchas that cost real days</h2>
+  <ul>
+    <li><strong>The issuer behind a reverse proxy.</strong> Your framework computes URLs from the request it sees — <code>http://localhost:3000</code> — while clients and token audiences use the public origin. Every discovery document and every audience check then disagrees with reality. Configure the canonical URI explicitly; never derive it from the inbound request. <a href="/answers/mcp-oauth-issuer-behind-proxy/">Symptoms and fix →</a></li>
+    <li><strong>The missing challenge.</strong> Covered above, and worth repeating: no <code>WWW-Authenticate</code>, no flow. It is the top cause of "the connector does nothing". <a href="/answers/mcp-connector-does-nothing/">Five causes, ranked →</a></li>
+    <li><strong>Dynamic client registration.</strong> Agent clients are not in your database and cannot be added by hand. Without RFC 7591 support at the authorization server, each new client is a manual ticket, and some clients simply give up.</li>
+    <li><strong>Session and SSE behaviour.</strong> Streamable HTTP clients differ in how they handle <code>Mcp-Session-Id</code>, reconnection and long-lived streams. This is where a specification-compliant implementation and a working one diverge, and where reading someone else's tested code is worth more than reading the spec again.</li>
+  </ul>
+
+  <h2>Do it once, in front of everything</h2>
+  <p>Everything on this page is per-server work: discovery document, challenge, JWKS validation, audience binding, scope filtering, introspection, session handling. Implementing it in each of your applications means maintaining an OAuth resource server per application — and then, for the user, one connector and one consent screen per application.</p>
+  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> implements it once, in front of all of them. Each application behind it stays a plain web service that <a href="/guides/rest-api-to-mcp-server/">exposes one HTTP endpoint</a>, re-validates the propagated JWT, and keeps enforcing its own rules. The gateway makes no authorization decision of its own — it carries identity and refuses what the scopes do not allow. There is nothing new to trust, which is the only property that makes a component sitting in front of everything acceptable.</p>
+  <p>The repository ships a complete demo authorization server (dynamic client registration, PKCE, magic-link signup, introspection, revocation) so the OAuth side is a working reference rather than an exercise. The <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> is the same code: probe the <code>401</code>, read the metadata, run the flow.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Does MCP require OAuth?</h3>
+    <p>For remote servers, yes in practice: the MCP authorization specification models the MCP server as an OAuth 2.1 resource server and the client as an OAuth client, with PKCE, protected-resource metadata (RFC 9728) and authorization-server metadata (RFC 8414). A local stdio server spawned by your client inherits that process's trust and uses no OAuth at all.</p>
+    <h3>Why is a static API key not enough?</h3>
+    <p>It answers neither question. A key has no subject, so the audit trail names the integration instead of the person. And a key serving many users must hold the union of everyone's rights, so any user's agent can reach any user's data — the confused-deputy problem. OAuth replaces the standing credential with a delegation: one person, one resource, one revocation.</p>
+    <h3>How do OAuth scopes relate to RBAC?</h3>
+    <p>A scope is a coarse capability the user delegated to <em>this agent</em>. A role is what your application already decided <em>the user</em> may do. Scopes bound the agent's authority to a subset of the user's; roles bound the user's. Encoding roles as scopes copies your permission model into tokens, where it goes stale. Filter the catalog by scope, let the application enforce the role, and keep the two refusals distinguishable.</p>
+    <h3>How do you make an MCP server multi-tenant?</h3>
+    <p>Never from a tool argument — an agent can pass anything. Derive the tenant from a verified claim in the token, check it at the perimeter, and propagate it as verified context to applications that scope every query by it. Enforce audience binding too: a token minted for another resource by the same authorization server must be rejected, not trusted.</p>
+    <h3>Does a valid JWT mean the token has not been revoked?</h3>
+    <p>No. It is valid until it expires, whatever happened at the authorization server. For revocation within seconds, add RFC 7662 introspection with a short cache; otherwise keep access tokens short-lived and rotate refresh tokens. Decide on purpose — this is where the stateless-token story has a real cost.</p>
+    <h3>Which authorization server works with MCP?</h3>
+    <p>Any OAuth 2.1 server issuing RS256 JWTs with a JWKS endpoint and PKCE. Dynamic client registration (RFC 7591) matters in practice, since agent clients are not pre-registered and cannot be onboarded by hand. The Cortex Gateway repository ships a complete demo authorization server as a starting point.</p>
+    <h3>Should the gateway or the application enforce permissions?</h3>
+    <p>The application. A gateway that decides who may read what has to mirror every application's rules, and mirrors drift — while concentrating authority in the one component that talks to everything. Enforce scopes at the perimeter (an agent must not exceed what its user delegated), enforce everything else where the data lives, and re-check at both layers.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
