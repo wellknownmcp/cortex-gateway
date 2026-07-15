@@ -151,10 +151,12 @@ async function forward(message) {
       authorization: `Bearer ${await getToken()}`,
     };
     if (sessionId) headers['mcp-session-id'] = sessionId;
-    if (protocolVersion) headers['mcp-protocol-version'] = protocolVersion;
-    if (message?.method === 'initialize') {
-      const requested = message?.params?.protocolVersion;
-      if (typeof requested === 'string') headers['mcp-protocol-version'] = requested;
+    // The MCP-Protocol-Version header carries the NEGOTIATED version, so it
+    // is only sent after initialize. During initialize the negotiation lives
+    // in the body — the client may request a version the gateway does not
+    // support, and the gateway answers with its preferred one.
+    if (protocolVersion && message?.method !== 'initialize') {
+      headers['mcp-protocol-version'] = protocolVersion;
     }
 
     const res = await fetch(MCP_URL, { method: 'POST', headers, body: JSON.stringify(message) });
@@ -165,7 +167,26 @@ async function forward(message) {
     // Notifications are acknowledged with an empty 202 — nothing to relay
     if (res.status === 202 || res.status === 204) return;
 
-    const body = await res.json();
+    const text = await res.text();
+    let body = null;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      // fall through to the synthesized error below
+    }
+
+    // Only valid JSON-RPC goes to stdout. Transport-level error bodies
+    // (401/403/429 `{error: ...}` shapes) are converted to JSON-RPC errors.
+    if (!body || body.jsonrpc !== '2.0') {
+      if (id === undefined || id === null) return;
+      const detail = body && typeof body.error === 'string' ? body.error : `HTTP ${res.status}`;
+      process.stdout.write(
+        JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32603, message: `bridge: gateway returned ${detail}` } }) +
+          '\n',
+      );
+      return;
+    }
+
     if (message?.method === 'initialize' && typeof body?.result?.protocolVersion === 'string') {
       protocolVersion = body.result.protocolVersion;
     }
