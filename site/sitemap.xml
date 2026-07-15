@@ -7,6 +7,8 @@
   <url><loc>https://cortex-gateway.dev/answers/mcp-connector-does-nothing/</loc><lastmod>2026-07-09</lastmod></url>
   <url><loc>https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/</loc><lastmod>2026-07-09</lastmod></url>
   <url><loc>https://cortex-gateway.dev/answers/mcp-tools-list-empty/</loc><lastmod>2026-07-09</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/answers/mcp-unsupported-protocol-version/</loc><lastmod>2026-07-15</lastmod></url>
+  <url><loc>https://cortex-gateway.dev/guides/expose-http-mcp-server-over-stdio/</loc><lastmod>2026-07-15</lastmod></url>
   <url><loc>https://cortex-gateway.dev/guides/rest-api-to-mcp-server/</loc><lastmod>2026-07-09</lastmod></url>
   <url><loc>https://cortex-gateway.dev/guides/secure-mcp-with-oauth/</loc><lastmod>2026-07-09</lastmod></url>
   <url><loc>https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/</loc><lastmod>2026-07-09</lastmod></url>

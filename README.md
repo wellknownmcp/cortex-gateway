@@ -199,7 +199,9 @@ npm run start:stdio   # stdio MCP server on stdin/stdout
 ```
 
 Self-granted scopes come from `BRIDGE_SCOPES` (gateway builtins need none);
-the gateway port from `BRIDGE_GATEWAY_PORT` (default 3213).
+the gateway port from `BRIDGE_GATEWAY_PORT` (default 3213). Design notes and
+the gotchas (stdout purity, protocol-version negotiation, session echo):
+<https://cortex-gateway.dev/guides/expose-http-mcp-server-over-stdio/>.
 
 ## Adding a backend
 

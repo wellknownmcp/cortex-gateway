@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expose an OAuth-protected HTTP MCP server over stdio | Cortex Gateway</title>
+<meta name="description" content="Some MCP clients and every directory sandbox only speak stdio, while your server speaks Streamable HTTP with OAuth 2.1. Three bridging approaches compared — mcp-remote, auth bypass, self-contained bridge with an ephemeral local issuer — plus the six gotchas that make naive bridges hang or corrupt the stream.">
+<link rel="canonical" href="https://cortex-gateway.dev/guides/expose-http-mcp-server-over-stdio/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Expose an OAuth-protected HTTP MCP server over stdio">
+<meta property="og:description" content="mcp-remote vs auth bypass vs a self-contained bridge with an ephemeral OAuth issuer — and the six gotchas that make naive stdio bridges hang.">
+<meta property="og:url" content="https://cortex-gateway.dev/guides/expose-http-mcp-server-over-stdio/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Expose an OAuth-protected HTTP MCP server over stdio",
+      "url": "https://cortex-gateway.dev/guides/expose-http-mcp-server-over-stdio/",
+      "dateModified": "2026-07-15",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Guides", "item": "https://cortex-gateway.dev/guides/expose-http-mcp-server-over-stdio/" },
+        { "@type": "ListItem", "position": 3, "name": "HTTP MCP server over stdio" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I run a remote Streamable HTTP MCP server as a stdio MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Put a bridge process between the two transports: it reads newline-delimited JSON-RPC on stdin, POSTs each message to the server's /mcp endpoint with the right headers, and writes each JSON-RPC response to stdout followed by a newline. For a personal client with a browser available, npx mcp-remote <url> does this and handles the OAuth flow interactively. For headless environments — CI, Docker inspection sandboxes like Glama's — there is no browser for OAuth, so the bridge must obtain a token another way, for example by running an ephemeral local OAuth issuer that the server is booted against." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my MCP server fail Glama's Docker inspection with 'Container exited with code 1 before responding to ping'?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Glama's inspection harness runs your start command inside mcp-proxy and speaks JSON-RPC to it over stdio. If your project is a Streamable HTTP server, the start command boots an HTTP listener that never answers on stdout, mcp-proxy's initialize request times out after 60 seconds, and the container exits 1. The fix is a stdio entrypoint: a bridge script that boots the HTTP server locally and relays stdio to POST /mcp, configured as the CMD in the directory's build spec." }
+        },
+        {
+          "@type": "Question",
+          "name": "How can a stdio bridge authenticate against an OAuth-protected MCP server without a browser?",
+          "acceptedAnswer": { "@type": "Answer", "text": "By owning the issuer for the lifetime of the process: the bridge generates an RSA keypair in memory, serves the public key as a JWKS document on a loopback port, boots the server with OAUTH_ISSUER and OAUTH_JWKS_URL pointed at that port, and signs itself a short-lived RS256 JWT with the correct issuer, audience, sub and jti claims. The server then verifies the token through its normal, unmodified OAuth code path. Nothing is bypassed, no production trust is extended: the keypair never leaves the process and dies with it." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why must an MCP stdio server never write logs to stdout?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because in the stdio transport, stdout is the wire. Every byte on it is parsed as newline-delimited JSON-RPC, so a framework banner, a progress line or a console.log corrupts the stream and shows up client-side as JSON parse errors or as ignored garbage before a fatal timeout. All logging belongs on stderr, and a bridge that spawns a server as a child process must redirect the child's stdout to stderr for the same reason." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is a self-authenticating stdio bridge safe to use in production?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It is safe but it is not a production access path. The bridge grants itself scopes, so it deliberately answers 'what can this process do' rather than 'what may this user do' — the per-user identity propagation that justifies an OAuth gateway only exists when real users authenticate against the real authorization server. Use the bridge for directory inspections, CI smoke tests and local development; point real agents at the HTTPS endpoint with the real OAuth flow." }
+        },
+        {
+          "@type": "Question",
+          "name": "Should I send the client's requested protocol version as the MCP-Protocol-Version header?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The MCP-Protocol-Version header carries the negotiated version and is only defined for requests after initialize. During initialize, negotiation happens in the body's params.protocolVersion field. A bridge that copies the client's proposed version into the header gets rejected with 400 unsupported_protocol_version by servers that validate the header strictly, before body negotiation can resolve the skew." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Guides › HTTP MCP server over stdio</p>
+  <h1>Expose an OAuth-protected HTTP MCP server over stdio</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Your MCP server speaks Streamable HTTP with OAuth 2.1. Some clients — and every directory inspection sandbox, including <a href="https://glama.ai/mcp/servers/wellknownmcp/cortex-gateway">Glama's</a> — only speak <strong>stdio</strong>. The bridge is conceptually trivial (stdin → <code>POST /mcp</code> → stdout) and operationally full of teeth: OAuth with no browser, stdout purity, protocol-version headers, sessions, error bodies that are not JSON-RPC. This guide compares the three approaches and lists the six gotchas, with a working ~200-line reference: <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/scripts/stdio-bridge.mjs"><code>scripts/stdio-bridge.mjs</code></a>.</p>
+  </div>
+
+  <h2>Why this problem exists at all</h2>
+  <p>MCP has two transports. <strong>stdio</strong> — the client spawns the server as a child process and speaks newline-delimited JSON-RPC over stdin/stdout — is how local servers run, and how sandboxes test servers: they control the process, no network to trust. <strong>Streamable HTTP</strong> is how remote servers run, with OAuth 2.1 in front. A production gateway like Cortex Gateway is HTTP-only by design: identity lives in the Bearer token, and there is no meaningful identity story for a spawned child process.</p>
+  <p>The mismatch surfaces in three places: an MCP client that only supports stdio configuration; CI that wants to smoke-test the server without standing up an authorization server; and directory harnesses — Glama's Docker inspection wraps your start command in <code>mcp-proxy</code> and expects JSON-RPC on stdout. Point that harness at an HTTP server and you get the signature failure: <code>could not start the proxy McpError: MCP error -32001: Request timed out</code>, then <em>“Container exited with code 1 before responding to ping.”</em> The server booted fine; nobody was listening where the harness was talking.</p>
+
+  <h2>Three approaches, one honest table</h2>
+  <table>
+    <tr><th>Approach</th><th>OAuth story</th><th>Works headless?</th><th>Use when</th></tr>
+    <tr><td><code>npx mcp-remote &lt;url&gt;</code></td><td>Real flow, opens a browser for consent</td><td><strong>No</strong> — needs a browser and a human</td><td>A person's stdio-only client (e.g. an older Claude Desktop config) targeting a deployed server</td></tr>
+    <tr><td>Auth bypass / dev token in the server</td><td>None — verification skipped</td><td>Yes</td><td>Local development only. A production build should refuse it: Cortex Gateway's dev bypass is disabled under <code>NODE_ENV=production</code>, which is exactly why it cannot help in a sandbox running the production build</td></tr>
+    <tr><td><strong>Self-contained bridge + ephemeral issuer</strong></td><td>Real verification path — RS256, issuer, audience, expiry all checked</td><td><strong>Yes</strong></td><td>Directory inspections, CI, local smoke tests. The approach this guide details</td></tr>
+  </table>
+  <p>The third approach exists because the first two fail the same requirement from opposite sides: headless environments have no browser, and skipping verification proves nothing about the server you actually ship.</p>
+
+  <h2>The ephemeral-issuer bridge, in five steps</h2>
+  <p>The insight: the bridge does not need to <em>bypass</em> OAuth — it can <em>be</em> the authorization server, for one process, for one lifetime. JWT verification needs an issuer URL, a JWKS document and a signed token; all three can be manufactured locally in a few lines of Node with no dependency beyond a JOSE library.</p>
+  <ol>
+    <li><strong>Generate an RSA keypair in memory</strong> and serve the public half as a JWKS document on an ephemeral loopback port: <code>http://127.0.0.1:&lt;port&gt;/.well-known/jwks.json</code>. That URL <em>is</em> your issuer.</li>
+    <li><strong>Boot the production server as a child process</strong>, overriding exactly the auth environment: <code>OAUTH_ISSUER</code> and <code>OAUTH_JWKS_URL</code> point at the loopback issuer, the audience is pinned to the local canonical URI (<code>http://localhost:3213/mcp</code>). Everything else — catalog, scopes, audit — runs unmodified.</li>
+    <li><strong>Mint a short-lived RS256 JWT</strong>: <code>iss</code> = the loopback issuer, <code>aud</code> = the canonical URI, plus <code>sub</code>, <code>jti</code>, <code>exp</code> and a <code>scope</code> claim (empty is fine when the server's builtins need none). The server verifies it through its normal code path — nothing knows the issuer is twenty lines away.</li>
+    <li><strong>Wait for readiness before reading stdin</strong>: poll the HTTP port until it answers. The harness's <code>initialize</code> timeout budget (60 s in <code>mcp-proxy</code>) includes your boot time.</li>
+    <li><strong>Relay</strong>: read stdin line by line, parse, <code>POST /mcp</code> with <code>Authorization: Bearer</code>, write each JSON-RPC response to stdout with a trailing newline. Track two pieces of response state: the <code>Mcp-Session-Id</code> header from <code>initialize</code> (echo it on every later request) and <code>result.protocolVersion</code> (send it as the <code>MCP-Protocol-Version</code> header on every later request).</li>
+  </ol>
+  <p>Security property worth stating precisely: the private key never leaves process memory, the token expires with the hour, and the issuer dies with the process. Nothing is added to any trust store. What the bridge proves is that the server's <em>real</em> verification path — issuer match, audience match, signature, expiry — accepts a well-formed token and rejects everything else; a bypass proves neither.</p>
+  <p>With Cortex Gateway the whole thing is packaged: <code>npm run start:stdio</code> runs <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/scripts/stdio-bridge.mjs"><code>scripts/stdio-bridge.mjs</code></a>; <code>BRIDGE_SCOPES</code> sets the self-granted scopes and <code>BRIDGE_GATEWAY_PORT</code> the port. In a directory build spec the CMD becomes <code>["mcp-proxy","--","node","scripts/stdio-bridge.mjs"]</code>.</p>
+
+  <h2>The six gotchas (each one cost a failed run)</h2>
+  <table>
+    <tr><th>#</th><th>Symptom</th><th>Cause → fix</th></tr>
+    <tr><td>1</td><td><code>[mcp-proxy] ignoring non-JSON output</code>, <code>SyntaxError: Expected property name … in JSON</code></td><td><strong>stdout is the wire.</strong> Framework banners (<code>▲ Next.js … ✓ Ready</code>) and every <code>console.log</code> corrupt the stream. The bridge owns stdout; pipe the child's stdout <em>and</em> stderr to the bridge's stderr.</td></tr>
+    <tr><td>2</td><td><code>400 unsupported_protocol_version</code> on <code>initialize</code></td><td>The bridge copied the client's proposed version into the <code>MCP-Protocol-Version</code> header. Negotiation happens in the body; the header only exists after <code>initialize</code>. Full story: <a href="/answers/mcp-unsupported-protocol-version/">unsupported_protocol_version</a>.</td></tr>
+    <tr><td>3</td><td>Client hangs 60 s, then <code>-32001 Request timed out</code></td><td>A non-JSON-RPC error body (400/401/429 <code>{"error": …}</code>) was forwarded verbatim; the client discarded it and kept waiting. Convert any body without a <code>jsonrpc</code> field into a JSON-RPC error for the pending id.</td></tr>
+    <tr><td>4</td><td>Every request after <code>initialize</code> answers 404 <code>Invalid or expired session</code></td><td>The server issued an <code>Mcp-Session-Id</code> response header on <code>initialize</code> and the bridge never echoed it. Capture it once, attach it always.</td></tr>
+    <tr><td>5</td><td>Duplicate or garbled responses on stdout</td><td>Notifications (messages without an <code>id</code>) are acknowledged with an empty HTTP 202 — relay <em>nothing</em> for them. And keep the relay sequential: <code>initialize</code> must settle before the session id it produces is needed.</td></tr>
+    <tr><td>6</td><td>Works locally, times out only in the sandbox</td><td>Readiness budget. The 60-second <code>initialize</code> timeout starts when the harness spawns the CMD, and cold container boots are slower than your laptop. Poll readiness aggressively (250 ms) and keep build work in the image's build steps, never in the CMD.</td></tr>
+  </table>
+
+  <h2>What a bridge does not solve</h2>
+  <p>The bridge grants itself scopes, so it answers “what can this <em>process</em> do,” never “what may this <em>user</em> do.” The per-user identity propagation that justifies putting an OAuth gateway in front of your applications — each user's own rights, enforced by each app, per call — only exists when real users authenticate against the real authorization server. Use the bridge for inspections, CI and local development; point real agents at the HTTPS endpoint. How the real flow works end to end: <a href="/guides/secure-mcp-with-oauth/">secure your MCP server with OAuth 2.1</a>. What the gateway federates behind that endpoint: <a href="/guides/rest-api-to-mcp-server/">expose your REST API as an MCP server</a>.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>How do I run a remote Streamable HTTP MCP server as a stdio MCP server?</h3>
+    <p>With a bridge process: newline-delimited JSON-RPC on stdin, <code>POST /mcp</code> per message, responses to stdout. For a personal client with a browser, <code>npx mcp-remote &lt;url&gt;</code> does this and runs the OAuth flow interactively. Headless environments have no browser, so the bridge must obtain a token differently — the ephemeral local issuer above is the pattern that keeps the real verification path.</p>
+    <h3>Why does my MCP server fail Glama's Docker inspection with “Container exited with code 1 before responding to ping”?</h3>
+    <p>The harness runs your start command inside <code>mcp-proxy</code> and speaks stdio to it. An HTTP-only server never answers on stdout, <code>initialize</code> times out after 60 seconds, the container exits 1. Configure a stdio entrypoint as the CMD — for Cortex Gateway, <code>["mcp-proxy","--","node","scripts/stdio-bridge.mjs"]</code>.</p>
+    <h3>How can a stdio bridge authenticate against an OAuth-protected MCP server without a browser?</h3>
+    <p>By being the issuer for one process lifetime: RSA keypair in memory, JWKS on a loopback port, server booted with <code>OAUTH_ISSUER</code>/<code>OAUTH_JWKS_URL</code> pointed there, and a short-lived RS256 JWT signed with the matching claims. The server verifies through its normal OAuth code path; the keypair dies with the process.</p>
+    <h3>Why must an MCP stdio server never write logs to stdout?</h3>
+    <p>In the stdio transport, stdout is parsed as JSON-RPC — a banner or a <code>console.log</code> is stream corruption, seen client-side as parse errors or a silent hang. Log to stderr, and redirect a child server's stdout to stderr in any bridge.</p>
+    <h3>Is a self-authenticating stdio bridge safe for production?</h3>
+    <p>Safe, but not a production access path: it self-grants scopes, so it proves what the process may do, not what a user may do. Inspections, CI and local dev only; real agents go through the HTTPS endpoint and the real authorization server.</p>
+    <h3>Should the bridge forward the client's requested protocol version as a header?</h3>
+    <p>No. <code>MCP-Protocol-Version</code> carries the <em>negotiated</em> version and only exists after <code>initialize</code>; during initialize the negotiation lives in <code>params.protocolVersion</code>. Copying the proposed version into the header gets a 400 from strict servers — the <a href="/answers/mcp-unsupported-protocol-version/">unsupported_protocol_version</a> failure.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
