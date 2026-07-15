@@ -183,6 +183,23 @@ server (any server that issues RS256 JWTs with a JWKS endpoint and supports
 the `scope` claim), and MCP clients connect to `https://your-host/mcp` with
 a Bearer token whose `aud` is the gateway's canonical URI.
 
+### stdio bridge (for stdio-only clients and directory sandboxes)
+
+The gateway is a remote Streamable HTTP server, but some MCP clients — and
+the Docker inspection harnesses of directories like Glama — only speak the
+stdio transport. `scripts/stdio-bridge.mjs` bridges the two: it boots the
+production build against an ephemeral local OAuth issuer (the real JWT
+verification path, no bypass), mints itself a short-lived token, and relays
+newline-delimited JSON-RPC between stdin/stdout and `POST /mcp`.
+
+```bash
+npm run build
+npm run start:stdio   # stdio MCP server on stdin/stdout
+```
+
+Self-granted scopes come from `BRIDGE_SCOPES` (gateway builtins need none);
+the gateway port from `BRIDGE_GATEWAY_PORT` (default 3213).
+
 ## Adding a backend
 
 1. Implement the contract in your app — one POST endpoint, `list_tools` +

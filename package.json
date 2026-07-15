@@ -19,6 +19,7 @@
     "dev": "next dev -p 3213",
     "build": "prisma generate && next build",
     "start": "next start -p 3213",
+    "start:stdio": "node scripts/stdio-bridge.mjs",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
