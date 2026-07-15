@@ -3,6 +3,7 @@
 [![CI](https://github.com/wellknownmcp/cortex-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/wellknownmcp/cortex-gateway/actions/workflows/ci.yml)
 [![Docker](https://github.com/wellknownmcp/cortex-gateway/actions/workflows/docker.yml/badge.svg)](https://github.com/wellknownmcp/cortex-gateway/actions/workflows/docker.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Glama score](https://glama.ai/mcp/servers/wellknownmcp/cortex-gateway/badges/score.svg)](https://glama.ai/mcp/servers/wellknownmcp/cortex-gateway)
 
 **A federated MCP gateway: one spec-compliant, OAuth-protected MCP server in
 front of N plain-HTTP backends.**
