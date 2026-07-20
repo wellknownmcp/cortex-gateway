@@ -229,6 +229,7 @@ annotated list. The essentials:
 | `CORTEX_TECHNICAL_TOKEN` | yes | Static token for catalog discovery (catalog methods only) |
 | `CORTEX_ALLOWED_ORIGINS` | prod | Web origins allowed (exact or `*.suffix`) |
 | `CORTEX_TOOL_INTEGRITY_MODE` | no | `warn` (default) or `block` — rug-pull detection on tool definitions |
+| `CORTEX_ADMIN_SECRET` | with `block` | Secret for `/api/admin/tool-integrity`, the operator endpoint that reviews and clears quarantines |
 | `OAUTH_REQUIRED_SCOPES` | no | Baseline scope demanded before any dispatch |
 | `CORTEX_DATABASE_URL` | no | PostgreSQL for audit persistence + gateway tickets |
 | `CORTEX_TICKET_WEBHOOK_URL` | no | Webhook for blocking missing-capability tickets |
@@ -272,8 +273,10 @@ finding — full details in [docs/security.md](docs/security.md):
   `inputSchema`, `scope`, `version`) at first sight and re-checked at every
   refresh. A backend that rewrites what a tool claims to do while keeping its
   name is reported, and with `CORTEX_TOOL_INTEGRITY_MODE=block` the tool is
-  quarantined until an operator reviews it. Name-level change detection —
-  what most implementations do — misses exactly this attack.
+  quarantined until an operator reviews it over `/api/admin/tool-integrity` —
+  an HTTP endpoint, not an MCP tool, so a model cannot clear a rug pull on its
+  own. Name-level change detection — what most implementations do — misses
+  exactly this attack.
 - **No plaintext to remote hosts.** Every federated call forwards the caller's
   token, so an `http://` backend URL pointing anywhere but loopback is refused
   at load. Same validation on the OAuth endpoints the adapter *discovers* from

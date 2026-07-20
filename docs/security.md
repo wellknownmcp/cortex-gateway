@@ -44,6 +44,37 @@ CORTEX_TOOL_INTEGRITY_MODE=block
   quietly becoming the new normal. A backend that reverts to the approved
   definition clears its own quarantine.
 
+### Reviewing a quarantine
+
+A quarantine is cleared by an operator, over a dedicated endpoint. It is
+deliberately not an MCP tool: acknowledging a mutation is the human decision
+the quarantine exists to force, and a tool in `tools/list` would let a model
+clear a rug pull on its own.
+
+```bash
+# What is quarantined, and which fields changed
+curl -H "x-cortex-admin-secret: $CORTEX_ADMIN_SECRET" \
+  https://gateway.example/api/admin/tool-integrity
+
+# Approve the current definition of one tool, by name
+curl -X POST -H "x-cortex-admin-secret: $CORTEX_ADMIN_SECRET" \
+  -H 'Content-Type: application/json' -d '{"tool":"docs_search"}' \
+  https://gateway.example/api/admin/tool-integrity
+```
+
+Acknowledging adopts the tool's **current** definition as the approved one and
+triggers a catalog refresh, so the tool is served again immediately rather than
+at the next 60-second tick, and clients get a `tools/list_changed`. The
+acknowledgement is logged on the same `[cortex/tool-integrity]` tag as the
+detection, with the tool, its backend, the fields that changed and the date the
+superseded definition was approved — so one grep shows a mutation and the
+decision made about it.
+
+`CORTEX_ADMIN_SECRET` is separate from `CRON_SECRET` on purpose: purging audit
+rows past retention is maintenance, re-approving a tool definition is a
+security decision, and a scheduler's secret should not carry it. **Unset, the
+endpoint does not exist** (404) — there is no default and no open fallback.
+
 **Limits, stated plainly.** The baseline lives in the process and is rebuilt at
 boot from whatever the backends currently declare — so a restart implicitly
 re-approves the current state, and in a multi-instance deployment each replica
