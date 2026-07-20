@@ -230,6 +230,7 @@ annotated list. The essentials:
 | `CORTEX_ALLOWED_ORIGINS` | prod | Web origins allowed (exact or `*.suffix`) |
 | `CORTEX_TOOL_INTEGRITY_MODE` | no | `warn` (default) or `block` — rug-pull detection on tool definitions |
 | `CORTEX_ADMIN_SECRET` | with `block` | Secret for `/api/admin/tool-integrity`, the operator endpoint that reviews and clears quarantines |
+| `CORTEX_TOOL_BASELINE_FILE` | with `block` | Where approved tool definitions persist; without it a restart re-approves the current state |
 | `OAUTH_REQUIRED_SCOPES` | no | Baseline scope demanded before any dispatch |
 | `CORTEX_DATABASE_URL` | no | PostgreSQL for audit persistence + gateway tickets |
 | `CORTEX_TICKET_WEBHOOK_URL` | no | Webhook for blocking missing-capability tickets |
@@ -322,9 +323,10 @@ finding — full details in [docs/security.md](docs/security.md):
 - **Attributable audit.** Each line records which backend served the call and
   under which scope — not just the tool name.
 
-Honest scope: the fingerprint baseline is per-process and rebuilt at boot, so
-it is mutation detection, not attestation. A persistent signed baseline is the
-next step, not a claim being made today.
+Honest scope: approvals persist across restarts (`CORTEX_TOOL_BASELINE_FILE`)
+but the store is not signed, so this proves "this definition changed since you
+approved it here", not "this is the definition the vendor published".
+Operator-signed baselines are the next step, not a claim being made today.
 
 **Compliance.** These are the controls audits test for on automated access:
 least-privilege scopes, per-user identity (no over-privileged service account),

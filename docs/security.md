@@ -75,13 +75,37 @@ rows past retention is maintenance, re-approving a tool definition is a
 security decision, and a scheduler's secret should not carry it. **Unset, the
 endpoint does not exist** (404) — there is no default and no open fallback.
 
-**Limits, stated plainly.** The baseline lives in the process and is rebuilt at
-boot from whatever the backends currently declare — so a restart implicitly
-re-approves the current state, and in a multi-instance deployment each replica
-keeps its own. That is honest for what it is: mutation detection during a
-process's lifetime, not attestation. A persistent, operator-signed baseline
-(and the corresponding approval workflow) is the next step, and it is a real
-one — do not read the current control as more than it is.
+### Where the approved state lives
+
+```bash
+CORTEX_TOOL_BASELINE_FILE=/var/lib/cortex/tool-baseline.json
+```
+
+Without it the baseline is rebuilt at boot from whatever the backends declare,
+so a restart re-approves the current state — and a restart is often inducible
+by whoever runs a backend. Set it whenever you set `block`; the gateway warns
+at boot if you did not.
+
+The store holds the approved definitions **and** the open quarantines, so
+neither an approval nor a pending review is lost across a restart. It is
+written with `mode 0600`, through a write-then-rename so a crash mid-write
+leaves the previous baseline intact rather than a truncated file. In Docker,
+point it at a mounted volume; replicas sharing that volume share their
+approvals, replicas with local disks each keep their own.
+
+A **corrupt** store is not treated as "no baseline yet": that would make
+`echo > baseline.json` a one-command way to launder a rewritten definition
+into a fresh approval. In `block` mode the gateway withholds every federated
+tool and reports `degraded` until an operator repairs or deliberately removes
+the file. It never overwrites a store it could not read.
+
+**Limits, stated plainly.** The file is not signed. Anyone who can write to it
+can forge an approval — as can anyone who can write to the gateway's
+environment, so this does not add an attack path, but it does bound what the
+control proves. It answers "did this definition change since it was approved
+on this deployment", not "is this definition the one the vendor published".
+Operator-signed baselines are the next step; do not read the current control as
+more than it is.
 
 Nothing here inspects the *content* of a description for injected
 instructions. Detecting an adversarial description that was malicious from the

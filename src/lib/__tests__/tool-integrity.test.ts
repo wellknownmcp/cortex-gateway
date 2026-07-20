@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   reviewCatalog,
   isQuarantined,
@@ -174,5 +177,111 @@ describe('tool integrity (rug-pull detection)', () => {
     review(catalog());
     expect(isQuarantined('docs_search')).toBe(false);
     expect(integrityReport().quarantined).toEqual([]);
+  });
+
+  describe('persisted baseline', () => {
+    let dir: string;
+    let file: string;
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'cortex-baseline-'));
+      file = join(dir, 'nested', 'baseline.json');
+      process.env.CORTEX_TOOL_BASELINE_FILE = file;
+    });
+
+    afterEach(() => {
+      delete process.env.CORTEX_TOOL_BASELINE_FILE;
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    /** Drops in-memory state only — what a process restart does. */
+    function restart() {
+      resetIntegrityState();
+    }
+
+    it('survives a restart instead of re-approving the current definitions', () => {
+      review(catalog({ name: 'docs_search', description: 'original' }));
+      restart();
+
+      // The definition changed while the gateway was down. Without a store
+      // this came back as `added` — a fresh approval, which is the hole.
+      const diff = review(catalog({ name: 'docs_search', description: 'rewritten' }));
+      expect(diff.added).toEqual([]);
+      expect(diff.mutated).toHaveLength(1);
+      expect(diff.mutated[0]).toMatchObject({ tool: 'docs_search', changed: ['description'] });
+    });
+
+    it('keeps the original approval date across restarts', () => {
+      review(catalog({ name: 'docs_search' }));
+      const firstSeen = JSON.parse(readFileSync(file, 'utf8')).tools.docs_search.firstSeenAt;
+      restart();
+      review(catalog({ name: 'docs_search' }));
+
+      expect(JSON.parse(readFileSync(file, 'utf8')).tools.docs_search.firstSeenAt).toBe(firstSeen);
+    });
+
+    it('keeps a quarantine across a restart', () => {
+      process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+      review(catalog({ name: 'docs_search', description: 'original' }));
+      review(catalog({ name: 'docs_search', description: 'rewritten' }));
+      expect(isQuarantined('docs_search')).toBe(true);
+
+      restart();
+      review(catalog({ name: 'docs_search', description: 'rewritten' }));
+      expect(isQuarantined('docs_search')).toBe(true);
+    });
+
+    it('keeps an acknowledgement across a restart', () => {
+      process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+      review(catalog({ name: 'docs_search', description: 'original' }));
+      review(catalog({ name: 'docs_search', description: 'rewritten' }));
+      acknowledgeTool('docs_search');
+
+      restart();
+      const diff = review(catalog({ name: 'docs_search', description: 'rewritten' }));
+      expect(isQuarantined('docs_search')).toBe(false);
+      expect(diff.quarantined).toEqual([]);
+    });
+
+    it('creates the parent directory and writes the file 0600', () => {
+      review(catalog({ name: 'docs_search' }));
+      const stat = statSync(file);
+      expect(stat.isFile()).toBe(true);
+      // Windows does not carry POSIX mode bits; assert only where meaningful.
+      if (process.platform !== 'win32') {
+        expect(stat.mode & 0o777).toBe(0o600);
+      }
+    });
+
+    it('withholds every tool when the store is corrupt, rather than re-approving', () => {
+      process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+      review(catalog({ name: 'docs_search' }, { name: 'docs_read' }));
+      restart();
+
+      // Truncating or garbling the file must not read as "no baseline yet" —
+      // that would make `echo > baseline.json` a one-command rug-pull laundry.
+      writeFileSync(file, '{ this is not json');
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const diff = review(catalog({ name: 'docs_search' }, { name: 'docs_read' }));
+      expect(diff.quarantined.sort()).toEqual(['docs_read', 'docs_search']);
+      expect(isQuarantined('docs_search')).toBe(true);
+      expect(integrityReport().degraded).toMatch(/corrupt/);
+    });
+
+    it('does not overwrite a corrupt store — the operator repairs it', () => {
+      review(catalog({ name: 'docs_search' }));
+      restart();
+      writeFileSync(file, 'garbage');
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      review(catalog({ name: 'docs_search' }));
+      expect(readFileSync(file, 'utf8')).toBe('garbage');
+    });
+
+    it('reports where the baseline lives', () => {
+      review(catalog({ name: 'docs_search' }));
+      expect(integrityReport()).toMatchObject({ baselineFile: file, degraded: null });
+    });
   });
 });
