@@ -99,13 +99,68 @@ into a fresh approval. In `block` mode the gateway withholds every federated
 tool and reports `degraded` until an operator repairs or deliberately removes
 the file. It never overwrites a store it could not read.
 
-**Limits, stated plainly.** The file is not signed. Anyone who can write to it
-can forge an approval — as can anyone who can write to the gateway's
-environment, so this does not add an attack path, but it does bound what the
-control proves. It answers "did this definition change since it was approved
-on this deployment", not "is this definition the one the vendor published".
-Operator-signed baselines are the next step; do not read the current control as
-more than it is.
+### Signing the baseline
+
+An unsigned store is forgeable by anyone who can write the file. There are two
+ways to close that, and they are not equally strong.
+
+```bash
+node scripts/sign-baseline.mjs keygen     # Ed25519 keypair
+```
+
+**Self-signed** — give the gateway the private key:
+
+```bash
+CORTEX_BASELINE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+```
+
+It signs every write and verifies at boot. This stops a forged file arriving
+by another route — a restored backup, a volume mounted elsewhere, a process
+that can write the path but not read the environment. It does **not** stop
+whoever compromised the host, because the key is right there.
+
+**Operator-signed** — give the gateway only the public half:
+
+```bash
+CORTEX_BASELINE_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n..."
+```
+
+Now the gateway verifies approvals but cannot mint them. A changed definition
+stays quarantined until you approve it deliberately, off-host:
+
+```bash
+scp gateway:/var/lib/cortex/tool-baseline.json .
+node scripts/sign-baseline.mjs verify tool-baseline.json   # read what changed
+node scripts/sign-baseline.mjs sign   tool-baseline.json   # approve it
+scp tool-baseline.json gateway:/var/lib/cortex/
+```
+
+This is the mode that actually moves the trust boundary: forging an approval
+now requires the signing key, which never touches the server. The cost is that
+catalog changes need a human, which is the point.
+
+The envelope follows [LLMFeed](https://llmca.org)'s `trust` block —
+`signed_blocks`, `scope`, `algorithm`, `trust_level`, `public_key_hint` —
+because declaring *what* a signature covers beats implying it covers
+everything. `trust_level` distinguishes the two modes above, so a reader can
+tell whether the signer is the machine that could be compromised.
+
+Three refusals worth knowing: a store that arrives **unsigned** while signing
+is configured is rejected (otherwise deleting two keys restores trust); a store
+signed by a key **other** than the configured public key is rejected (the key
+embedded in the file is a convenience for tooling, never the authority); and a
+**tampered** store is rejected exactly like a corrupt one — every federated tool
+is withheld in `block` mode.
+
+**Limits, stated plainly.** This answers "did this definition change since it
+was approved on this deployment", not "is this the definition the vendor
+published". There is no chain back to the backend author — signing that would
+require the backend to sign its own catalog, which nothing in MCP does today.
+And the fingerprint sorts object keys, so a backend that only **reorders** an
+`inputSchema` produces no mutation: see the note in
+`src/lib/tool-integrity.ts` on why that is deliberate for change detection, and
+why llmca.org's canonicalization profile reaches the opposite conclusion for
+documents a model reads as text.
 
 Nothing here inspects the *content* of a description for injected
 instructions. Detecting an adversarial description that was malicious from the

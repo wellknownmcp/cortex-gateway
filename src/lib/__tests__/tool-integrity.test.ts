@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { generateKeyPairSync } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -281,7 +282,128 @@ describe('tool integrity (rug-pull detection)', () => {
 
     it('reports where the baseline lives', () => {
       review(catalog({ name: 'docs_search' }));
-      expect(integrityReport()).toMatchObject({ baselineFile: file, degraded: null });
+      expect(integrityReport()).toMatchObject({
+        baselineFile: file,
+        degraded: null,
+        signing: 'none',
+      });
+    });
+
+    describe('signed store', () => {
+      let priv: string;
+      let pub: string;
+      let otherPub: string;
+
+      beforeEach(() => {
+        const kp = generateKeyPairSync('ed25519');
+        priv = kp.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+        pub = kp.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+        otherPub = generateKeyPairSync('ed25519')
+          .publicKey.export({ type: 'spki', format: 'pem' })
+          .toString();
+      });
+
+      afterEach(() => {
+        delete process.env.CORTEX_BASELINE_PRIVATE_KEY;
+        delete process.env.CORTEX_BASELINE_PUBLIC_KEY;
+      });
+
+      const read = () => JSON.parse(readFileSync(file, 'utf8'));
+
+      it('signs the store and declares what the signature covers', () => {
+        process.env.CORTEX_BASELINE_PRIVATE_KEY = priv;
+        review(catalog({ name: 'docs_search' }));
+
+        const stored = read();
+        expect(stored.trust).toMatchObject({
+          algorithm: 'Ed25519',
+          scope: 'partial',
+          trust_level: 'self-signed',
+          signed_blocks: ['version', 'savedAt', 'tools', 'quarantine'],
+        });
+        expect(stored.signature.value).toEqual(expect.any(String));
+        expect(integrityReport().signing).toBe('self-signed');
+      });
+
+      it('accepts its own signature across a restart', () => {
+        process.env.CORTEX_BASELINE_PRIVATE_KEY = priv;
+        review(catalog({ name: 'docs_search', description: 'original' }));
+        resetIntegrityState();
+
+        const diff = review(catalog({ name: 'docs_search', description: 'rewritten' }));
+        expect(integrityReport().degraded).toBeNull();
+        expect(diff.mutated).toHaveLength(1);
+      });
+
+      it('rejects a tampered store', () => {
+        process.env.CORTEX_BASELINE_PRIVATE_KEY = priv;
+        process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+        review(catalog({ name: 'docs_search', description: 'original' }));
+        resetIntegrityState();
+
+        // Forge an approval for a description the operator never approved,
+        // leaving the signature in place.
+        const stored = read();
+        stored.tools.docs_search.fields.description = JSON.stringify('rewritten');
+        writeFileSync(file, JSON.stringify(stored));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        const diff = review(catalog({ name: 'docs_search', description: 'rewritten' }));
+        expect(integrityReport().degraded).toMatch(/signature does not match/);
+        expect(diff.quarantined).toEqual(['docs_search']);
+      });
+
+      it('rejects a store whose signature was stripped', () => {
+        process.env.CORTEX_BASELINE_PRIVATE_KEY = priv;
+        process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+        review(catalog({ name: 'docs_search' }));
+        resetIntegrityState();
+
+        // Deleting two keys must not turn the file back into a trusted one.
+        const stored = read();
+        delete stored.signature;
+        delete stored.trust;
+        writeFileSync(file, JSON.stringify(stored));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        review(catalog({ name: 'docs_search' }));
+        expect(integrityReport().degraded).toMatch(/unsigned store while signing is configured/);
+      });
+
+      it('rejects a store signed by a key that is not the configured one', () => {
+        process.env.CORTEX_BASELINE_PRIVATE_KEY = priv;
+        review(catalog({ name: 'docs_search' }));
+        resetIntegrityState();
+
+        // Verify-only against someone else's public key: a forger who ships
+        // their own key pair must not be trusted by their own embedded key.
+        delete process.env.CORTEX_BASELINE_PRIVATE_KEY;
+        process.env.CORTEX_BASELINE_PUBLIC_KEY = otherPub;
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        review(catalog({ name: 'docs_search' }));
+        expect(integrityReport().degraded).toMatch(/other than the configured public key/);
+      });
+
+      it('verify-only refuses to mint approvals and says so', () => {
+        process.env.CORTEX_BASELINE_PRIVATE_KEY = priv;
+        review(catalog({ name: 'docs_search' }));
+        const signedAt = read().savedAt;
+        resetIntegrityState();
+
+        delete process.env.CORTEX_BASELINE_PRIVATE_KEY;
+        process.env.CORTEX_BASELINE_PUBLIC_KEY = pub;
+        process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        // A brand-new tool appears. Without a private key the gateway cannot
+        // approve it, so the store must stay exactly as the operator signed it.
+        review(catalog({ name: 'docs_search' }, { name: 'docs_exfiltrate' }));
+
+        expect(read().savedAt).toBe(signedAt);
+        expect(read().tools.docs_exfiltrate).toBeUndefined();
+        expect(integrityReport().signing).toBe('operator');
+      });
     });
   });
 });

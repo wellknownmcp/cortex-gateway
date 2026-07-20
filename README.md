@@ -231,6 +231,7 @@ annotated list. The essentials:
 | `CORTEX_TOOL_INTEGRITY_MODE` | no | `warn` (default) or `block` — rug-pull detection on tool definitions |
 | `CORTEX_ADMIN_SECRET` | with `block` | Secret for `/api/admin/tool-integrity`, the operator endpoint that reviews and clears quarantines |
 | `CORTEX_TOOL_BASELINE_FILE` | with `block` | Where approved tool definitions persist; without it a restart re-approves the current state |
+| `CORTEX_BASELINE_PRIVATE_KEY` / `_PUBLIC_KEY` | no | Ed25519 signing of that store. Public key alone = the gateway verifies approvals but cannot mint them |
 | `OAUTH_REQUIRED_SCOPES` | no | Baseline scope demanded before any dispatch |
 | `CORTEX_DATABASE_URL` | no | PostgreSQL for audit persistence + gateway tickets |
 | `CORTEX_TICKET_WEBHOOK_URL` | no | Webhook for blocking missing-capability tickets |

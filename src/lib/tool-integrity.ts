@@ -28,7 +28,7 @@
  * next step (see docs/security.md), not something to fake with a cache.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey, sign, verify } from 'node:crypto';
 import { readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { CortexBackendTool, FederatedToolEntry } from '@/contract';
@@ -92,19 +92,91 @@ export function integrityMode(): ToolIntegrityMode {
  * volume — with no schema to migrate.
  *
  * Scope, stated plainly: one file is one baseline. Replicas sharing a volume
- * share their approvals; replicas with local disks each keep their own. The
- * file is not signed — an attacker with write access to it can forge an
- * approval, exactly as one with write access to the gateway's environment
- * could. Signing is the next step, and it is a real one.
+ * share their approvals; replicas with local disks each keep their own.
+ *
+ * ── Signing ───────────────────────────────────────────────────────────────
+ *
+ * An unsigned store is forgeable by anyone who can write the file. Signing it
+ * with a key the gateway holds fixes less than it looks: whoever can write the
+ * volume can usually read the environment too. The gain is real but narrow —
+ * a restored backup, a volume mounted elsewhere, a process that can write the
+ * path but not read the env.
+ *
+ * The mode that actually shifts the trust boundary is the one where the
+ * gateway holds ONLY the public key. It can then verify approvals but not
+ * mint them: a new or changed definition stays quarantined until an operator
+ * signs it offline, with a key that never touches the server. Both modes are
+ * supported, and the report says which one is in force — because "signed" on
+ * its own does not tell an operator whether the signer is the machine that
+ * could be compromised.
+ *
+ * The envelope borrows its shape from LLMFeed's `trust` block (signed_blocks,
+ * scope, algorithm, trust_level, public_key_hint): declaring WHAT a signature
+ * covers, rather than implying it covers everything, is the useful idea there.
+ *
+ * One deliberate divergence from llmca.org's mcp-canonical-json/v1, which
+ * refuses to sort keys because an LLM reads a feed as text and key order
+ * carries meaning: this file is read by the gateway, never by a model, so
+ * determinism is the only requirement and sorting removes any dependence on
+ * Map iteration order. That argument does NOT transfer to the tool
+ * fingerprints themselves — see the note on FINGERPRINTED_FIELDS.
  */
 
 const STORE_VERSION = 1;
+const SIGNATURE_ALGORITHM = 'Ed25519';
+
+interface StoreTrust {
+  /** Top-level keys the signature covers. Anything else is not attested. */
+  signed_blocks: string[];
+  scope: 'partial';
+  algorithm: typeof SIGNATURE_ALGORITHM;
+  /** `self-signed` = the gateway holds the private key; `operator` = it does not. */
+  trust_level: 'self-signed' | 'operator';
+  public_key_hint?: string;
+}
+
+interface StoreSignature {
+  value: string;
+  created_at: string;
+  public_key: string;
+}
 
 interface StoredBaseline {
   version: number;
   savedAt: string;
   tools: Record<string, { app: string; firstSeenAt: string; fields: Record<string, string>; digest: string }>;
   quarantine: Record<string, ToolMutation>;
+  trust?: StoreTrust;
+  signature?: StoreSignature;
+}
+
+const SIGNED_BLOCKS = ['version', 'savedAt', 'tools', 'quarantine'] as const;
+
+/** `\n` arrives literal through most .env plumbing; restore it before parsing. */
+function normalizePem(pem: string): string {
+  return pem.includes('\\n') ? pem.replace(/\\n/g, '\n') : pem;
+}
+
+function privateKeyPem(): string | null {
+  const raw = process.env.CORTEX_BASELINE_PRIVATE_KEY;
+  return raw ? normalizePem(raw) : null;
+}
+
+function publicKeyPem(): string | null {
+  const raw = process.env.CORTEX_BASELINE_PUBLIC_KEY;
+  return raw ? normalizePem(raw) : null;
+}
+
+/** True when signatures are expected — an unsigned store must then be refused. */
+function signingConfigured(): boolean {
+  return Boolean(privateKeyPem() || publicKeyPem());
+}
+
+/** The exact bytes a signature covers: the signed blocks, canonically ordered. */
+function signedPayload(data: StoredBaseline): string {
+  const subset: Record<string, unknown> = {};
+  for (const key of SIGNED_BLOCKS) subset[key] = data[key];
+  return canonical(subset);
 }
 
 /** Set once the store has been read (or found absent) — load is idempotent. */
@@ -114,6 +186,58 @@ let storeDegraded: string | null = null;
 
 function storePath(): string | null {
   return process.env.CORTEX_TOOL_BASELINE_FILE || null;
+}
+
+/**
+ * Returns the reason a store's signature is unacceptable, or null when it is
+ * fine (including "no signing configured, none expected").
+ */
+function verifyStore(data: StoredBaseline): string | null {
+  const expected = signingConfigured();
+
+  if (!data.signature) {
+    // A store that arrives unsigned while signing is configured is the strip
+    // attack: delete two keys and the file is trusted again. Refuse it.
+    return expected ? 'unsigned store while signing is configured' : null;
+  }
+  if (!expected) {
+    // Signed store, no key to check it against. Ignoring the signature would
+    // make it decoration; refusing outright would break an operator who just
+    // removed the key. Say what is wrong and let the report carry it.
+    return 'store is signed but no CORTEX_BASELINE_PUBLIC_KEY/PRIVATE_KEY is configured';
+  }
+
+  let verifyKey: string;
+  try {
+    const configuredPublic = publicKeyPem();
+    if (configuredPublic) {
+      verifyKey = configuredPublic;
+      // The embedded key is a convenience for offline tooling, never the
+      // authority: trusting it would let a forger ship their own key pair.
+      const embedded = createPublicKey(data.signature.public_key)
+        .export({ type: 'spki', format: 'pem' })
+        .toString();
+      const configured = createPublicKey(configuredPublic)
+        .export({ type: 'spki', format: 'pem' })
+        .toString();
+      if (embedded !== configured) return 'signed by a key other than the configured public key';
+    } else {
+      // Private key only: derive the public half rather than trust the file's.
+      verifyKey = createPublicKey(privateKeyPem()!)
+        .export({ type: 'spki', format: 'pem' })
+        .toString();
+    }
+  } catch (err) {
+    return `key error (${err instanceof Error ? err.message : 'invalid key'})`;
+  }
+
+  const ok = verify(
+    null,
+    Buffer.from(signedPayload(data), 'utf8'),
+    verifyKey,
+    Buffer.from(data.signature.value, 'base64'),
+  );
+  return ok ? null : 'signature does not match the stored baseline';
 }
 
 function loadStore(): void {
@@ -157,6 +281,19 @@ function loadStore(): void {
     if (data.version !== STORE_VERSION) {
       throw new Error(`unsupported store version ${data.version}`);
     }
+
+    const signatureProblem = verifyStore(data);
+    if (signatureProblem) {
+      // Same failure class as a corrupt file, and handled the same way: a
+      // store we cannot vouch for must not become the approved state.
+      storeDegraded = signatureProblem;
+      // eslint-disable-next-line no-console
+      console.error(
+        '[cortex/tool-integrity] baseline signature rejected — every federated tool will be withheld',
+        { path, reason: signatureProblem },
+      );
+      return;
+    }
     for (const [name, t] of Object.entries(data.tools ?? {})) {
       baseline.set(name, {
         app: t.app,
@@ -190,9 +327,29 @@ function loadStore(): void {
   }
 }
 
+/** Warned once per process, not once per refresh. */
+let warnedVerifyOnly = false;
+
 function persistStore(): void {
   const path = storePath();
   if (!path || storeDegraded) return;
+
+  // Verify-only: the gateway can check approvals but not create them. This is
+  // the point of the mode, not a limitation to work around — writing an
+  // unsigned store here would silently drop the guarantee at the first new
+  // tool. The catalog change stays in memory and, in block mode, quarantined
+  // until an operator signs the new state offline.
+  if (!privateKeyPem() && publicKeyPem()) {
+    if (!warnedVerifyOnly) {
+      warnedVerifyOnly = true;
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[cortex/tool-integrity] verify-only (public key without private key): the catalog changed ' +
+          'but the baseline was NOT updated. Sign the new state offline — scripts/sign-baseline.mjs.',
+      );
+    }
+    return;
+  }
 
   const data: StoredBaseline = {
     version: STORE_VERSION,
@@ -207,6 +364,23 @@ function persistStore(): void {
   };
 
   try {
+    const priv = privateKeyPem();
+    if (priv) {
+      const pub = createPublicKey(priv).export({ type: 'spki', format: 'pem' }).toString();
+      data.trust = {
+        signed_blocks: [...SIGNED_BLOCKS],
+        scope: 'partial',
+        algorithm: SIGNATURE_ALGORITHM,
+        trust_level: 'self-signed',
+        public_key_hint: process.env.CORTEX_BASELINE_PUBLIC_KEY_HINT || undefined,
+      };
+      data.signature = {
+        value: sign(null, Buffer.from(signedPayload(data), 'utf8'), priv).toString('base64'),
+        created_at: new Date().toISOString(),
+        public_key: pub,
+      };
+    }
+
     mkdirSync(dirname(path), { recursive: true });
     // Write-then-rename: a crash mid-write leaves the previous baseline intact
     // rather than a truncated file, which would be read as corrupt on boot.
@@ -226,6 +400,25 @@ function persistStore(): void {
  * Canonical JSON: object keys sorted recursively, so that a backend
  * reserializing the same schema in a different key order is not reported as a
  * mutation. Only key order is normalized — values are compared as-is.
+ *
+ * Known gap, worth stating rather than discovering later. llmca.org's
+ * mcp-canonical-json/v1 profile refuses to sort keys, on the grounds that a
+ * model reads a document as text and key order carries meaning — so sorting
+ * would let someone reorder after signing and change model behaviour without
+ * breaking the signature. That argument applies here too: a backend that only
+ * reorders the properties of an `inputSchema`, or the members of an `enum`,
+ * produces an identical digest and no mutation, while what the model reads has
+ * changed.
+ *
+ * Sorting is still right for THIS use. The fingerprint's job is to separate a
+ * semantic change from serialization noise, and backends re-serialize their
+ * schemas constantly — through ORMs, JSON codecs, proxies. An order-sensitive
+ * digest would fire on every one of those, and a control that cries wolf on
+ * every deploy is a control that gets turned off.
+ *
+ * The real answer is two digests: this one for "what it says changed", and an
+ * order-sensitive one for "how it is presented changed", reported distinctly
+ * so an operator can weigh them differently. Not built yet.
  */
 function canonical(value: unknown): string {
   if (value === undefined) return 'null';
@@ -414,13 +607,24 @@ export function integrityReport(): {
   baselineFile: string | null;
   /** Set when a configured store is unusable; the operator must intervene. */
   degraded: string | null;
+  /**
+   * Who can mint an approval:
+   *  - `none`        unsigned store; anyone who can write the file
+   *  - `self-signed` the gateway holds the private key, so a host compromise
+   *                  can still forge — narrower than it sounds
+   *  - `operator`    the gateway only verifies; approvals are signed offline
+   */
+  signing: 'none' | 'self-signed' | 'operator';
 } {
+  const priv = Boolean(privateKeyPem());
+  const pub = Boolean(publicKeyPem());
   return {
     mode: integrityMode(),
     trackedTools: baseline.size,
     quarantined: quarantinedTools(),
     baselineFile: storePath(),
     degraded: storeDegraded,
+    signing: priv ? 'self-signed' : pub ? 'operator' : 'none',
   };
 }
 
@@ -430,4 +634,5 @@ export function resetIntegrityState(): void {
   quarantine.clear();
   storeLoaded = false;
   storeDegraded = null;
+  warnedVerifyOnly = false;
 }

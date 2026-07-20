@@ -86,12 +86,23 @@ export async function GET(req: Request): Promise<Response> {
       `Baseline store unusable (${report.degraded}). Repair or deliberately remove the file, then restart.`,
     );
   }
+  if (report.baselineFile && report.signing === 'none') {
+    notes.push(
+      'Baseline is unsigned: anyone who can write the file can forge an approval. Set CORTEX_BASELINE_PRIVATE_KEY, or CORTEX_BASELINE_PUBLIC_KEY with offline signing.',
+    );
+  }
+  if (report.signing === 'self-signed') {
+    notes.push(
+      'Self-signed: the gateway holds the private key, so a host compromise can still forge an approval. Move to offline signing (public key only) to close that.',
+    );
+  }
 
   return Response.json({
     mode: report.mode,
     trackedTools: report.trackedTools,
     quarantined: report.quarantined,
     baselineFile: report.baselineFile,
+    signing: report.signing,
     degraded: report.degraded,
     notes: notes.length ? notes : undefined,
   });
