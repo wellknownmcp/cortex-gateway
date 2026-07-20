@@ -63,10 +63,20 @@ function getVerifier(): OAuthVerifier {
     };
   }
 
+  // Optional floor scope, checked before any dispatch. Per-tool scopes are the
+  // real authorization model, but the gateway builtins (`whoami`,
+  // `list_cortex_resources`, ...) deliberately require none — so without this,
+  // any syntactically valid token for this audience reaches them. Set
+  // OAUTH_REQUIRED_SCOPES to demand a baseline (e.g. `mcp:access`).
+  const requiredScopes = (process.env.OAUTH_REQUIRED_SCOPES ?? '')
+    .split(/[,\s]+/)
+    .filter(Boolean);
+
   _verifier = createOAuthVerifier({
     issuer: issuer(),
     audience,
     jwksUrl: process.env.OAUTH_JWKS_URL || undefined,
+    requiredScopes: requiredScopes.length > 0 ? requiredScopes : undefined,
     introspect,
   });
   return _verifier;

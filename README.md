@@ -228,6 +228,8 @@ annotated list. The essentials:
 | `CORTEX_BACKENDS` + `CORTEX_BACKEND_<ID>_URL` | yes | Federated backends |
 | `CORTEX_TECHNICAL_TOKEN` | yes | Static token for catalog discovery (catalog methods only) |
 | `CORTEX_ALLOWED_ORIGINS` | prod | Web origins allowed (exact or `*.suffix`) |
+| `CORTEX_TOOL_INTEGRITY_MODE` | no | `warn` (default) or `block` — rug-pull detection on tool definitions |
+| `OAUTH_REQUIRED_SCOPES` | no | Baseline scope demanded before any dispatch |
 | `CORTEX_DATABASE_URL` | no | PostgreSQL for audit persistence + gateway tickets |
 | `CORTEX_TICKET_WEBHOOK_URL` | no | Webhook for blocking missing-capability tickets |
 | `CORTEX_WEBSITE_URL` | no | `websiteUrl` shown by MCP clients (default: the gateway origin). Server icons: replace `public/icon-{light,dark}.png` |
@@ -260,6 +262,29 @@ Under the hood:
   Art. 4(5), so the audit trail stays in your record of processing and needs a
   retention period.
 - Sessions are bound to the token's `sub`; foreign session ids get 404.
+
+**Controls a federating gateway can enforce that a single server cannot.**
+Because it sees every backend's tool definitions and every hop to them, the
+gateway is the place to catch what the ecosystem's incident reports keep
+finding — full details in [docs/security.md](docs/security.md):
+
+- **Rug-pull detection.** Tool definitions are fingerprinted (`description`,
+  `inputSchema`, `scope`, `version`) at first sight and re-checked at every
+  refresh. A backend that rewrites what a tool claims to do while keeping its
+  name is reported, and with `CORTEX_TOOL_INTEGRITY_MODE=block` the tool is
+  quarantined until an operator reviews it. Name-level change detection —
+  what most implementations do — misses exactly this attack.
+- **No plaintext to remote hosts.** Every federated call forwards the caller's
+  token, so an `http://` backend URL pointing anywhere but loopback is refused
+  at load. Same validation on the OAuth endpoints the adapter *discovers* from
+  a third-party server's metadata, which is the class of bug behind
+  CVE-2025-6514.
+- **Attributable audit.** Each line records which backend served the call and
+  under which scope — not just the tool name.
+
+Honest scope: the fingerprint baseline is per-process and rebuilt at boot, so
+it is mutation detection, not attestation. A persistent signed baseline is the
+next step, not a claim being made today.
 
 **Compliance.** These are the controls audits test for on automated access:
 least-privilege scopes, per-user identity (no over-privileged service account),

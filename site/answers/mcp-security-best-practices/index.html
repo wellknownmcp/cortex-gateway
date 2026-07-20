@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP security best practices: what a gateway can actually enforce | Cortex Gateway</title>
+<meta name="description" content="The six MCP threat categories the 2026 incident record keeps producing — tool poisoning, rug pulls, session hijacking, supply chain, cross-tenant leakage, pre-auth RCE — which controls answer them, and which published recommendations are not implementable yet.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-security-best-practices/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="MCP security best practices: what a gateway can actually enforce | Cortex Gateway">
+<meta property="og:description" content="Six MCP threat categories, the controls that answer them, and an honest line between what ships today and what is still a research proposal.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-security-best-practices/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "MCP security best practices: what a gateway can actually enforce",
+      "url": "https://cortex-gateway.dev/answers/mcp-security-best-practices/",
+      "dateModified": "2026-07-20",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-security-best-practices/" },
+        { "@type": "ListItem", "position": 3, "name": "MCP security best practices" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What are the main MCP security threats?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Six categories account for nearly every published MCP incident: tool poisoning (adversarial instructions hidden in a tool description), rug pulls (a tool's definition rewritten after it was approved), session hijacking (tokens intercepted, often because the transport was plaintext), supply chain compromise (a malicious or typosquatted package in the server's dependencies), cross-tenant leakage (one organization's context reaching another), and pre-authentication remote code execution (server-supplied data used unsafely by the client that received it, as in CVE-2025-6514). Most are ordinary engineering failures — missing input validation, missing least privilege, implicit trust — rather than novel attacks on the protocol." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is a rug pull attack on an MCP server?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A rug pull is a bait-and-switch on tool definitions. A server exposes an honest tool, users and clients approve it, and the server later rewrites that tool's description or input schema while keeping the name identical. Because the approval is keyed on the name, nothing re-prompts — but the model now reads different instructions and may take different actions. Change detection that compares tool names cannot see it. Catching it requires fingerprinting the full definition (description, input schema, required scope, version) at approval time and re-checking it on every refresh." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does an MCP gateway improve security, or add attack surface?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Both, and the trade is only worth it if the gateway holds no rights of its own. A gateway concentrates traffic, so a compromised one is serious. In exchange it is the single place that sees every backend's tool definitions, every hop, and every call — which is where rug-pull detection, transport policy and an attributable audit trail can actually be enforced. A gateway that makes authorization decisions or holds a service account adds risk; one that only validates, propagates the user's own identity, and decides nothing adds enforcement without adding trust." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is per-invocation message signing required for MCP security?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It appears in published maturity frameworks, but nothing in the MCP specification defines it and no mainstream client implements it. Building it today means inventing a non-interoperable extension that no client understands, for a threat — tampering after TLS termination inside your own perimeter — that most deployments do not face. The same caveat applies to cryptographically signed tool descriptions and to the Enhanced Tool Definition Interface: worthwhile directions, not yet standards. Deploying the fundamentals well (OAuth 2.1 with per-tool scopes, enforced TLS, pinned dependencies, definition integrity checks, a real audit trail) removes far more real-world risk than partially implementing the advanced tiers." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do you stop tool poisoning in an MCP deployment?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Two different controls, often confused. Detecting a description that was adversarial from the start requires scanning its content for injected instructions, which is what tools like mcp-scan do, plus human review before a server is approved. Detecting a description that turned adversarial after approval requires definition fingerprinting and change alerts. A gateway can enforce the second automatically because it re-reads every backend's catalog on a schedule; the first is a review process, not a runtime check, and no amount of infrastructure replaces reading what you are about to trust." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › MCP security best practices</p>
+  <h1>MCP security best practices: what a gateway can actually enforce</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>The published MCP incident record concentrates in <strong>six threat categories</strong>, and almost none of them are exotic. They are missing input validation, missing least privilege, and implicit trust — the same failures as every previous integration technology, now with a language model in the loop that reads attacker-controlled text as instructions. The security frameworks converging on MCP get the threat taxonomy right and then overreach: their upper tiers ask for <strong>per-invocation message signing and signed tool descriptions that no MCP client implements</strong>. This page separates what you can enforce today from what is still a proposal, and states which of those a federating gateway is the right place for — including the ones Cortex Gateway does <em>not</em> solve.</p>
+  </div>
+
+  <h2>The six threat categories</h2>
+  <p>Independent analyses — the Cloud Security Alliance's MCP guidance, the OWASP Top 10 for Agentic Applications, the agent-focused additions to MITRE ATLAS — converge on the same short list. It is worth reading as a checklist of what to defend, not as a novelty:</p>
+
+  <table>
+    <tr><th>Threat</th><th>What it actually is</th><th>Where it must be stopped</th></tr>
+    <tr>
+      <td><strong>Tool poisoning</strong></td>
+      <td>Adversarial instructions hidden in a tool description, which the model follows and the user never reads</td>
+      <td>Review before approval + content scanning. Not a runtime control.</td>
+    </tr>
+    <tr>
+      <td><strong>Rug pull</strong></td>
+      <td>A tool's description or schema rewritten <em>after</em> approval, under an unchanged name</td>
+      <td>Definition fingerprinting wherever catalogs are read — a gateway, or the client itself</td>
+    </tr>
+    <tr>
+      <td><strong>Session hijacking</strong></td>
+      <td>Token theft: plaintext transport, tunnel subdomain reassignment, long-lived high-privilege sessions</td>
+      <td>Enforced TLS, short token lifetimes, refresh rotation, sessions carrying no authority</td>
+    </tr>
+    <tr>
+      <td><strong>Supply chain</strong></td>
+      <td>A malicious, typosquatted or hijacked package in the server's dependency tree</td>
+      <td>Pinning, SBOM, CVE monitoring — your build pipeline, not your runtime</td>
+    </tr>
+    <tr>
+      <td><strong>Cross-tenant leakage</strong></td>
+      <td>One organization's context or data reaching another, often via unfiltered queries or shared context</td>
+      <td>The application that owns the data. Nothing upstream can reconstruct its tenancy rules.</td>
+    </tr>
+    <tr>
+      <td><strong>Pre-auth RCE</strong></td>
+      <td>Server-supplied data used unsafely by the client that received it — CVE-2025-6514 passed an unsanitized URL from server metadata to the OS shell</td>
+      <td>Validate everything a remote party sends before acting on it. Especially URLs.</td>
+    </tr>
+  </table>
+
+  <p>The single most useful sentence in the CSA's own analysis is the concession that most real incidents "stem from standard engineering failures — input validation, least privilege, explicit trust — not exotic zero-days." That is true, and it should change how you sequence the work.</p>
+
+  <h2>Which recommendations are implementable today</h2>
+  <p>Maturity models are useful for planning and dangerous for procurement, because they list aspirational controls beside shipping ones without marking which is which. Here is the honest split for MCP as of mid-2026:</p>
+
+  <table>
+    <tr><th>Control</th><th>Status</th></tr>
+    <tr><td>OAuth 2.1 + PKCE, per-tool scopes, per-call authorization</td><td><strong>Shipping.</strong> In the MCP spec, implemented by real clients. No excuse not to.</td></tr>
+    <tr><td>TLS everywhere, short-lived tokens, refresh rotation with theft detection</td><td><strong>Shipping.</strong> Ordinary OAuth hygiene, nothing MCP-specific.</td></tr>
+    <tr><td>Tool definition change detection</td><td><strong>Implementable</strong> without any protocol extension — you already re-read the catalog. Rarely implemented, which is the gap.</td></tr>
+    <tr><td>SBOM, pinning, CVE monitoring, curated registry</td><td><strong>Shipping.</strong> Your existing supply-chain program, applied to MCP servers.</td></tr>
+    <tr><td>Attributable audit trail, SIEM forwarding, anomaly baselines</td><td><strong>Implementable.</strong> The hard part is deciding what a line must contain, not the plumbing.</td></tr>
+    <tr><td>Cryptographically <em>signed</em> tool descriptions</td><td><strong>Proposal.</strong> No standard, no client verifies signatures. Local-only benefit at best.</td></tr>
+    <tr><td>Per-invocation request/response signing</td><td><strong>Proposal.</strong> Not in the MCP spec. Implementing it means a private extension no client understands.</td></tr>
+    <tr><td>Enhanced Tool Definition Interface (JWT-bound tools)</td><td><strong>Research.</strong> A promising direction, not something to require of a vendor in 2026.</td></tr>
+    <tr><td>Hardware enclaves / micro-VM isolation per invocation</td><td><strong>Real but narrow.</strong> Justified for untrusted code execution; overkill for a server calling your own internal APIs.</td></tr>
+  </table>
+
+  <p>The practical conclusion: doing the first five properly eliminates the large majority of what has actually gone wrong. Partially implementing the bottom four buys compliance narrative, not security.</p>
+
+  <h2>What a federating gateway is the right place for</h2>
+  <p>A gateway is not automatically safer — it concentrates traffic, so a compromised one is serious, and one that holds a service account or makes its own authorization decisions <a href="/answers/agent-permission-layer/">flattens identity</a> and makes things worse. The version that helps is the one holding no rights of its own. Then it becomes the single component that sees every backend's tool definitions, every hop, and every call, which makes it the natural enforcement point for three of the six categories:</p>
+
+  <h3>Rug pulls — the one that needs a chokepoint</h3>
+  <p>Detecting a rewritten tool definition requires remembering what it looked like when it was approved. Individual clients rarely do this, and when many agents connect to many servers there is no shared memory of the approved state. A gateway re-reads each backend's catalog on a schedule anyway, which makes fingerprinting nearly free.</p>
+  <p>Cortex Gateway hashes the security-relevant surface of every federated tool — <code>description</code>, <code>inputSchema</code>, required <code>scope</code>, <code>version</code>, deprecation — at first sight, and re-checks it at each refresh. Key ordering is normalized so a backend reserializing an identical schema is not a false positive. Two modes:</p>
+  <pre><code>CORTEX_TOOL_INTEGRITY_MODE=warn    # default: log the mutation, name the changed
+                                   # fields, push tools/list_changed, serve it
+CORTEX_TOOL_INTEGRITY_MODE=block   # quarantine: withheld from tools/list and
+                                   # refused at tools/call until reviewed</code></pre>
+  <p>In <code>block</code> mode the baseline deliberately keeps the <em>approved</em> definition, so a mutation keeps being reported instead of quietly becoming the new normal — and a backend that reverts clears its own quarantine.</p>
+
+  <h3>Transport — because the gateway forwards your token</h3>
+  <p>Every federated call carries the caller's bearer token to the backend, so a plaintext hop is a credential leak, not a performance choice. Cortex refuses <code>http://</code> to any remote host and drops that backend at load rather than trusting the scheme to be right in every environment; loopback stays allowed, since that is where the <a href="/guides/expose-http-mcp-server-over-stdio/">stdio bridge</a> and local development live.</p>
+  <p>The same validation applies to URLs the gateway did not choose. When it <a href="/guides/federate-third-party-mcp-servers/">federates a third-party MCP server</a>, the issuer and the authorization, token and registration endpoints all come from the <em>remote server's</em> metadata — one of them is where a user's browser gets sent, another is where an authorization code gets presented. Each is validated before use. That is precisely the class of bug behind CVE-2025-6514: server-controlled data acted on by the client that received it.</p>
+
+  <h3>Audit — "which tool" is not "which system"</h3>
+  <p>A federated audit line that records only a tool name leaves the reader inferring the destination from a naming convention. Cortex records the backend that served each call and the scope that gated it, alongside a pseudonymized caller identity and hashed parameters. That is the difference between a log and an audit trail an investigation can lean on — the same controls <a href="/answers/ai-agent-compliance-controls/">auditors test for</a> under ISO 27001 and SOC 2.</p>
+
+  <h2>What a gateway does not solve</h2>
+  <p>Being explicit here matters more than the feature list, because the failure mode of security infrastructure is believing it covers something it doesn't:</p>
+  <ul>
+    <li><strong>Cross-tenant leakage.</strong> Only the application owning the data knows its tenancy rules. A gateway that tried to reconstruct them would be replicating permissions — the exact anti-pattern. Cortex propagates the real user's identity and lets each backend enforce its own model; if a backend leaks across tenants, nothing upstream will catch it.</li>
+    <li><strong>Supply chain.</strong> This belongs to your build pipeline: pinning, SBOM, CVE monitoring, a curated registry. No runtime component fixes a malicious dependency.</li>
+    <li><strong>A tool that was malicious from the first refresh.</strong> Fingerprinting answers "did it change since you approved it", not "was it honest to begin with". That still requires reading the description before approving the server, and scanning it — <code>mcp-scan</code> and equivalents exist for exactly this.</li>
+    <li><strong>Attestation.</strong> Cortex's fingerprint baseline is per-process and rebuilt at boot, so a restart implicitly re-approves the current state and each replica keeps its own. It is mutation detection during a process's lifetime. A persistent, operator-signed baseline is the next step — stated here as a limit, not sold as a feature.</li>
+  </ul>
+
+  <h2>A sequencing that reflects the real risk</h2>
+  <ol>
+    <li><strong>Inventory.</strong> Every MCP server your organization actually runs, including the ones developers added to their own IDE. You cannot secure what is not on a list.</li>
+    <li><strong>Authenticate everything.</strong> OAuth 2.1 with PKCE, no unauthenticated servers, no personal tokens with admin scope. <a href="/guides/secure-mcp-with-oauth/">Wiring guide</a>.</li>
+    <li><strong>Enforce TLS and scope the tools.</strong> Per-tool scopes, not per-server. A caller should not see tools it may not call.</li>
+    <li><strong>Detect definition changes.</strong> Cheap, unimplemented almost everywhere, and the only defense against the rug pull.</li>
+    <li><strong>Make the audit attributable.</strong> Caller, tool, backend, scope, outcome — per call.</li>
+    <li><strong>Then</strong> consider the advanced tiers, on the understanding that some of them do not exist yet.</li>
+  </ol>
+
+  <h2>Try it</h2>
+  <p>Cortex Gateway is MIT-licensed and self-hosted: one OAuth 2.1 MCP endpoint in front of N applications, no permission mirroring, the security controls above enforced in the one place that can see across backends. The full control documentation, including the stated limits, is in <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/security.md">docs/security.md</a>.</p>
+  <pre><code>docker run ghcr.io/wellknownmcp/cortex-gateway</code></pre>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What are the main MCP security threats?</h3>
+    <p>Six categories cover nearly every published incident: tool poisoning, rug pulls, session hijacking, supply chain compromise, cross-tenant leakage, and pre-authentication remote code execution. Most are ordinary engineering failures — missing input validation, missing least privilege, implicit trust — rather than novel attacks on the protocol itself. What is new is that a language model reads attacker-controlled text as instructions, which turns a tool description into an injection surface.</p>
+    <h3>What is a rug pull attack on an MCP server?</h3>
+    <p>A bait-and-switch on tool definitions: the server exposes an honest tool, gets approved, then rewrites that tool's description or input schema while keeping the name. The approval is keyed on the name, so nothing re-prompts, but the model now reads different instructions. Name-level change detection cannot see it — catching it requires fingerprinting the full definition at approval time and re-checking it on every catalog refresh.</p>
+    <h3>Does an MCP gateway improve security, or add attack surface?</h3>
+    <p>Both, and it only nets out positive if the gateway holds no rights of its own. Concentrating traffic makes a compromise serious; in exchange, the gateway is the one component that sees every backend's tool definitions, every hop and every call, which is where definition integrity, transport policy and an attributable audit trail can be enforced. A gateway with a service account adds risk. One that validates, propagates the user's own identity, and decides nothing adds enforcement without adding trust.</p>
+    <h3>Is per-invocation message signing required for MCP security?</h3>
+    <p>It appears in published maturity frameworks, but nothing in the MCP specification defines it and no mainstream client implements it — so building it means a private extension no client understands, against a threat most deployments don't face. The same caveat applies to signed tool descriptions and to JWT-bound tool interfaces: worthwhile directions, not yet standards. Doing the fundamentals well removes far more real risk than partially implementing the advanced tiers.</p>
+    <h3>How do you stop tool poisoning in an MCP deployment?</h3>
+    <p>Two distinct controls. A description that was adversarial from the start is caught by content scanning and human review before approval — a process, not a runtime check. A description that turned adversarial after approval is caught by definition fingerprinting and change alerts, which a gateway can automate because it re-reads catalogs on a schedule. Neither replaces reading what you are about to trust.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

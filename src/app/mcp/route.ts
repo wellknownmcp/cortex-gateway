@@ -23,9 +23,9 @@ import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { validateRequest, buildWwwAuthenticate } from '@/lib/oauth-validator';
 import { isOriginAllowed } from '@/lib/origins';
 import { createSession, terminateSession, validateSession } from '@/lib/sessions';
-import { handleMethod, type JsonRpcResponse } from '@/lib/mcp-methods';
+import { handleMethod, BUILTIN_TOOL_NAMES, type JsonRpcResponse } from '@/lib/mcp-methods';
 import { logAudit, hashEmail, hashParams } from '@/lib/audit-log';
-import { startPeriodicRefresh } from '@/lib/federator';
+import { startPeriodicRefresh, lookupTool, findBackendForUri } from '@/lib/federator';
 import { subscribe as subscribeEvents } from '@/lib/event-bus';
 
 // Boot: start the periodic refresh of the federated catalog
@@ -290,6 +290,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // the listed backends (CSV: "docs,billing"). Gateway builtins always stay
   // visible. Empty string = explicitly no federated backend — useful to
   // discover the builtins without federation noise. Absent = no filter.
+  //
+  // NOT a security boundary. It shapes what the agent is shown, not what the
+  // token may call: a caller that sends `X-Cortex-Backends: docs` can still
+  // invoke `billing_*` if its scopes allow. Authorization lives in the
+  // per-tool scope check in handleToolsCall — deliberately, so that trimming
+  // context can never be mistaken for revoking access.
   const backendsHeader = req.headers.get('x-cortex-backends');
   const backendsFilter: ReadonlySet<string> | undefined =
     backendsHeader === null
@@ -352,6 +358,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const responseSize = JSON.stringify(rpcRes).length;
 
+  // Which backend actually served the call, and under which scope. Resolved
+  // from the federated catalog rather than threaded through the dispatch, so
+  // the audit trail answers "who reached what" without an extra plumbing
+  // layer. `gateway` marks the builtins — they federate to no backend.
+  const { targetApp, scopeUsed } = resolveAuditTarget(body.method, toolName, body.params);
+
   // tools/list metrics — computed only for that method and when the call
   // succeeded. The chars/4 token estimate is a standard approximation
   // (~±10%), enough to steer optimizations (backend filtering, compact
@@ -374,8 +386,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     caller_pool: userCtx.pool,
     tool: toolName,
     method: body.method,
-    target_app: null,
-    scope_used: null,
+    target_app: targetApp,
+    scope_used: scopeUsed,
     params_hash: hashParams(body.params),
     response_size: responseSize,
     latency_ms: Date.now() - startTs,
@@ -393,4 +405,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   return new NextResponse(JSON.stringify(rpcRes), { status: 200, headers: responseHeaders });
+}
+
+/**
+ * Resolves the backend that a call was routed to, plus the scope that gated
+ * it, for the audit trail.
+ *
+ * Two data-bearing paths are attributed:
+ *  - `tools/call`     via the federated catalog (`<app>_<tool>` → app + scope)
+ *  - `resources/read` via the URI scheme → owning backend
+ *
+ * `gateway` means a builtin: served in-process, federating to nothing. `null`
+ * means the method reaches no backend (initialize, tools/list...) or the tool
+ * was unknown — in which case the call failed anyway.
+ */
+function resolveAuditTarget(
+  method: string,
+  toolName: string | null,
+  params: unknown,
+): { targetApp: string | null; scopeUsed: string | null } {
+  if (method === 'tools/call' && toolName) {
+    if (BUILTIN_TOOL_NAMES.has(toolName)) {
+      return { targetApp: 'gateway', scopeUsed: null };
+    }
+    const entry = lookupTool(toolName);
+    return entry
+      ? { targetApp: entry.app.id, scopeUsed: entry.tool.scope }
+      : { targetApp: null, scopeUsed: null };
+  }
+
+  if (method === 'resources/read' && typeof params === 'object' && params !== null) {
+    const uri = (params as { uri?: unknown }).uri;
+    if (typeof uri === 'string') {
+      const app = findBackendForUri(uri);
+      if (app) return { targetApp: app.id, scopeUsed: null };
+    }
+  }
+
+  return { targetApp: null, scopeUsed: null };
 }

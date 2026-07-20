@@ -14,11 +14,25 @@ import { openJson } from '@/adapter/crypto';
 import { storeGrant } from '@/adapter/vault';
 import type { LinkState } from '../start/route';
 
+/**
+ * HTML-escapes interpolated text. `detail` can carry attacker-influenced
+ * content — the provider's `error` query parameter, or an exception message
+ * built from a downstream response — so it never reaches the document raw.
+ */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function page(status: number, title: string, detail: string): NextResponse {
   return new NextResponse(
-    `<!doctype html><meta charset="utf-8"><title>${title}</title>
+    `<!doctype html><meta charset="utf-8"><title>${esc(title)}</title>
 <body style="font-family:system-ui,sans-serif;max-width:560px;margin:80px auto;padding:0 24px">
-<h1 style="font-size:22px">${title}</h1><p style="color:#555">${detail}</p></body>`,
+<h1 style="font-size:22px">${esc(title)}</h1><p style="color:#555">${esc(detail)}</p></body>`,
     { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
   );
 }
