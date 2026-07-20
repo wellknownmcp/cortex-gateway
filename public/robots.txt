@@ -1,0 +1,21 @@
+# Cortex Gateway — MCP endpoint host.
+#
+# This host serves an MCP endpoint and its discovery documents, not a content
+# site. Crawling is allowed because everything reachable without a token is
+# already public by design: the status page (backend ids and tool counts, no
+# tool names, no data) and the machine-readable descriptors below. Everything
+# else answers 401.
+
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
+Allow: /
+
+# Machine-readable entry points, in the order an agent should read them:
+#   /llms.txt                              what this host is, how to connect
+#   /.well-known/mcp/server-card.json      MCP server card (SEP-2127)
+#   /.well-known/oauth-protected-resource  RFC 9728 — names the auth server
+#   /sitemap.xml                           the four URLs above, as a sitemap
+#
+# No `Sitemap:` directive here: the spec requires an absolute URL, and this
+# file ships with the gateway rather than with a deployment, so it cannot know
+# its own host. /sitemap.xml is served at the root and is found by fetching it.

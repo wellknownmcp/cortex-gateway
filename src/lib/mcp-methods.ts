@@ -58,13 +58,13 @@ function backendOwnedTickets(): Set<string> {
 }
 
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26'] as const;
-const SERVER_PROTOCOL_VERSION = '2025-06-18';
+export const SERVER_PROTOCOL_VERSION = '2025-06-18';
 
-function serverName(): string {
+export function serverName(): string {
   return process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway';
 }
 
-const SERVER_VERSION = '0.2.0';
+export const SERVER_VERSION = '0.2.0';
 
 const CAPABILITIES = {
   tools: { listChanged: true },
