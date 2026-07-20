@@ -64,7 +64,7 @@ function serverName(): string {
   return process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway';
 }
 
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = '0.2.0';
 
 const CAPABILITIES = {
   tools: { listChanged: true },

@@ -1,6 +1,6 @@
 {
   "name": "cortex-gateway",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Federated MCP gateway — one spec-compliant MCP server (Streamable HTTP + OAuth 2.1) in front of N plain-HTTP backends",
   "license": "MIT",
   "repository": {

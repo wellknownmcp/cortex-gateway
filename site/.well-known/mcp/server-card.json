@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
   "name": "io.github.wellknownmcp/cortex-gateway",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "Cortex Gateway (hosted demo)",
   "description": "Self-hosted federated MCP gateway: one OAuth 2.1 MCP server in front of N apps, user-level scopes. This card describes the hosted demo instance; OAuth discovery is served by the endpoint itself (RFC 9728).",
   "websiteUrl": "https://cortex-gateway.dev",

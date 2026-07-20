@@ -6,7 +6,7 @@
     "url": "https://github.com/wellknownmcp/cortex-gateway",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "remotes": [
     {
       "type": "streamable-http",
@@ -16,7 +16,7 @@
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/wellknownmcp/cortex-gateway:v0.1.0",
+      "identifier": "ghcr.io/wellknownmcp/cortex-gateway:v0.2.0",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:3213/mcp"
