@@ -1,0 +1,24 @@
+# Security contact for cortex-gateway.dev and mcp.cortex-gateway.dev
+#
+# Report privately. A gateway that federates other people's applications is
+# exactly the kind of thing that should not learn about its own vulnerabilities
+# from a public issue thread.
+
+Contact: https://github.com/wellknownmcp/cortex-gateway/security/advisories/new
+Contact: mailto:opensource@wellknownmcp.org
+Expires: 2027-07-20T00:00:00.000Z
+Preferred-Languages: en, fr
+Canonical: https://cortex-gateway.dev/.well-known/security.txt
+Policy: https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/security.md
+
+# What is in scope
+#
+# The gateway itself (this repository), the hosted demo at
+# mcp.cortex-gateway.dev, and its authorization server at
+# auth.cortex-gateway.dev. The demo runs a deliberately trivial backend; a
+# finding there only matters if it reaches past that backend.
+#
+# Known and documented, so please do not report as new: the MCP->backend
+# adapter is beta and has never run against a real third-party provider; the
+# tool-integrity baseline is signed but its trust chain stops at the operator,
+# not the backend author. Both are stated in docs/security.md.
