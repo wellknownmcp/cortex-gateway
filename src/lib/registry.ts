@@ -12,11 +12,15 @@
  */
 
 import type { BackendApp } from '@/contract';
+import { acceptBackendUrl } from './secure-url';
 
 function pick(id: string): BackendApp | null {
   const idUpper = id.toUpperCase().replace(/-/g, '_');
   const baseUrl = process.env[`CORTEX_BACKEND_${idUpper}_URL`];
   if (!baseUrl) return null;
+  // Transport policy: the caller's bearer token is forwarded to this URL, so
+  // plaintext to a remote host is refused (see lib/secure-url.ts).
+  if (!acceptBackendUrl(baseUrl, `CORTEX_BACKEND_${idUpper}_URL`)) return null;
   const backendPath = process.env[`CORTEX_BACKEND_${idUpper}_PATH`] ?? '/api/cortex/backend';
   const timeoutRaw = process.env[`CORTEX_BACKEND_${idUpper}_TIMEOUT_MS`];
   const timeoutMs = timeoutRaw ? Number.parseInt(timeoutRaw, 10) : 10_000;

@@ -14,6 +14,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { getPrismaCortex } from '@/lib/prisma';
 import { canonicalUri } from '@/lib/oauth-validator';
+import { insecureUrlReason } from '@/lib/secure-url';
 import { encrypt, decrypt } from './crypto';
 import type { McpServerConfig } from './config';
 
@@ -45,6 +46,21 @@ async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
  * Tries RFC 9728 protected-resource metadata (path-aware then root), then
  * falls back to treating the MCP origin itself as the issuer.
  */
+/**
+ * Every URL in this flow is chosen by the remote server, not by us: the issuer
+ * comes from its protected-resource metadata, the endpoints from that issuer's
+ * metadata. One of them is where we send the user's browser, another is where
+ * we present an authorization code. A downgraded or malformed URL here is the
+ * whole attack — so each is validated before use rather than after.
+ */
+function requireSecureEndpoint(raw: string, label: string, source: string): string {
+  const reason = insecureUrlReason(raw, label);
+  if (reason) {
+    throw new Error(`Discovery refused for ${source} — ${reason}`);
+  }
+  return raw;
+}
+
 export async function discoverAuthServer(mcpUrl: string): Promise<DownstreamAuthServer> {
   const u = new URL(mcpUrl);
   const origin = `${u.protocol}//${u.host}`;
@@ -55,7 +71,11 @@ export async function discoverAuthServer(mcpUrl: string): Promise<DownstreamAuth
     (await fetchJson(`${origin}/.well-known/oauth-protected-resource${path}`)) ??
     (await fetchJson(`${origin}/.well-known/oauth-protected-resource`));
   if (prm && Array.isArray(prm.authorization_servers) && typeof prm.authorization_servers[0] === 'string') {
-    issuer = (prm.authorization_servers[0] as string).replace(/\/$/, '');
+    issuer = requireSecureEndpoint(
+      (prm.authorization_servers[0] as string).replace(/\/$/, ''),
+      'authorization_servers[0]',
+      mcpUrl,
+    );
   }
 
   const meta =
@@ -65,12 +85,36 @@ export async function discoverAuthServer(mcpUrl: string): Promise<DownstreamAuth
     throw new Error(`Could not discover OAuth metadata for ${mcpUrl} (issuer tried: ${issuer})`);
   }
 
-  return {
-    issuer,
-    authorizationEndpoint: meta.authorization_endpoint,
-    tokenEndpoint: meta.token_endpoint,
-    registrationEndpoint: typeof meta.registration_endpoint === 'string' ? meta.registration_endpoint : null,
-  };
+  const authorizationEndpoint = requireSecureEndpoint(
+    meta.authorization_endpoint,
+    'authorization_endpoint',
+    mcpUrl,
+  );
+  const tokenEndpoint = requireSecureEndpoint(meta.token_endpoint, 'token_endpoint', mcpUrl);
+  const registrationEndpoint =
+    typeof meta.registration_endpoint === 'string'
+      ? requireSecureEndpoint(meta.registration_endpoint, 'registration_endpoint', mcpUrl)
+      : null;
+
+  // A legitimate AS may host its login on a separate domain, so a cross-origin
+  // endpoint is not an error — but it is worth a line in the log, since it is
+  // also what a hijacked metadata document looks like.
+  for (const [label, endpoint] of [
+    ['authorization_endpoint', authorizationEndpoint],
+    ['token_endpoint', tokenEndpoint],
+  ] as const) {
+    if (new URL(endpoint).origin !== new URL(issuer).origin) {
+      // eslint-disable-next-line no-console
+      console.warn('[cortex/adapter] discovered endpoint is cross-origin to its issuer', {
+        provider: mcpUrl,
+        issuer,
+        label,
+        endpoint: new URL(endpoint).origin,
+      });
+    }
+  }
+
+  return { issuer, authorizationEndpoint, tokenEndpoint, registrationEndpoint };
 }
 
 /** Redirect URI of the linking flow for a provider, on this gateway's origin. */

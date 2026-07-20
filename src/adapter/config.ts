@@ -23,6 +23,8 @@
  *   CORTEX_BACKEND_CANVA_PATH=/api/mcp-adapter/canva/backend
  */
 
+import { acceptBackendUrl } from '@/lib/secure-url';
+
 export interface McpServerConfig {
   id: string;
   /** Downstream native MCP endpoint URL. */
@@ -51,6 +53,9 @@ export function loadMcpServers(): readonly McpServerConfig[] {
     const idUpper = id.toUpperCase().replace(/-/g, '_');
     const url = process.env[`CORTEX_MCP_${idUpper}_URL`];
     if (!url) continue;
+    // Same transport policy as the backend registry: a downstream OAuth token
+    // travels to this endpoint, so plaintext to a remote host is refused.
+    if (!acceptBackendUrl(url, `CORTEX_MCP_${idUpper}_URL`)) continue;
     servers.push({
       id,
       url: url.replace(/\/$/, ''),
