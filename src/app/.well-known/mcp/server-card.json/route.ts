@@ -11,6 +11,14 @@
  * CORTEX_CANONICAL_URI is the endpoint (and its origin, this host),
  * CORTEX_SERVER_NAME the identity used everywhere else in the gateway.
  * Nothing new to configure for the card to be correct.
+ *
+ * One exception, CORTEX_SERVER_CARD_NAME. The card's `name` is a registry
+ * identifier — the one a client uses to match this server against a registry
+ * entry (`io.github.owner/repo`) — while CORTEX_SERVER_NAME is the label MCP
+ * clients display ("Acme Gateway"). They are usually not the same string, and
+ * publishing the display name here makes the card disagree with the registry
+ * entry it is supposed to correspond to. Set the card name when the server is
+ * published to a registry; otherwise the display name is a reasonable default.
  */
 
 import { NextResponse } from 'next/server';
@@ -23,7 +31,7 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json(
     {
       $schema: 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
-      name: serverName(),
+      name: process.env.CORTEX_SERVER_CARD_NAME || serverName(),
       version: SERVER_VERSION,
       description:
         'Federated MCP gateway: one OAuth 2.1-protected MCP server in front of N backend ' +
