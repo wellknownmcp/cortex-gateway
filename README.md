@@ -237,6 +237,43 @@ annotated list. The essentials:
 
 ## Security model
 
+Two paths, and the difference between them is the whole design: the **catalog**
+is discovered in the background with a technical token that can only list, and
+a **call** carries the user's own token all the way to the backend.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as AI agent
+    participant GW as Cortex Gateway
+    participant AS as Authorization server
+    participant App as Backend app
+
+    rect rgba(128,128,128,0.10)
+    note over GW,App: Catalog refresh — every 60s, no user involved
+    GW->>App: tools/list (CORTEX_TECHNICAL_TOKEN)
+    App-->>GW: full tool catalog
+    note over GW: Fingerprint each definition<br/>(rug-pull detection)
+    end
+
+    note over GW,AS: JWKS fetched once and cached —<br/>tokens are verified locally, not per call
+
+    Agent->>GW: tools/list (user JWT)
+    note over GW: Verify signature, issuer, audience<br/>Filter the cached catalog by the token's scopes
+    GW-->>Agent: only the tools this user may call
+
+    Agent->>GW: tools/call demo_echo (user JWT)
+    note over GW: Check the scope declared by that tool
+    GW->>App: tools/call — the user's JWT, forwarded
+    note over App: Applies its own roles and ACLs<br/>to that user
+    App-->>GW: result, under the user's own rights
+    GW-->>Agent: result
+    note over GW: One audit line: who, which tool,<br/>which backend, which scope
+```
+
+The agent never holds a credential the user does not have, and no
+over-privileged service account exists anywhere on the path.
+
 Agent access is secured by construction, not by gateway policy. The properties
 below are what to demand from any MCP tooling you wire into an AI app:
 
