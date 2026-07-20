@@ -34,6 +34,7 @@ import {
   findBackendForUri,
 } from './federator';
 import { loadBackends } from './registry';
+import { isQuarantined } from './tool-integrity';
 import { getPrismaCortex, isDatabaseConfigured } from './prisma';
 import { notifyAdminOnBlocking } from './notify';
 import { canonicalUri } from './oauth-validator';
@@ -250,7 +251,7 @@ function buildServerInstructions(healthyBackends: readonly string[]): string {
     '',
     'Naming convention: every federated tool is prefixed with the id of the backend that exposes it (`docs_list_files`, `billing_get_invoice`, ...). Tools without a prefix are gateway builtins (`whoami`, `list_cortex_resources`, `read_cortex_resource`, `report_missing_capability`, `list_cortex_tickets`).',
     '',
-    'Backend filtering (recommended): if you mostly work with 1-2 backends this session, add the HTTP header `X-Cortex-Backends: <app1>,<app2>` to your JSON-RPC requests. The gateway then only returns the tools of the listed backends (gateway builtins stay visible). Benefit: 50-80% fewer tools in context, better selection accuracy.',
+    'Backend filtering (recommended): if you mostly work with 1-2 backends this session, add the HTTP header `X-Cortex-Backends: <app1>,<app2>` to your JSON-RPC requests. The gateway then only returns the tools of the listed backends (gateway builtins stay visible). Benefit: 50-80% fewer tools in context, better selection accuracy. This is a context-size optimization, not an access control: it narrows what `tools/list` shows, and does not restrict what a token is allowed to call. Authorization is per-tool OAuth scope.',
     '',
     '`search` mode (programmatic agents): add the header `X-Cortex-Tool-Mode: search` to receive a compact tools/list (names + 1-line descriptions) plus a `find_tools(names? | query?)` builtin that returns full schemas on demand. ~80% smaller tools/list payload. Combine with X-Cortex-Backends when possible.',
     '',
@@ -378,7 +379,7 @@ const CORTEX_BUILTIN_TOOLS = [
   },
 ] as const;
 
-const BUILTIN_TOOL_NAMES: Set<string> = new Set([
+export const BUILTIN_TOOL_NAMES: Set<string> = new Set([
   ...CORTEX_BUILTIN_TOOLS.map((t) => t.name),
   'find_tools', // search-mode builtin, dispatched in handleToolsCall even when absent from normal-mode tools/list
 ]);
@@ -590,6 +591,16 @@ async function handleToolsCall(id: string | number | null, raw: unknown, userCtx
     if (name === 'find_tools') {
       return handleFindTools(id, params.arguments ?? {}, userCtx);
     }
+  }
+
+  // Withheld for an unreviewed definition change (block mode). Reported
+  // distinctly from "unknown tool": the caller is not wrong, the tool is
+  // pending re-approval.
+  if (isQuarantined(name)) {
+    return rpcError(id, -32603, 'Tool quarantined: definition changed since approval', {
+      tool: name,
+      remediation: 'An operator must review and acknowledge the new definition.',
+    });
   }
 
   const entry = lookupTool(name);

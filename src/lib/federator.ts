@@ -19,6 +19,7 @@ import type {
 } from '@/contract';
 import { loadBackends } from './registry';
 import { broadcast } from './event-bus';
+import { reviewCatalog } from './tool-integrity';
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -187,12 +188,31 @@ export async function refreshCatalog(): Promise<void> {
       }
     }
 
-    // Change detection for SSE push (tools/list_changed)
+    // Tool definition integrity — rug-pull detection.
+    //
+    // Runs BEFORE the catalog is published, so that in block mode a tool whose
+    // description or schema changed after approval never reaches an agent.
+    // Comparing names alone would miss exactly the attack this guards against:
+    // same name, rewritten semantics.
+    //
+    // `healthy` matters: a backend that failed this cycle contributes no tools,
+    // and must not have that read as "these tools were withdrawn" — otherwise
+    // going briefly unreachable would launder a definition change into a fresh
+    // approval.
+    const integrity = reviewCatalog(newTools, healthy);
+    for (const name of integrity.quarantined) {
+      newTools.delete(name);
+      newAliasToOriginal.delete(name);
+    }
+
+    // Change detection for SSE push (tools/list_changed). Driven by the
+    // integrity diff, so a pure description/schema mutation also notifies —
+    // clients that cache tool definitions must re-read them.
     const previousNames = new Set(catalog.tools.keys());
-    const currentNames = new Set(newTools.keys());
     const toolsChanged =
-      previousNames.size !== currentNames.size ||
-      Array.from(currentNames).some((n) => !previousNames.has(n));
+      integrity.added.length > 0 ||
+      integrity.removed.length > 0 ||
+      integrity.mutated.length > 0;
 
     // Change detection for prompts + templates
     const previousPromptNames = new Set(promptCatalog.keys());
@@ -223,6 +243,12 @@ export async function refreshCatalog(): Promise<void> {
       healthy: healthy.join(','),
       unreachable: unreachable.join(',') || 'none',
       changed: { tools: toolsChanged, prompts: promptsChanged, templates: templatesChanged },
+      integrity: {
+        added: integrity.added.length,
+        removed: integrity.removed.length,
+        mutated: integrity.mutated.length,
+        quarantined: integrity.quarantined.length,
+      },
     });
 
     if (toolsChanged && previousNames.size > 0) {
