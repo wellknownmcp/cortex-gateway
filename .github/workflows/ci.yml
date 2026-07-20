@@ -17,6 +17,9 @@ jobs:
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npm test
+      # The markdown twins are committed, not built on the server — so a page
+      # edited without regenerating them would serve agents a stale copy.
+      - run: node scripts/generate-site-markdown.mjs --check
       - run: npm run build
         env:
           CORTEX_CANONICAL_URI: https://mcp.example.com/mcp

@@ -25,7 +25,9 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "site:md": "node scripts/generate-site-markdown.mjs",
+    "site:md:check": "node scripts/generate-site-markdown.mjs --check"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
