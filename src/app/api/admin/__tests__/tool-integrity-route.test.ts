@@ -91,7 +91,13 @@ describe('/api/admin/tool-integrity', () => {
     it('says so when the mode cannot quarantine anything', async () => {
       const body = await (await GET(req('GET'))).json();
       expect(body.mode).toBe('warn');
-      expect(body.note).toMatch(/CORTEX_TOOL_INTEGRITY_MODE=block/);
+      expect(body.notes.join(' ')).toMatch(/CORTEX_TOOL_INTEGRITY_MODE=block/);
+    });
+
+    it('warns when approvals would not survive a restart', async () => {
+      const body = await (await GET(req('GET'))).json();
+      expect(body.baselineFile).toBeNull();
+      expect(body.notes.join(' ')).toMatch(/re-approves every current definition/);
     });
   });
 

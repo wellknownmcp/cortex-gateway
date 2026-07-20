@@ -66,14 +66,34 @@ export async function GET(req: Request): Promise<Response> {
   if (denied) return denied;
 
   const report = integrityReport();
+
+  // Surfaced because "block mode is on" and "approvals actually survive a
+  // restart" are different claims, and only the second one makes the control
+  // meaningful. An operator reading this should not have to infer it.
+  const notes: string[] = [];
+  if (report.mode === 'warn') {
+    notes.push(
+      'Mode is `warn`: mutations are reported and served, never quarantined. Set CORTEX_TOOL_INTEGRITY_MODE=block to enforce.',
+    );
+  }
+  if (!report.baselineFile) {
+    notes.push(
+      'No CORTEX_TOOL_BASELINE_FILE: the baseline is in-memory, so restarting the gateway re-approves every current definition.',
+    );
+  }
+  if (report.degraded) {
+    notes.push(
+      `Baseline store unusable (${report.degraded}). Repair or deliberately remove the file, then restart.`,
+    );
+  }
+
   return Response.json({
     mode: report.mode,
     trackedTools: report.trackedTools,
     quarantined: report.quarantined,
-    note:
-      report.mode === 'warn'
-        ? 'Mode is `warn`: mutations are reported and served, never quarantined. Set CORTEX_TOOL_INTEGRITY_MODE=block to enforce.'
-        : undefined,
+    baselineFile: report.baselineFile,
+    degraded: report.degraded,
+    notes: notes.length ? notes : undefined,
   });
 }
 
