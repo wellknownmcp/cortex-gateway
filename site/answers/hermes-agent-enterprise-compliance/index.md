@@ -6,7 +6,7 @@
 
 Hermes Agent's security model is **genuinely good at the machine boundary** — command approval, a hardline blocklist, container isolation, credential-store write protection. It is **absent at the organizational boundary, openly and by design**: its documentation targets individuals and small teams. On the "$5 VPS" its own README suggests, that gap is invisible for one person and disqualifying for a company: every allowed user acts through the same API keys, nothing attributes an action to a person, and there is no audit trail or central revocation. Auditors ask exactly four questions the default install cannot answer. The fix is not replacing Hermes — it is putting an identity layer between Hermes and company data, which Hermes supports natively in [two lines of YAML](/connect/hermes/).
 
-**Transparency.** We maintain [Cortex Gateway](https://github.com/wellknownmcp/cortex-gateway), an open-source access layer that solves the organizational half of this page. Facts about Hermes Agent are taken from its repository and its [security documentation](https://hermes-agent.nousresearch.com/docs/user-guide/security), checked **16 August 2026**. Corrections welcome as a GitHub issue.
+**Transparency.** We maintain [Cortex Gateway](https://github.com/wellknownmcp/cortex-gateway), an open-source access layer that solves the organizational half of this page. Facts about Hermes Agent are taken from its repository and its [security documentation](https://hermes-agent.nousresearch.com/docs/user-guide/security), checked **16 August 2026**. Corrections welcome as a GitHub issue. [Cette page existe en français.](/fr/hermes-agent-entreprise/)
 
 ## Why this page exists
 
