@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mcp-proxy vs supergateway: which MCP transport bridge? | Cortex Gateway</title>
+<meta name="description" content="Both bridge MCP transports (stdio ↔ SSE / Streamable HTTP) and neither does interactive OAuth. The real differences: runtime (Python vs Node), maintenance (supergateway unreleased since October 2025), and features — named servers vs WebSocket output. Verified from both repositories, August 2026.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-proxy-vs-supergateway/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="mcp-proxy vs supergateway: which MCP transport bridge?">
+<meta property="og:description" content="Same job, different states of maintenance. Runtime, transports, auth and the two gaps neither covers — verified from both repositories, August 2026.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-proxy-vs-supergateway/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "mcp-proxy vs supergateway: which MCP transport bridge should you use?",
+      "url": "https://cortex-gateway.dev/answers/mcp-proxy-vs-supergateway/",
+      "dateModified": "2026-08-16",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-proxy-vs-supergateway/" },
+        { "@type": "ListItem", "position": 3, "name": "mcp-proxy vs supergateway" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the difference between mcp-proxy and supergateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "They do the same job — bridge MCP transports in both directions, exposing a stdio server over SSE or Streamable HTTP and connecting a stdio-only client to a remote server. The practical differences are runtime and maintenance: mcp-proxy is Python (pip, uv, Docker images, a config file with named servers to aggregate several stdio servers behind one port) and actively maintained (v0.12.0, May 2026); supergateway is Node (one npx command, adds WebSocket output, CORS flags and health endpoints) but has had no release since October 2025. Both are MIT-licensed with roughly 2.7–2.8k GitHub stars as of August 2026." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is supergateway still maintained?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Its last release (v3.4.3) and last repository push both date from October 2025 — about ten months before this page's August 2026 check. The tool still works; MCP transports have not changed incompatibly since. But for a component that sits in every request path and handles auth headers, a ten-month silence is worth weighing, and mcp-proxy (last release May 2026, commits into July 2026) is the safer default on maintenance alone." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can mcp-proxy or supergateway handle OAuth-protected MCP servers?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only with a token you already have: both can attach a static Bearer token or custom headers to upstream requests, and mcp-proxy can additionally run an OAuth2 client-credentials flow against a token endpoint. Neither implements the interactive OAuth 2.1 authorization-code flow with dynamic client registration and PKCE that spec-compliant MCP servers use for end users. For that, use mcp-remote or a self-contained bridge with a real verification path." }
+        },
+        {
+          "@type": "Question",
+          "name": "Are there two projects called mcp-proxy?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes, and search results mix them up. The one usually meant in this comparison is sparfenyuk/mcp-proxy, the Python bridge (~2.7k stars). There is also punkpeye/mcp-proxy, a TypeScript library for exposing stdio servers over SSE and Streamable HTTP (~280 stars, actively released) — a building block for Node projects rather than a CLI bridge. Check which one a tutorial refers to before copying its commands." }
+        },
+        {
+          "@type": "Question",
+          "name": "When is a transport bridge the wrong tool?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When the problem is who is calling rather than how bytes travel. A bridge exposes one server to one client and carries at most one credential; it has no user model. The moment several people reach shared tools — per-user permissions, consent, attribution, revocation — you are in gateway territory, which is an identity problem, not a transport problem. A bridge and a gateway compose: a bridge can sit between one stdio client and a gateway's single OAuth-protected endpoint." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › mcp-proxy vs supergateway</p>
+  <h1>mcp-proxy vs supergateway: which MCP transport bridge?</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Same job: both bridge MCP transports in either direction — expose a <strong>stdio</strong> server over <strong>SSE / Streamable HTTP</strong>, or let a stdio-only client reach a remote server. Three things actually separate them: <strong>runtime</strong> (mcp-proxy is Python; supergateway is Node/npx), <strong>maintenance</strong> (mcp-proxy released May 2026; supergateway has been silent since <strong>October 2025</strong>), and <strong>features</strong> (mcp-proxy: named servers, config file, Docker; supergateway: WebSocket output, CORS flags, health endpoints). Neither does interactive OAuth, and neither is a multi-user gateway.</p>
+  </div>
+
+  <p class="note"><strong>Transparency.</strong> We maintain <a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a>, which is a different category of tool (an identity-propagating MCP gateway) and competes with neither project. Facts below are verified from both repositories on <strong>16 August 2026</strong>; corrections welcome as a GitHub issue.</p>
+
+  <h2>What they both do</h2>
+  <p>MCP has two transport worlds: local servers speaking <strong>stdio</strong>, and remote servers speaking <strong>Streamable HTTP</strong> (or legacy SSE). Clients and servers do not always match, so a bridge process translates:</p>
+  <ul>
+    <li><strong>stdio server → HTTP.</strong> You have a local stdio MCP server (a filesystem server, a database tool) and want it reachable over the network, or from a client that only speaks HTTP.</li>
+    <li><strong>Remote server → stdio.</strong> Your client only launches stdio subprocesses (older Claude Desktop configurations, various coding agents) and the server you need is remote — <a href="/guides/expose-http-mcp-server-over-stdio/">a problem with more traps than it looks</a>.</li>
+  </ul>
+  <p>Both projects handle both directions, both are MIT-licensed, and both sit at roughly 2.7–2.8k GitHub stars — popularity will not decide this for you.</p>
+
+  <h2>Side by side</h2>
+  <table>
+    <tr><th></th><th>mcp-proxy (sparfenyuk)</th><th>supergateway (supercorp-ai)</th></tr>
+    <tr><td>Runtime</td><td>Python — pip, uv, official Docker images</td><td>Node — single <code>npx -y supergateway</code> command</td></tr>
+    <tr><td>Latest release</td><td>v0.12.0, May 2026; commits into July 2026</td><td>v3.4.3, <strong>October 2025</strong> — nothing since</td></tr>
+    <tr><td>Transports</td><td>stdio ↔ SSE / Streamable HTTP</td><td>stdio ↔ SSE / Streamable HTTP, plus WebSocket output</td></tr>
+    <tr><td>Multi-server</td><td><strong>Named servers</strong>: one config file, several stdio servers behind one port</td><td>One server per process</td></tr>
+    <tr><td>Upstream auth</td><td>Static headers; OAuth2 <em>client-credentials</em> flags (client id/secret, token URL)</td><td>Static <code>--oauth2Bearer</code> token; custom <code>--header</code></td></tr>
+    <tr><td>Serving extras</td><td>Config-driven deployment, container-first</td><td>CORS flags, health endpoints, stateful Streamable HTTP mode</td></tr>
+    <tr><td>License / stars</td><td>MIT, ~2.7k</td><td>MIT, ~2.8k</td></tr>
+  </table>
+
+  <h2>How to choose</h2>
+  <p><strong>Default to mcp-proxy</strong> on maintenance alone: a bridge sits in every request path and forwards auth headers, and mcp-proxy shipped a release three months before our check while supergateway has been silent for ten. Its named-servers mode is also the cleaner shape for running several stdio servers on one box — one config file, one port, one container.</p>
+  <p><strong>Reach for supergateway</strong> when you specifically need what only it has: WebSocket output, or a zero-install one-liner in a Node-only environment where adding a Python runtime is a real cost. It still works — transports have not changed incompatibly since its last release — but pin the version and treat it as frozen.</p>
+  <p class="note">Disambiguation: there are <em>two</em> projects named mcp-proxy. This page compares <a href="https://github.com/sparfenyuk/mcp-proxy">sparfenyuk/mcp-proxy</a> (Python CLI bridge, ~2.7k stars). <a href="https://github.com/punkpeye/mcp-proxy">punkpeye/mcp-proxy</a> (~280 stars) is a TypeScript <em>library</em> for exposing stdio servers over HTTP inside Node projects — actively released, different tool, different use. Tutorials rarely say which one they mean; check before copying commands.</p>
+
+  <h2>The two gaps neither covers</h2>
+  <p><strong>Interactive OAuth.</strong> Both can attach a token you already possess (and mcp-proxy can run a machine-to-machine client-credentials flow). Neither implements the OAuth 2.1 authorization-code flow — dynamic client registration, PKCE, a browser consent step — that spec-compliant remote MCP servers require for end users. If the remote server answers <code>401</code> with a <code>WWW-Authenticate</code> challenge, you want <code>mcp-remote</code> or a self-contained bridge instead; our <a href="/guides/expose-http-mcp-server-over-stdio/">stdio bridging guide</a> compares those options and the six gotchas that break them.</p>
+  <p><strong>Identity.</strong> A bridge carries one credential for whoever runs it. It has no notion of users, so the moment several people reach shared tools — per-user permissions, consent, attribution, revocation — you are in <a href="/answers/mcp-gateway-vs-mcp-server/">gateway territory</a>, which is an identity problem rather than a transport problem. The two compose cleanly: a bridge can connect one stdio-only client to a gateway's single OAuth-protected endpoint.</p>
+
+  <a class="cta" href="/guides/expose-http-mcp-server-over-stdio/">The full stdio bridging guide →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What is the difference between mcp-proxy and supergateway?</h3>
+    <p>They do the same job — bridge MCP transports in both directions. The practical differences: mcp-proxy is Python (uv, Docker, named servers in a config file) and actively maintained (v0.12.0, May 2026); supergateway is Node (one npx command, WebSocket output, CORS and health flags) with no release since October 2025. Both MIT, both ~2.7–2.8k stars in August 2026.</p>
+    <h3>Is supergateway still maintained?</h3>
+    <p>Its last release and last push date from October 2025 — ten months before this page's check. It still works, but for a component in every request path that forwards auth headers, that silence is worth weighing; mcp-proxy is the safer default on maintenance alone.</p>
+    <h3>Can they handle OAuth-protected MCP servers?</h3>
+    <p>Only with a token you already have (both), or a client-credentials flow (mcp-proxy). Neither does the interactive authorization-code flow with DCR and PKCE that end-user MCP servers use — for that, <code>mcp-remote</code> or a <a href="/guides/expose-http-mcp-server-over-stdio/">self-contained bridge</a>.</p>
+    <h3>Are there two projects called mcp-proxy?</h3>
+    <p>Yes: sparfenyuk/mcp-proxy, the Python CLI bridge this page compares, and punkpeye/mcp-proxy, a TypeScript library for Node projects. Check which one a tutorial means before copying its commands.</p>
+    <h3>When is a transport bridge the wrong tool?</h3>
+    <p>When the problem is <em>who is calling</em>, not how bytes travel. Several people, shared tools, per-user permissions, attribution, revocation: that is a <a href="/answers/mcp-gateway-vs-mcp-server/">gateway</a>, not a bridge. They compose — a bridge can front a gateway's OAuth-protected endpoint for a stdio-only client.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

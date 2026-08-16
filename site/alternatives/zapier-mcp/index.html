@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zapier MCP alternative: self-hosted, no per-call billing | Cortex Gateway</title>
+<meta name="description" content="Looking for a Zapier MCP alternative? Zapier MCP is hosted-only, holds your app credentials, and each tool call consumes two tasks from your plan quota. Cortex Gateway is the self-hosted counterpart: MIT-licensed, your token vault, your audit trail, no per-call billing. Honest comparison.">
+<link rel="canonical" href="https://cortex-gateway.dev/alternatives/zapier-mcp/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Zapier MCP alternative: self-hosted, no per-call billing">
+<meta property="og:description" content="Zapier MCP: 9,000+ apps, zero setup, hosted-only, two tasks per tool call. Cortex Gateway: self-hosted, your credentials, your audit trail. Where each one wins.">
+<meta property="og:url" content="https://cortex-gateway.dev/alternatives/zapier-mcp/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Zapier MCP alternative: a self-hosted MCP gateway with user-level permissions",
+      "url": "https://cortex-gateway.dev/alternatives/zapier-mcp/",
+      "dateModified": "2026-08-16",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Alternatives", "item": "https://cortex-gateway.dev/alternatives/zapier-mcp/" },
+        { "@type": "ListItem", "position": 3, "name": "Zapier MCP alternative" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the best self-hosted alternative to Zapier MCP?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Cortex Gateway is an MIT-licensed, self-hosted MCP gateway. Instead of a hosted catalog billed per call, it gives you one OAuth 2.1-protected MCP endpoint that federates your own applications (via a ~120-line HTTP contract) and existing third-party MCP servers (via a proxy adapter with a per-user encrypted token vault). Credentials, audit trail and quota policy stay on your infrastructure, and there is no per-call billing — the software is free and you pay for your own VM." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Zapier MCP cost money per tool call?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Zapier MCP is included in Zapier plans rather than sold separately, but each tool call consumes two tasks from the plan's task quota (as documented on zapier.com/mcp, checked August 2026). That pricing shape matters for agents specifically: an agent exploring a problem can burn dozens of calls in one conversation, so costs scale with the agent's chattiness rather than with the value of completed work." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can Zapier MCP be self-hosted?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Zapier MCP is a hosted service: the MCP endpoint runs on Zapier's infrastructure and actions execute through app connections whose credentials Zapier stores and manages — as they have for their automation product for over a decade. That is a deliberate design, and it is exactly what makes setup non-technical; it is also the property teams with data-residency or credential-custody requirements need an alternative for." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Zapier MCP per-user?",
+          "acceptedAnswer": { "@type": "Answer", "text": "A Zapier MCP endpoint is tied to a Zapier account and executes actions through that account's connected apps. For one person automating their own tools, that is per-user by definition. For an organization it forces a choice: either everyone shares one account's endpoint — shared credentials, one pooled task quota, actions attributed to the account rather than the person — or each user maintains their own Zapier account and connections. An identity-propagating gateway avoids the choice: one endpoint, and each caller's own identity and linked accounts reach every application." }
+        },
+        {
+          "@type": "Question",
+          "name": "When is Zapier MCP the better choice?",
+          "acceptedAnswer": { "@type": "Answer", "text": "When you need one of its 9,000+ app integrations working in minutes, without running any infrastructure, and a hosted trust model fits your compliance posture — Zapier is SOC 2 Type II audited and has managed app credentials at scale for years. For a solo operator or a small team automating their own SaaS accounts, it is the fastest path by a wide margin, and no self-hosted gateway competes on catalog breadth." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/composio/">Composio</a>
+    <a href="/alternatives/pipedream/">Pipedream</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Alternatives › Zapier MCP</p>
+  <h1>Zapier MCP alternative: a self-hosted MCP gateway with user-level permissions</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Zapier MCP is the fastest way to put 9,000+ SaaS apps behind an agent: hosted, zero setup, credentials managed by Zapier — and <strong>each tool call consumes two tasks from your plan quota</strong>. <strong>Cortex Gateway is the self-hosted counterpart</strong>: an MIT-licensed MCP gateway you run yourself, with your own token vault, your own audit trail, no per-call billing, and permissions enforced by each application on the real user's identity. Pick Zapier for catalog breadth and time-to-first-tool; pick Cortex for credential custody, per-user attribution and your own applications.</p>
+  </div>
+
+  <p class="note">Facts about Zapier MCP below are taken from <a href="https://zapier.com/mcp">zapier.com/mcp</a>, checked 16 August 2026: 9,000+ apps, 30,000+ actions, included in Zapier plans with each tool call consuming two tasks, SOC 2 Type II, actions logged in the account's History tab. Corrections welcome as a GitHub issue.</p>
+
+  <h2>Why people look for a Zapier MCP alternative</h2>
+  <p><strong>Per-call economics.</strong> Two tasks per tool call is a fine deal for a workflow that fires when an invoice arrives. It is a different deal for an agent, because agents explore: listing, retrying, reading before writing. A single conversation can burn dozens of calls, so the bill tracks the agent's chattiness, not the work accomplished. Self-hosted, a tool call costs what your VM costs.</p>
+  <p><strong>Credential custody.</strong> Zapier executes actions through app connections it stores — Gmail, Slack, your CRM. They have done this credibly for a decade, and are SOC 2 Type II audited. But for regulated teams, security-reviewed procurement or European data-residency requirements, "a third party holds standing OAuth grants to our systems" is the sticking point, independent of how well it is done.</p>
+  <p><strong>Account shape.</strong> An endpoint is tied to a Zapier account and its connections. One person, one account: clean. An organization must either share an endpoint — shared credentials, pooled quota, actions attributed to the account, not the person — or run one Zapier account per user. The <a href="/answers/agent-permission-layer/">per-user attribution</a> an audit needs is structurally hard to get.</p>
+  <p><strong>Your own applications.</strong> The catalog covers SaaS. The CRM you built, your billing service, your internal document store are not in it — and they are usually where agent access creates the most value.</p>
+
+  <h2>How Cortex Gateway answers</h2>
+  <p>Cortex Gateway takes an architectural position: <strong>never replicate permissions — delegate them</strong>. Agents authenticate once against your OAuth 2.1 server; the gateway propagates identity downstream:</p>
+  <ul>
+    <li><strong>Your own apps</strong> implement a <a href="/guides/rest-api-to-mcp-server/">~120-line plain-HTTP contract</a> (no MCP library) and re-validate the same JWT. Their existing ACLs apply as-is.</li>
+    <li><strong>Third-party MCP servers</strong> federate through a <a href="/guides/federate-third-party-mcp-servers/">proxy adapter</a>: each user links their own account (OAuth, DCR, PKCE), tokens are stored AES-256-GCM-encrypted <em>on your infrastructure</em>, and the provider enforces its native permissions on the real user.</li>
+    <li><strong>Third-party APIs without an MCP server</strong> get a thin <a href="/guides/github-app-mcp-backend/">integration backend</a> — the GitHub App pattern: zero seats, machine credentials confined to one backend, attribution signed in your layer.</li>
+  </ul>
+  <p>Every call writes one attributable audit line, and revoking a user at your OAuth server cuts every backend at once.</p>
+
+  <h2>At a glance</h2>
+  <table>
+    <tr><th></th><th>Cortex Gateway</th><th>Zapier MCP</th></tr>
+    <tr><td>Model</td><td>Open source (MIT), self-hosted</td><td>Hosted service, part of Zapier plans</td></tr>
+    <tr><td>Catalog</td><td>Your apps + any MCP server via adapter (beta) + API wrappers</td><td>9,000+ apps, 30,000+ actions, ready-made</td></tr>
+    <tr><td>Cost per tool call</td><td>None — free software, your VM</td><td>Two tasks from the plan quota</td></tr>
+    <tr><td>Credential custody</td><td>Your infrastructure (encrypted vault)</td><td>Zapier's platform</td></tr>
+    <tr><td>Multi-user shape</td><td>One endpoint, each caller's own identity propagated</td><td>Endpoint tied to a Zapier account and its connections</td></tr>
+    <tr><td>Attribution</td><td>Per person, per call, pseudonymized audit trail</td><td>Account's History tab</td></tr>
+    <tr><td>First-party app tools</td><td>Core use case (~120-line HTTP contract)</td><td>Not the target — catalog is SaaS</td></tr>
+    <tr><td>Setup</td><td>Docker + an OAuth 2.1 authorization server (demo AS included)</td><td>Minutes, no terminal, no config files</td></tr>
+  </table>
+
+  <h2>Who should pick which</h2>
+  <p><strong>Pick Zapier MCP if</strong> you need SaaS integrations working this afternoon, run no infrastructure, and a hosted trust model fits your compliance posture. For a solo operator automating their own accounts it is the fastest path by a wide margin, and nothing self-hosted competes with the catalog.</p>
+  <p><strong>Pick Cortex Gateway if</strong> agents will call tools at volume (per-call billing compounds), your security review asks "who holds the grants?", you need per-person attribution across a team behind one endpoint, or the applications that matter most are the ones you built.</p>
+
+  <p class="note">Evaluating other hosted platforms? See the <a href="/alternatives/composio/">Composio</a> and <a href="/alternatives/pipedream/">Pipedream</a> comparisons. Comparing self-hosted options instead: <a href="/alternatives/open-source-mcp-gateways/">open-source MCP gateways compared</a>.</p>
+
+  <h2>Migration path</h2>
+  <p>The two coexist without friction: keep Zapier MCP for long-tail SaaS and point the same agent at Cortex Gateway for first-party tools and high-volume providers. Move providers one at a time to the adapter — each user re-links their account once, and from then on the provider sees them, their seat and their rate limits, not a platform.</p>
+
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Try Cortex Gateway →</a>
+  <p class="note">Or plug the <a href="https://mcp.cortex-gateway.dev/">hosted demo</a> into <a href="/connect/claude-ai/">claude.ai</a> in 30 seconds.</p>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>What is the best self-hosted alternative to Zapier MCP?</h3>
+    <p>Cortex Gateway — an MIT-licensed, self-hosted MCP gateway: one OAuth 2.1-protected endpoint federating your own applications (via a ~120-line HTTP contract) and existing third-party MCP servers (via a proxy adapter with a per-user encrypted token vault). Credentials, audit trail and quota policy stay on your infrastructure; there is no per-call billing.</p>
+    <h3>Does Zapier MCP cost money per tool call?</h3>
+    <p>It is included in Zapier plans rather than sold separately, but each tool call consumes <strong>two tasks</strong> from the plan's quota (zapier.com/mcp, checked August 2026). For agents that matters: one exploratory conversation can burn dozens of calls, so cost tracks chattiness rather than completed work.</p>
+    <h3>Can Zapier MCP be self-hosted?</h3>
+    <p>No — the endpoint runs on Zapier's infrastructure and actions execute through app connections whose credentials Zapier stores. That design is what makes setup non-technical, and it is also the property that sends credential-custody-constrained teams looking for an alternative.</p>
+    <h3>Is Zapier MCP per-user?</h3>
+    <p>The endpoint is tied to a Zapier account and its connected apps. One person: per-user by definition. An organization must share an endpoint (shared credentials, pooled quota, account-level attribution) or run an account per user. An identity-propagating gateway serves one endpoint where each caller's own identity and linked accounts reach every application.</p>
+    <h3>When is Zapier MCP the better choice?</h3>
+    <p>When you need part of its 9,000-app catalog working in minutes with zero infrastructure, and a hosted, SOC 2 Type II-audited trust model fits your posture. On catalog breadth and time-to-first-tool, nothing on this site's <a href="/alternatives/open-source-mcp-gateways/">self-hosted comparison</a> comes close, ours included.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

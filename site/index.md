@@ -65,7 +65,7 @@ The failures that cost us weeks, written down so nobody pays for them twice.
 
 ## Go deeper
 
-[**The permission layer for AI agents**How an agent proves it acts for a real person](/answers/agent-permission-layer/) [**MCP gateway vs MCP server**Three archetypes — and what each does with identity](/answers/mcp-gateway-vs-mcp-server/) [**Compliance controls for agent access**ISO 27001 and SOC 2 apply today — the EU AI Act probably doesn't](/answers/ai-agent-compliance-controls/) [**MCP security best practices**Six threat categories — and which recommendations no client implements yet](/answers/mcp-security-best-practices/) [**Company federation, worked example**One app per department, one connector for the org](/use-cases/company-federation/) [**The backend contract**One POST endpoint, ~120 lines, no MCP library](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md) [**Open-source MCP gateways compared**Six projects, two axes — and where each one beats us](/alternatives/open-source-mcp-gateways/) [**Composio alternative**Self-hosted vs hosted tool platform](/alternatives/composio/) [**Pipedream MCP alternative**Own your token vault and audit trail](/alternatives/pipedream/)
+[**The permission layer for AI agents**How an agent proves it acts for a real person](/answers/agent-permission-layer/) [**MCP gateway vs MCP server**Three archetypes — and what each does with identity](/answers/mcp-gateway-vs-mcp-server/) [**mcp-proxy vs supergateway**Transport bridges compared — and the two gaps neither covers](/answers/mcp-proxy-vs-supergateway/) [**Compliance controls for agent access**ISO 27001 and SOC 2 apply today — the EU AI Act probably doesn't](/answers/ai-agent-compliance-controls/) [**MCP security best practices**Six threat categories — and which recommendations no client implements yet](/answers/mcp-security-best-practices/) [**Company federation, worked example**One app per department, one connector for the org](/use-cases/company-federation/) [**The backend contract**One POST endpoint, ~120 lines, no MCP library](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/backend-contract.md) [**Open-source MCP gateways compared**Six projects, two axes — and where each one beats us](/alternatives/open-source-mcp-gateways/) [**Composio alternative**Self-hosted vs hosted tool platform](/alternatives/composio/) [**Pipedream MCP alternative**Own your token vault and audit trail](/alternatives/pipedream/) [**Zapier MCP alternative**Self-hosted, no two-tasks-per-call billing](/alternatives/zapier-mcp/)
 
 ## FAQ
 
@@ -99,7 +99,7 @@ Separate connectors keep native permissions too — that's the baseline, not the
 
 ### How is this different from Composio or Pipedream?
 
-Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny contract for your own apps. See the detailed [Composio](/alternatives/composio/) and [Pipedream](/alternatives/pipedream/) pages.
+Those are hosted tool platforms with large connector catalogs. Cortex Gateway is self-hosted infrastructure: your token vault, your audit trail, your OAuth perimeter, and a tiny contract for your own apps. See the detailed [Composio](/alternatives/composio/), [Pipedream](/alternatives/pipedream/) and [Zapier MCP](/alternatives/zapier-mcp/) pages.
 
 ### How is this different from other open-source MCP gateways?
 

@@ -99,6 +99,8 @@ Key facts
 - [Open-source MCP gateways compared](https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/): six projects (IBM ContextForge, agentgateway, MCPJungle, Docker MCP Gateway, 1MCP, Lasso mcp-gateway, Cortex) separated on two axes — whose credential goes downstream, and where the authorization decision is made. Written by Cortex maintainers, verified from each repository 2026-08-16, states where each competitor wins.
 - [Composio alternative](https://cortex-gateway.dev/alternatives/composio/): honest hosted-vs-self-hosted comparison
 - [Pipedream MCP alternative](https://cortex-gateway.dev/alternatives/pipedream/): access layer vs workflow platform
+- [Zapier MCP alternative](https://cortex-gateway.dev/alternatives/zapier-mcp/): hosted 9,000-app catalog billed two tasks per tool call vs self-hosted gateway with your own credential custody and per-user attribution; facts verified from zapier.com/mcp 2026-08-16
+- [mcp-proxy vs supergateway](https://cortex-gateway.dev/answers/mcp-proxy-vs-supergateway/): both bridge stdio ↔ SSE/Streamable HTTP; mcp-proxy (Python, named servers, active) vs supergateway (Node, +WebSocket, unreleased since 2025-10); neither does interactive OAuth (use mcp-remote or a self-contained bridge) and neither is multi-user; disambiguates the two projects named mcp-proxy
 - [Connect claude.ai](https://cortex-gateway.dev/connect/claude-ai/): Custom Connectors, 30-second setup
 - [Connect Claude Desktop](https://cortex-gateway.dev/connect/claude-desktop/): Connectors UI + mcp-remote fallback
 - [Connect Claude Code](https://cortex-gateway.dev/connect/claude-code/): claude mcp add + /mcp authenticate
