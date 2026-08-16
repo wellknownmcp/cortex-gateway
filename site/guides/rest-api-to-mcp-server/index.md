@@ -119,7 +119,7 @@ Once an application sits behind the gateway, "connect it to an agent" is no long
 
 Client-side, it is a URL: see [claude.ai](/connect/claude-ai/), [Claude Desktop](/connect/claude-desktop/), [Claude Code](/connect/claude-code/), [OpenClaw](/connect/openclaw/) or [Hermes](/connect/hermes/). Any client implementing MCP over Streamable HTTP with OAuth 2.1 works the same way — the gateway implements the specification, not a particular vendor.
 
-Already running third-party MCP servers? [They federate too](/guides/federate-third-party-mcp-servers/), through a proxy adapter that holds each user's own linked OAuth token in an encrypted per-user vault — so the provider sees the user's own account, seat and rate limits, never a shared service account.
+Already running third-party MCP servers? [They federate too](/guides/federate-third-party-mcp-servers/), through a proxy adapter that holds each user's own linked OAuth token in an encrypted per-user vault — so the provider sees the user's own account, seat and rate limits, never a shared service account. And the contract also wraps third-party APIs where your users have no account at all: see [a GitHub App as a zero-seat MCP backend](/guides/github-app-mcp-backend/).
 
 ## Try it in five minutes
 
