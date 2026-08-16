@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hermes Agent in a company: what an auditor will ask | Cortex Gateway</title>
+<meta name="description" content="Hermes Agent on a $5 VPS is a superb personal setup — and the default install fails the questions auditors ask companies: who acted, with whose rights, logged where, revoked how. What Hermes secures well, what ISO 27001, SOC 2 and GDPR actually require, and the checklist that closes the gap without giving up Hermes.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/hermes-agent-enterprise-compliance/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Hermes Agent in a company: what an auditor will ask">
+<meta property="og:description" content="Command approval and container isolation secure the machine. Access control, attribution and audit trails secure the organization — and the default VPS install has none. The gap, mapped to ISO 27001, SOC 2 and GDPR, with the fix.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/hermes-agent-enterprise-compliance/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Hermes Agent in a company: what an auditor will ask — and what to add",
+      "url": "https://cortex-gateway.dev/answers/hermes-agent-enterprise-compliance/",
+      "dateModified": "2026-08-16",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/hermes-agent-enterprise-compliance/" },
+        { "@type": "ListItem", "position": 3, "name": "Hermes Agent in a company" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Hermes Agent GDPR compliant?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Software is never GDPR-compliant or non-compliant by itself — deployments are. A Hermes install processing company data on a VPS raises the standard questions: Art. 32 security measures (who can access the instance, with what rights), Art. 30 records (which processing the agent performs), retention and erasure (Hermes persists conversation memory and a model of its user across sessions, which is personal data), and Art. 28 — if an outside installer operates the VPS for the company, that installer is a processor and needs a data processing agreement. None of this is Hermes' fault; all of it is the operator's job." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Hermes Agent have an audit trail?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not in the sense an auditor means, as of August 2026. Session state persists locally and its security documentation — which is detailed and credible about host protections — describes no per-user attributable audit log, no RBAC and no SIEM export. Because every allowed user talks to the same instance holding one set of credentials, the underlying systems record that the agent's account acted, not which person asked. An attributable trail has to be added at the access layer, where each call carries a real user identity." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can several employees share one Hermes Agent on a VPS?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Technically yes — platform allowlists and DM pairing control who may talk to it. But everyone the allowlist admits acts through the same API keys in ~/.hermes/.env, holding the union of every right anyone gave the instance, with no per-person attribution and one shared conversation memory. That is precisely the shared-service-account pattern access audits are designed to catch. Hermes' own documentation targets individuals and small teams; the multi-user shape has to come from an identity layer in front of the tools." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Hermes Agent ISO 27001 or SOC 2 certified?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Certification applies to organizations and their management systems, not to open-source software, so the question is malformed — for Hermes exactly as for any framework. The meaningful question is whether a deployment lets your organization pass its own audit: ISO 27001:2022 A.5.15–A.5.18 (access control, identity, rights management), A.8.15 (logging), and SOC 2 CC6/CC7 all bite on how the agent authenticates to company systems, whether actions are attributable to people, and whether access can be revoked centrally. The default single-instance install answers none of these; an OAuth 2.1 access layer in front of the tools answers all four." }
+        },
+        {
+          "@type": "Question",
+          "name": "What should an installer add when deploying Hermes for a company?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Five things. Per-user identity: business tools reached over OAuth 2.1 so each employee authenticates as themselves — Hermes ships a full OAuth MCP client, it is two lines of YAML. Least privilege: scopes per user instead of one all-powerful key set. An attributable audit line per tool call, exportable. Central revocation: one grant to cut when someone leaves, not a hunt through .env files. And the paperwork: a DPA if the installer operates the VPS, records of processing, and a retention answer for Hermes' persistent memory. Model-provider keys can stay in .env — it is company-data access that must not ride shared static credentials." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/hermes/">Connect Hermes</a>
+    <a href="/answers/ai-agent-compliance-controls/">Compliance controls</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › Hermes Agent in a company</p>
+  <h1>Hermes Agent on a company VPS: what an auditor will ask — and what to add</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Hermes Agent's security model is <strong>genuinely good at the machine boundary</strong> — command approval, a hardline blocklist, container isolation, credential-store write protection. It is <strong>absent at the organizational boundary, openly and by design</strong>: its documentation targets individuals and small teams. On the "$5 VPS" its own README suggests, that gap is invisible for one person and disqualifying for a company: every allowed user acts through the same API keys, nothing attributes an action to a person, and there is no audit trail or central revocation. Auditors ask exactly four questions the default install cannot answer. The fix is not replacing Hermes — it is putting an identity layer between Hermes and company data, which Hermes supports natively in <a href="/connect/hermes/">two lines of YAML</a>.</p>
+  </div>
+
+  <p class="note"><strong>Transparency.</strong> We maintain <a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a>, an open-source access layer that solves the organizational half of this page. Facts about Hermes Agent are taken from its repository and its <a href="https://hermes-agent.nousresearch.com/docs/user-guide/security">security documentation</a>, checked <strong>16 August 2026</strong>. Corrections welcome as a GitHub issue.</p>
+
+  <h2>Why this page exists</h2>
+  <p>Hermes Agent (Nous Research) is the breakout agent of 2026 — 230k+ GitHub stars, messaging-native, with a built-in scheduler that runs jobs unattended. A service industry has grown around it: installers deploying Hermes on a VPS for small and mid-sized companies, wired to Telegram or Slack, connected to the company's mail, CRM and files. The install takes an afternoon and the demo lands every time.</p>
+  <p>Then someone — a client's IT provider, an insurer's questionnaire, a due-diligence checklist, a DPO — asks how access is controlled. The honest answer about the default install is: by a platform allowlist, in front of one set of shared keys, with no log of who did what. This page is for the installer who wants a better answer, and for the company asking the question.</p>
+
+  <h2>What Hermes secures well — credit where due</h2>
+  <p>Its <a href="https://hermes-agent.nousresearch.com/docs/user-guide/security">security documentation</a> is more serious than most of the category:</p>
+  <ul>
+    <li><strong>Command approval</strong> with three modes, and a hardline blocklist of catastrophic commands that stays active <em>even in <code>--yolo</code> mode</em>.</li>
+    <li><strong>Container isolation</strong> done properly: <code>--cap-drop ALL</code>, <code>no-new-privileges</code>, pid limits, tmpfs.</li>
+    <li><strong>Credential hygiene at the host</strong>: keys in <code>~/.hermes/.env</code> under <code>chmod 600</code>, blocked writes to <code>~/.ssh/</code> and credential stores, environment filtering for MCP subprocesses, token redaction in error messages.</li>
+    <li><strong>Hostile-input defenses</strong>: SSRF prevention, prompt-injection scanning of context files, supply-chain advisories.</li>
+  </ul>
+  <p>All of this protects <em>the machine from the agent and the agent from hostile input</em>. None of it answers <em>organizational</em> questions — who may do what, as whom, logged where. Those are different problems, and Hermes' docs do not pretend otherwise: multi-user access control is a platform allowlist plus DM pairing, and no per-user audit trail or RBAC is described. For its stated audience — one person and their agent — that is the right scope.</p>
+
+  <h2>The four questions an auditor asks</h2>
+  <p>Whether the framework is ISO 27001, SOC 2 or an insurer's questionnaire, automated access always gets the same four questions. Here is how the default company-VPS install answers, and which control each maps to:</p>
+  <table>
+    <tr><th>Question</th><th>Default VPS install</th><th>Maps to</th></tr>
+    <tr><td><strong>Who acted?</strong> Is each action attributable to a person?</td><td>No — every allowlisted user acts as the same instance; downstream systems see the instance's account</td><td>ISO 27001 A.5.16, SOC 2 CC6.1</td></tr>
+    <tr><td><strong>With what rights?</strong> Least privilege per person?</td><td>No — one <code>~/.hermes/.env</code> key set holds the union of all rights for all users</td><td>A.5.15, A.8.2, CC6.3</td></tr>
+    <tr><td><strong>Logged where?</strong> An attributable, reviewable trail?</td><td>Local session state; no per-user audit log, no export</td><td>A.8.15, CC7.2</td></tr>
+    <tr><td><strong>Revoked how?</strong> One action to cut a leaver's access?</td><td>Rotate every key the instance holds, by hand, and hope none was copied</td><td>A.5.18, CC6.2</td></tr>
+  </table>
+  <p>Note what is <em>not</em> on this list: nothing about the model, prompt injection or containers. Hermes already covers those better than most. Audits fail deployments on the boring half.</p>
+
+  <h2>The GDPR angle — sharper than most installers expect</h2>
+  <p><strong>The agent's memory is personal data.</strong> Hermes' headline feature is persistence: it searches its own past conversations and "builds a deepening model of who you are across sessions." On a company VPS, that is a growing store of employee and customer personal data with no documented retention or erasure story — the operator must supply one (GDPR Art. 5(1)(e), Art. 17).</p>
+  <p><strong>Art. 32</strong> requires security measures appropriate to the processing — shared credentials and absent access logs on a box that reads company mail is a hard position to defend in an incident report.</p>
+  <p><strong>Art. 30</strong> requires records of processing activities. An unattended scheduler running natural-language jobs against customer data is processing; someone has to be able to say which.</p>
+  <p><strong>Art. 28 is the one that lands on the installer personally.</strong> An installer who keeps operating the VPS — updates, restarts, SSH access to a machine processing the client's customer data — is a <em>processor</em>, and needs a data processing agreement saying so. Installing an agent for a client without one is carrying liability for free.</p>
+
+  <h2>The fix keeps Hermes</h2>
+  <p>Nothing above argues for a different agent. It argues for a <strong>separation of layers</strong>: Hermes stays the runtime — the skills, the scheduler, the messaging surfaces — and company-data access moves behind an identity layer it already knows how to talk to.</p>
+  <p>Hermes ships a complete OAuth 2.1 MCP client: dynamic client registration, PKCE, token refresh. Pointed at an OAuth-protected MCP gateway, the shape changes entirely:</p>
+  <ul>
+    <li><strong>Each employee authenticates as themselves</strong> — the browser flow, once. Their Hermes calls carry <em>their</em> identity; each application enforces the permissions that person already has. The <a href="/answers/agent-permission-layer/">permission layer</a>, instead of a shared key.</li>
+    <li><strong>Least privilege becomes scopes</strong>, granted per user — not the union of everything the instance was ever given.</li>
+    <li><strong>Every tool call writes one attributable audit line</strong>, on your infrastructure, exportable to whoever is asking.</li>
+    <li><strong>Revocation is one act</strong>: cut the OAuth grant, and every backend is cut at once — including for the scheduler's unattended jobs.</li>
+  </ul>
+  <p>Model-provider keys can stay in <code>~/.hermes/.env</code>; they authenticate the agent to its brain, not to your business. It is <em>company-data access</em> that must never ride shared static credentials. The Hermes-side setup is the shortest of any client we document: <a href="/connect/hermes/">two lines of YAML</a>.</p>
+
+  <h2>The installer's checklist</h2>
+  <p>What separates "I installed an agent" from "I deployed governed automation" — the version that survives the client's next audit:</p>
+  <ol>
+    <li><strong>Per-user identity</strong> for every business tool (OAuth 2.1 in front of company data; no shared API keys past the model provider).</li>
+    <li><strong>Least-privilege scopes</strong> per employee, reviewed when roles change.</li>
+    <li><strong>Attributable audit trail</strong>, per call, exportable — test that you can answer "what did the agent do as Alice last Tuesday?"</li>
+    <li><strong>Central revocation</strong>, tested: offboard a user in one action, verify the scheduler's jobs lose access too.</li>
+    <li><strong>The paperwork</strong>: a DPA if you operate the VPS, records of processing for the agent's jobs, and a retention/erasure answer for Hermes' persistent memory.</li>
+  </ol>
+  <p>The controls-to-frameworks mapping — ISO 27001:2022 Annex A, SOC 2 CC6/CC7, and why the EU AI Act probably does not apply to an internal agent — is on <a href="/answers/ai-agent-compliance-controls/">AI agent compliance controls</a>. The threat-model side (tool poisoning, rug pulls, session hijacking) is on <a href="/answers/mcp-security-best-practices/">MCP security best practices</a>.</p>
+
+  <a class="cta" href="/connect/hermes/">Connect Hermes to a gateway — two lines of YAML →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Is Hermes Agent GDPR compliant?</h3>
+    <p>Software is never GDPR-compliant by itself — deployments are. A company install raises Art. 32 (security measures: who can access the instance, with what rights), Art. 30 (records of what the agent processes), retention and erasure for Hermes' persistent conversation memory — which is personal data — and Art. 28: an installer who keeps operating the VPS is a processor and needs a DPA. None of this is Hermes' fault; all of it is the operator's job.</p>
+    <h3>Does Hermes Agent have an audit trail?</h3>
+    <p>Not in the auditor's sense, as of August 2026: session state persists locally, and the security documentation describes no per-user attributable log, RBAC or SIEM export. Since every allowed user acts through one credential set, downstream systems record the instance, not the person. Attribution has to be added at the access layer, where each call carries a real user identity.</p>
+    <h3>Can several employees share one Hermes on a VPS?</h3>
+    <p>Technically yes — allowlists and DM pairing gate who may talk to it. But everyone admitted acts through the same <code>~/.hermes/.env</code> keys, holding the union of all granted rights, unattributed, with one shared memory. That is the shared-service-account pattern audits exist to catch. Multi-user shape has to come from an identity layer in front of the tools.</p>
+    <h3>Is Hermes ISO 27001 or SOC 2 certified?</h3>
+    <p>Certifications apply to organizations, not open-source software — the question is malformed for Hermes as for any framework. The real question is whether <em>your deployment</em> passes <em>your</em> audit: A.5.15–A.5.18, A.8.15, CC6/CC7 all bite on how the agent authenticates to company systems, whether actions map to people, and whether access revokes centrally.</p>
+    <h3>What should an installer add for a company deployment?</h3>
+    <p>Per-user OAuth identity for business tools, least-privilege scopes, an exportable per-call audit trail, tested central revocation, and the paperwork (DPA, records of processing, a retention answer for the agent's memory). Model keys can stay in <code>.env</code> — company-data access is what must not ride shared static credentials.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

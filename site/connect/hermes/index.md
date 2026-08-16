@@ -49,6 +49,8 @@ Then run `hermes mcp login cortex`.
 
 Hermes is a messaging-native agent that acts on your behalf across platforms — the sharpest case for user-level permissions. Behind a gateway, everything it does is bound to *your* OAuth identity: backends apply your rights, the audit trail shows what the agent did as you, and one revocation cuts it all.
 
+Deploying Hermes for a company rather than for yourself? The default shared-VPS install fails the four questions access audits ask — see [Hermes Agent in a company: what an auditor will ask](/answers/hermes-agent-enterprise-compliance/) (ISO 27001, SOC 2, GDPR, and the installer's checklist).
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
