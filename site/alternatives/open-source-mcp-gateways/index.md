@@ -2,7 +2,7 @@
 
 # Best open-source MCP gateways (2026): an honest comparison
 
-**Transparency.** This page is written by the maintainers of Cortex Gateway, one of the seven projects below. We rank nothing. Each entry says what the project is for and where it beats us — three of them beat us at things we do not attempt at all. Everything is verified from each project's own repository and documentation, **last checked 9 July 2026**. No commercial relationship with any project listed. Corrections welcome as a GitHub issue.
+**Transparency.** This page is written by the maintainers of Cortex Gateway, one of the seven projects below. We rank nothing. Each entry says what the project is for and where it beats us — three of them beat us at things we do not attempt at all. Everything is verified from each project's own repository and documentation, **last checked 16 August 2026**. No commercial relationship with any project listed. Corrections welcome as a GitHub issue.
 
 **TL;DR**
 
@@ -36,7 +36,7 @@ Note that five of these seven rows are not competitive with the last one. That i
 
 ### [IBM ContextForge](https://github.com/IBM/mcp-context-forge) — the enterprise federation platform
 
-Apache-2.0, v1.0.x, reached 1.0 GA in June 2026, roughly 4.1k GitHub stars. Federates MCP servers, A2A servers and REST/gRPC APIs into one MCP-compliant endpoint, with centralized governance and observability across multi-cluster Kubernetes.
+Apache-2.0, v1.0.x, reached 1.0 GA in June 2026, roughly 4.3k GitHub stars. Federates MCP servers, A2A servers and REST/gRPC APIs into one MCP-compliant endpoint, with centralized governance and observability across multi-cluster Kubernetes.
 
 On axis 1 it is **configurable**, which is worth stating precisely because it is often mischaracterized: it supports user-scoped OAuth tokens and forwards a caller's bearer token between federated gateways, *and* it can hold gateway-side credentials encrypted with an `AUTH_ENCRYPTION_SECRET`. You choose. On axis 2 it carries RBAC of its own.
 
@@ -44,7 +44,7 @@ On axis 1 it is **configurable**, which is worth stating precisely because it is
 
 ### [agentgateway](https://github.com/agentgateway/agentgateway) — the data plane
 
-Apache-2.0, a Linux Foundation project, roughly 3.8k stars. A proxy built on MCP and A2A for agent-to-tool, agent-to-agent and agent-to-LLM traffic, with JWT, API-key and OAuth authentication, tool federation, and fine-grained RBAC driven by a CEL policy engine.
+Apache-2.0, a Linux Foundation project, roughly 4.4k stars — the fastest-growing project on this page since our July check. A proxy built on MCP and A2A for agent-to-tool, agent-to-agent and agent-to-LLM traffic, with JWT, API-key and OAuth authentication, tool federation, and fine-grained RBAC driven by a CEL policy engine.
 
 Axis 2 is its entire premise: the authorization decision lives at the gateway, expressed as policy. This is the correct shape for a data plane — it is what Envoy-lineage infrastructure is for, and policy-as-code is a feature, not a compromise, when the gateway *is* your network's control point.
 
@@ -52,7 +52,7 @@ Axis 2 is its entire premise: the authorization decision lives at the gateway, e
 
 ### [MCPJungle](https://github.com/duaraghav8/MCPJungle) — the small-team registry
 
-MPL-2.0, v0.4.5, roughly 1.1k stars. A self-hosted MCP gateway and registry in one binary: register servers, discover tools, control which clients reach which servers.
+MPL-2.0, v0.4.6, roughly 1.2k stars. A self-hosted MCP gateway and registry in one binary: register servers, discover tools, control which clients reach which servers.
 
 Verified on both axes. Downstream credentials — a bearer token, custom headers — are supplied when a server is *registered*, so every caller of that server shares them. Callers authenticate with static tokens the gateway issues, per MCP client or per human account; its documentation lists OAuth as **not yet supported**. Access control is gateway ACLs, tool groups and admin/standard roles.
 
@@ -68,7 +68,7 @@ Neither axis applies: there is no end-user authentication layer, because it is a
 
 ### [1MCP](https://github.com/1mcp-app/agent) — the personal runtime
 
-Apache-2.0, v0.34.x, roughly 469 stars. A unified runtime that aggregates your MCP servers into one `serve` process, aimed at coding agents — Claude Code, Codex, Cursor — to cut configuration sprawl and shrink the working surface.
+Apache-2.0, v0.34.x, roughly 480 stars. A unified runtime that aggregates your MCP servers into one `serve` process, aimed at coding agents — Claude Code, Codex, Cursor — to cut configuration sprawl and shrink the working surface.
 
 Its repository documents configuration and lifecycle rather than credential scoping; we did not find a clear statement of its per-user model and **we make no claim about it here**. The intended shape is a personal aggregator, where "which user" has a single obvious answer.
 
@@ -76,7 +76,7 @@ Its repository documents configuration and lifecycle rather than credential scop
 
 ### [Lasso mcp-gateway](https://github.com/lasso-security/mcp-gateway) — the guardrail
 
-MIT, roughly 377 stars, Python, latest release January 2026. A *local* proxy between an LLM and its MCP servers that intercepts requests and responses to detect prompt injection, mask PII, sanitize tokens, and scan server reputation before loading.
+MIT, roughly 385 stars, Python, latest release January 2026 — no release in the seven months since, which on a security tool is itself information. A *local* proxy between an LLM and its MCP servers that intercepts requests and responses to detect prompt injection, mask PII, sanitize tokens, and scan server reputation before loading.
 
 It is on this list because it is called an MCP gateway and it will appear in your search results. It solves an orthogonal problem: **content** safety, not identity. **Cortex does none of what it does** — no prompt-injection detection, no PII masking, no reputation scanning — and it authenticates no end users. Read them as complementary layers.
 
@@ -104,7 +104,7 @@ On axis 1: per-user, always, with no configuration that would make it otherwise.
 
 ## How we checked
 
-Each project's own repository and documentation, read on 9 July 2026. Licences, version numbers, credential handling and access-control model are taken from primary sources — not from other comparison pages, most of which are published by vendors selling a seventh gateway. Star counts are approximate and are the fastest-moving number here; treat them as a rough maturity signal and nothing more.
+Each project's own repository and documentation, first read on 9 July 2026 and re-verified on 16 August 2026 (versions, stars, licences, and — the claim most likely to expire — MCPJungle's OAuth status, still listed as not yet supported in v0.4.6). Licences, version numbers, credential handling and access-control model are taken from primary sources — not from other comparison pages, most of which are published by vendors selling a seventh gateway. Star counts are approximate and are the fastest-moving number here; treat them as a rough maturity signal and nothing more.
 
 What we did **not** do: production benchmarks, load testing, or long-running deployments of the six projects that are not ours. Where a repository did not state something clearly — 1MCP's credential scoping — we say so instead of inferring it. If you maintain one of these projects and we have described it wrongly, open an issue on [our repository](https://github.com/wellknownmcp/cortex-gateway) and we will correct this page.
 
@@ -128,7 +128,7 @@ Two questions. Whose credential reaches the downstream server — one shared by 
 
 ### Does MCPJungle support OAuth?
 
-Not as of v0.4.5 (July 2026). Callers authenticate with static bearer tokens the gateway issues; its documentation lists OAuth as not yet supported. Downstream credentials are supplied at server registration and are therefore shared by every caller of that server. That is coherent for a small team without an authorization server — and it is a different design from an OAuth 2.1 resource server.
+Not as of v0.4.6 (August 2026). Callers authenticate with static bearer tokens the gateway issues; its documentation lists OAuth as not yet supported. Downstream credentials are supplied at server registration and are therefore shared by every caller of that server. That is coherent for a small team without an authorization server — and it is a different design from an OAuth 2.1 resource server.
 
 ### Is the Docker MCP Gateway a multi-user gateway?
 
