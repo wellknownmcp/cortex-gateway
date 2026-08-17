@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenClaw en entreprise : RGPD, ISO 27001, audit | Cortex Gateway</title>
+<meta name="description" content="La doc d'OpenClaw le dit elle-même : une instance gateway est mono-utilisateur, pas une frontière multi-tenant. Les installateurs la déploient quand même pour des équipes entières. Ce que son modèle de sécurité couvre, ce que le RGPD et l'ISO 27001 demandent à une entreprise, pourquoi « une instance par utilisateur » ne passe pas à l'échelle — et la couche d'identité qui y arrive.">
+<link rel="canonical" href="https://cortex-gateway.dev/fr/openclaw-entreprise/">
+<link rel="alternate" hreflang="en" href="https://cortex-gateway.dev/answers/openclaw-enterprise-compliance/">
+<link rel="alternate" hreflang="fr" href="https://cortex-gateway.dev/fr/openclaw-entreprise/">
+<link rel="alternate" hreflang="x-default" href="https://cortex-gateway.dev/answers/openclaw-enterprise-compliance/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="OpenClaw en entreprise : ce que l'auditeur va demander">
+<meta property="og:description" content="Sa doc déclare un modèle mono-utilisateur ; les équipes le partagent quand même. L'écart d'audit mappé RGPD, ISO 27001 et SOC 2 — y compris la session DM partagée par défaut — et le correctif qui garde OpenClaw.">
+<meta property="og:url" content="https://cortex-gateway.dev/fr/openclaw-entreprise/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "OpenClaw sur le VPS d'une entreprise : ce que l'auditeur va demander — et quoi ajouter",
+      "url": "https://cortex-gateway.dev/fr/openclaw-entreprise/",
+      "inLanguage": "fr",
+      "dateModified": "2026-08-17",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "FR", "item": "https://cortex-gateway.dev/fr/openclaw-entreprise/" },
+        { "@type": "ListItem", "position": 3, "name": "OpenClaw en entreprise" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "inLanguage": "fr",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "OpenClaw est-il multi-utilisateurs ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Non, et sa documentation le dit sans détour : une instance gateway suit un modèle de confiance mono-utilisateur — « pas une frontière de sécurité multi-tenant pour plusieurs utilisateurs adverses partageant un agent ou une gateway ». Le DM pairing et les allowlists contrôlent qui peut lui parler, mais toute personne admise agit via le même magasin d'identifiants, et par défaut tous les DM partagent même une seule session de conversation. Le remède documenté pour plusieurs utilisateurs : une instance par personne, identifiants isolés, idéalement des comptes OS ou des machines séparés." }
+        },
+        {
+          "@type": "Question",
+          "name": "OpenClaw a-t-il une piste d'audit ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Il a des transcripts de session sur disque avec caviardage des secrets, et une commande « openclaw security audit » réellement utile — mais elle audite la posture de la machine (exposition réseau, rayon d'action des outils, permissions, plugins), pas l'accès organisationnel. Il n'existe pas de piste attribuable par utilisateur : la doc précise qu'une sessionKey est un sélecteur de routage, pas un jeton d'authentification. Les systèmes en aval enregistrent donc l'instance, pas la personne. En août 2026, l'attribution doit être ajoutée à la couche d'accès." }
+        },
+        {
+          "@type": "Question",
+          "name": "Une équipe peut-elle partager une instance OpenClaw sur un VPS ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "La doc le déconseille, et les défauts de configuration montrent pourquoi : toute personne admise agit via les mêmes identifiants dans ~/.openclaw/, avec l'union de tous les droits de l'instance — et tant que session.dmScope n'est pas passé à per-channel-peer, tous les DM partagent un seul contexte de conversation : la session d'un salarié peut faire remonter ce qu'un autre a discuté. C'est à la fois un constat de compte de service partagé et un constat de cloisonnement des données, dans la même installation." }
+        },
+        {
+          "@type": "Question",
+          "name": "Une instance OpenClaw par salarié, est-ce un déploiement d'entreprise viable ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "C'est la réponse documentée, et elle est honnête — mais elle multiplie au lieu de résoudre. Vingt salariés : vingt instances à patcher, vingt magasins d'identifiants à faire tourner, vingt jeux de transcripts à gouverner, et toujours ni piste d'audit centrale ni révocation unique. L'isolation entre utilisateurs est acquise ; le contrôle d'accès organisationnel reste entier. La forme qui passe à l'échelle garde une instance par utilisateur côté runtime et déplace l'accès aux données de l'entreprise derrière une gateway OAuth 2.1 unique, où identité, scopes, audit et révocation existent une seule fois." }
+        },
+        {
+          "@type": "Question",
+          "name": "Que doit ajouter un installateur qui déploie OpenClaw pour une entreprise ?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Cinq choses. Une identité par utilisateur pour les outils métier via OAuth 2.1 — le client MCP d'OpenClaw gère l'OAuth managé depuis la v1.5.0, trois commandes. Des scopes de moindre privilège par utilisateur. Une ligne d'audit attribuable par appel, exportable. Une révocation centrale testée, y compris pour les tâches sans surveillance. Et la paperasse : un DPA si l'installateur opère l'instance (l'art. 28 du RGPD en fait un sous-traitant), un registre des traitements, et une réponse sur la conservation des transcripts stockés sur disque. Et lancer « openclaw security audit --fix » — le durcissement de la machine reste à la charge de l'opérateur." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/openclaw/">Connecter OpenClaw</a>
+    <a href="/answers/openclaw-enterprise-compliance/">English version</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Démo live</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › FR › OpenClaw en entreprise</p>
+  <h1>OpenClaw sur le VPS d'une entreprise : ce que l'auditeur va demander — et quoi ajouter</h1>
+
+  <div class="tldr">
+    <strong>En bref</strong>
+    <p>OpenClaw est d'une honnêteté rare sur son modèle de confiance : une instance gateway est <strong>mono-utilisateur par conception</strong> — sa doc écrit qu'elle n'est « pas une frontière de sécurité multi-tenant » et recommande une instance par personne. Les installateurs la déploient quand même pour des équipes entières : un VPS, un magasin d'identifiants dans <code>~/.openclaw/</code>, une allowlist de pairing comme seul portier — et, par défaut, <strong>une session de conversation partagée entre tous les DM</strong>. Cette installation échoue aux quatre questions des audits d'accès, plus une question de cloisonnement des données que les agents type Hermes ne posent même pas. Le correctif n'est pas un-VPS-par-salarié (cela multiplie le problème par vingt) ; c'est une couche d'identité entre OpenClaw et les données de l'entreprise, que son client MCP gère nativement en <a href="/connect/openclaw/">trois commandes</a>.</p>
+  </div>
+
+  <p class="note"><strong>Transparence.</strong> Nous maintenons <a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a>, une couche d'accès open source qui résout la moitié organisationnelle de cette page. Les faits concernant OpenClaw proviennent de son dépôt et de sa <a href="https://docs.openclaw.ai/gateway/security">documentation sécurité</a>, vérifiés le <strong>17 août 2026</strong>. Corrections bienvenues via une issue GitHub. Même analyse pour Hermes Agent : <a href="/fr/hermes-agent-entreprise/">ici</a>. <a href="/answers/openclaw-enterprise-compliance/">This page exists in English.</a></p>
+
+  <h2>Pourquoi cette page existe</h2>
+  <p>OpenClaw est l'agent le plus étoilé de GitHub — plus de 385 000 étoiles, licence MIT, natif des messageries, l'assistant personnel qui a banalisé « l'agent always-on sur un VPS à 5 $ ». La même industrie de service qui installe <a href="/fr/hermes-agent-entreprise/">Hermes pour des entreprises</a> installe OpenClaw pour des entreprises : une instance sur un VPS, branchée à WhatsApp ou Slack, connectée à la messagerie et aux fichiers, toute l'équipe appairée dessus.</p>
+  <p>La différence : la documentation d'OpenClaw avait déjà dit à l'installateur de ne pas faire ça. Sa page sécurité énonce le modèle de confiance sans ambiguïté et recommande des instances séparées par utilisateur. L'écart que couvre cette page n'est pas caché dans le produit — c'est la distance entre ce que dit la doc et ce qui est déployé.</p>
+
+  <h2>Ce qu'OpenClaw sécurise bien — à qui de droit</h2>
+  <p>Pour son périmètre déclaré — une personne et son agent — le travail de sécurité est sérieux :</p>
+  <ul>
+    <li><strong>Hygiène des identifiants</strong> : secrets sous <code>~/.openclaw/</code> en permissions <code>600</code>/<code>700</code> ; les <code>.env</code> de workspace ne peuvent pas écraser les identifiants des fournisseurs.</li>
+    <li><strong>Filtrage entrant</strong> : DM pairing avec codes d'approbation (défaut), allowlists, mention obligatoire et contrôles par groupe, filtres de visibilité du contexte pour les expéditeurs non autorisés.</li>
+    <li><strong>Politique d'outils et sandboxing</strong> : outils sensibles (<code>exec</code>, <code>browser</code>, <code>process</code>) restreints ou désactivés par défaut ; sandbox Docker/Podman en opt-in ; mode <code>elevated</code> réservé au propriétaire.</li>
+    <li><strong>Auto-audit</strong> : <code>openclaw security audit</code> vérifie l'exposition réseau, le rayon d'action des outils, les permissions et les plugins, avec remédiation <code>--fix</code>. Plus que ce que livrent la plupart des agents.</li>
+    <li><strong>Caviardage des logs</strong> : transcripts sur disque avec caviardage des secrets par motifs, extensible via <code>logging.redactPatterns</code>.</li>
+  </ul>
+  <p>Tout cela protège <em>la machine et la surface entrante</em>. La doc est tout aussi claire sur ce qui est absent : pas d'autorisation par utilisateur (une <code>sessionKey</code> « est un sélecteur de routage, pas un jeton d'authentification »), pas d'isolation multi-tenant. Pour une personne, le bon périmètre. Pour une entreprise, toute la question.</p>
+
+  <h2>Les quatre questions de l'auditeur — plus une cinquième qu'OpenClaw soulève lui-même</h2>
+  <table>
+    <tr><th>Question</th><th>Instance partagée par défaut</th><th>Référence</th></tr>
+    <tr><td><strong>Qui a agi ?</strong> Attribuable à une personne ?</td><td>Non — chaque utilisateur appairé agit comme l'instance ; la sessionKey route, elle n'authentifie pas</td><td>ISO 27001 A.5.16, SOC 2 CC6.1</td></tr>
+    <tr><td><strong>Avec quels droits ?</strong> Moindre privilège par personne ?</td><td>Non — un seul magasin <code>~/.openclaw/</code> cumule l'union des droits de l'instance</td><td>A.5.15, A.8.2, CC6.3</td></tr>
+    <tr><td><strong>Journalisé où ?</strong> Piste attribuable et exploitable ?</td><td>Transcripts sur disque (caviardés), audit de posture machine — pas de piste par utilisateur, pas d'export</td><td>A.8.15, CC7.2</td></tr>
+    <tr><td><strong>Révoqué comment ?</strong> Une action pour un partant ?</td><td>Désappairer l'utilisateur, puis faire tourner à la main chaque identifiant de l'instance</td><td>A.5.18, CC6.2</td></tr>
+    <tr><td><strong>Les données sont-elles cloisonnées entre utilisateurs ?</strong></td><td>Par défaut, <strong>non</strong> : tous les DM partagent une session tant que <code>session.dmScope: "per-channel-peer"</code> n'est pas configuré — la session d'un salarié peut faire remonter le contexte d'un autre</td><td>A.5.15, RGPD art. 5(1)(f), CC6.1</td></tr>
+  </table>
+  <p>La cinquième ligne est propre aux défauts d'OpenClaw, et c'est elle qui transforme un constat de conformité en incident : la fuite de contexte entre salariés ne demande aucun attaquant — seulement deux collègues et la configuration par défaut.</p>
+
+  <h2>« Une instance par utilisateur » : honnête — et ça ne passe pas à l'échelle</h2>
+  <p>La réponse documentée d'OpenClaw pour plusieurs utilisateurs : des instances séparées, identifiants isolés, idéalement des comptes OS ou machines séparés. Comme conseil d'isolation, c'est juste. Comme modèle de déploiement d'entreprise, comptez ce que cela crée pour une PME de 20 personnes : vingt instances à patcher, vingt magasins d'identifiants à faire tourner à la moindre fuite, vingt jeux de transcripts à gouverner pour la conservation RGPD — et toujours <em>zéro</em> piste d'audit centrale, <em>zéro</em> révocation unique, et des systèmes en aval qui voient vingt comptes de service au lieu de vingt personnes.</p>
+  <p>L'isolation entre utilisateurs est nécessaire. Ce n'est pas la même chose que le contrôle d'accès organisationnel, et multiplier les instances achète la première en laissant le second intact.</p>
+
+  <h2>L'angle RGPD</h2>
+  <p><strong>Les transcripts sont des données personnelles.</strong> Les transcripts de session persistent sur disque — conversations de salariés et de clients comprises. Le caviardage attrape les secrets, pas les données personnelles ; conservation et effacement (art. 5(1)(e), art. 17) restent à la charge de l'opérateur.</p>
+  <p><strong>Art. 32</strong> : identifiants partagés, session partagée par défaut et absence de journal d'accès sur une machine qui lit la messagerie de l'entreprise — une position difficile dans un rapport d'incident ; le seul défaut de session partagée est un constat d'intégrité-confidentialité (art. 5(1)(f)).</p>
+  <p><strong>Art. 30</strong> : des tâches sans surveillance sur des données clients sont des activités de traitement ; quelqu'un doit pouvoir les lister.</p>
+  <p><strong>L'art. 28 retombe sur l'installateur.</strong> Celui qui continue d'opérer le VPS — mises à jour, redémarrages, SSH — est un sous-traitant et doit un DPA. C'est la clause que la plupart des installateurs découvrent après coup, et c'est leur responsabilité qu'elle engage, pas celle du client.</p>
+
+  <h2>Le correctif garde OpenClaw</h2>
+  <p>Gardez le runtime — les skills, les canaux, le sandboxing, une instance par utilisateur si vous suivez la doc. Déplacez <em>l'accès aux données de l'entreprise</em> derrière une couche d'identité qu'OpenClaw parle déjà. Son client MCP gère le Streamable HTTP avec tokens OAuth managés (v1.5.0+) : <a href="/connect/openclaw/">trois commandes</a>, et l'agent détient un token court lié à une personne réelle au lieu de clés API brutes éparpillées dans sa config.</p>
+  <ul>
+    <li><strong>Chaque salarié s'authentifie comme lui-même</strong> — ses appels OpenClaw portent <em>son</em> identité ; chaque application applique les permissions que cette personne a déjà. La <a href="/answers/agent-permission-layer/">couche de permission</a>, pas une clé partagée.</li>
+    <li><strong>Le moindre privilège devient des scopes</strong>, par utilisateur, revus quand les rôles changent.</li>
+    <li><strong>Chaque appel d'outil écrit une ligne d'audit attribuable</strong>, sur votre infrastructure, exportable.</li>
+    <li><strong>La révocation est un acte unique</strong> — couper le grant OAuth coupe tous les backends, tâches sans surveillance comprises.</li>
+  </ul>
+  <p>Les clés des fournisseurs de modèles peuvent rester locales ; elles authentifient l'agent auprès de son cerveau, pas auprès de votre métier. La checklist installateur en cinq points et le mapping contrôles → référentiels sont les mêmes que pour Hermes : voir <a href="/fr/hermes-agent-entreprise/">la checklist de l'installateur</a> et <a href="/answers/ai-agent-compliance-controls/">AI agent compliance controls</a> (en anglais). Et quoi que vous changiez, lancez <code>openclaw security audit --fix</code> — la moitié machine reste à durcir par vos soins.</p>
+
+  <a class="cta" href="/connect/openclaw/">Connecter OpenClaw à une gateway — trois commandes →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>OpenClaw est-il multi-utilisateurs ?</h3>
+    <p>Non — sa doc écrit qu'une instance gateway n'est « pas une frontière de sécurité multi-tenant » et recommande une instance par personne. Pairing et allowlists filtrent qui peut lui parler, mais toute personne admise agit via le même magasin d'identifiants, et par défaut tous les DM partagent une session.</p>
+    <h3>OpenClaw a-t-il une piste d'audit ?</h3>
+    <p>Des transcripts sur disque avec caviardage des secrets, plus un <code>security audit</code> de posture machine — mais aucune piste attribuable par utilisateur : une sessionKey route, elle n'authentifie pas. Les systèmes en aval enregistrent l'instance, pas la personne. L'attribution doit être ajoutée à la couche d'accès.</p>
+    <h3>Une équipe peut-elle partager une instance sur un VPS ?</h3>
+    <p>La doc le déconseille. Identifiants partagés cumulant l'union des droits, aucune attribution — et tant que <code>session.dmScope</code> n'est pas modifié, un contexte de conversation partagé où la session d'un salarié peut faire remonter celle d'un autre. Compte de service partagé et défaut de cloisonnement, dans la même installation.</p>
+    <h3>Une instance par salarié, est-ce viable ?</h3>
+    <p>C'est la réponse documentée, honnête — et elle multiplie au lieu de résoudre : N instances à patcher, N magasins d'identifiants, N jeux de transcripts, toujours pas d'audit central ni de révocation unique. Gardez l'instance par utilisateur côté runtime ; placez l'accès aux données de l'entreprise derrière une gateway OAuth 2.1 unique.</p>
+    <h3>Que doit ajouter un installateur pour un déploiement en entreprise ?</h3>
+    <p>Une identité OAuth 2.1 par utilisateur pour les outils métier (OpenClaw gère l'OAuth managé depuis la v1.5.0), des scopes de moindre privilège, une piste d'audit exportable par appel, une révocation centrale testée, et la paperasse — DPA (art. 28), registre des traitements, réponse conservation pour les transcripts. Plus <code>openclaw security audit --fix</code> pour la moitié machine.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

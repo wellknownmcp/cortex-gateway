@@ -49,6 +49,8 @@ OAuth tokens are stored by OpenClaw and refreshed automatically after `openclaw 
 
 OpenClaw is a personal, always-on agent — exactly the kind of client you don't want holding static API keys to everything. Behind a gateway, it holds a single short-lived OAuth token bound to *your* identity: every backend applies your permissions, the audit trail records what the agent actually did, and revoking the grant at the OAuth server cuts everything at once.
 
+Deploying OpenClaw for a company rather than for yourself? Its own docs declare one instance single-user, and the default shared install fails the questions access audits ask — see [OpenClaw in a company: what an auditor will ask](/answers/openclaw-enterprise-compliance/) (ISO 27001, SOC 2, GDPR, and the installer's checklist).
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
