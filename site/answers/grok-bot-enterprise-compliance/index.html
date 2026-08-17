@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grok Bot at work: what IT and auditors will ask | Cortex Gateway</title>
+<meta name="description" content="Grok Bot signs into your company tools from a cloud VM with the employee's own credentials, its audit view is 'coming', and killing a bot keeps its durable storage. What xAI's own docs say (checked August 2026), the questions IT, auditors and the GDPR will ask, and why the MCP lane is the governable lane.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/grok-bot-enterprise-compliance/">
+<link rel="alternate" hreflang="en" href="https://cortex-gateway.dev/answers/grok-bot-enterprise-compliance/">
+<link rel="alternate" hreflang="fr" href="https://cortex-gateway.dev/fr/grok-bot-entreprise/">
+<link rel="alternate" hreflang="x-default" href="https://cortex-gateway.dev/answers/grok-bot-enterprise-compliance/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Grok Bot at work: what IT and auditors will ask">
+<meta property="og:description" content="Always-on bots, the employee's own credentials, a cloud VM outside your device-trust perimeter, audit 'coming'. The verified facts, the audit grid, and the governable path xAI's own MCP policy opens.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/grok-bot-enterprise-compliance/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Grok Bot in your company: what IT, auditors and the GDPR will ask",
+      "url": "https://cortex-gateway.dev/answers/grok-bot-enterprise-compliance/",
+      "dateModified": "2026-08-17",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/grok-bot-enterprise-compliance/" },
+        { "@type": "ListItem", "position": 3, "name": "Grok Bot in a company" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is Grok Bot safe to use with company tools?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It depends entirely on which lane it uses. Grok Bot's headline capability is signing into apps and websites from its cloud VM with the employee's own credentials — the way a human would, including tools with no API. That lane bypasses device-trust (xAI's docs note device-trust agents are unavailable natively), leaves no per-action audit trail today (the docs say an audit view of Bot actions 'is coming'), and gives the bot every right the employee has, 24/7, unsupervised. The governable lane is MCP: Grok Bot inherits the team's MCP allowlist/denylist policy, and tokens for hosted MCP servers stay with the Cursor backend rather than on the VM. Company data belongs in the second lane." }
+        },
+        {
+          "@type": "Question",
+          "name": "Where do Grok Bot credentials live?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sign-ins happen inside the bot's Linux cloud VM, per xAI's team documentation (checked August 2026). WebAuthn prompts are forwarded to the member's desktop app for hardware keys, and the docs recommend passkeys in a password manager for re-authentication — meaning corporate credentials get exercised, and typically stored for reuse, in a browser session on a VM outside the company's perimeter. By contrast, sign-in tokens for hosted MCP servers 'stay with the Cursor backend, not stored on the computer' — one of several reasons the MCP lane is the governable one." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does Grok Bot have an audit trail?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Not yet. As of August 2026, the dashboard shows spend and usage analytics, and xAI's documentation states that 'an audit view of Bot actions is coming.' There is a second, subtler problem the promised view will not fix: because the bot signs into tools with the employee's own credentials, downstream systems cannot distinguish the employee's actions from their bot's — 'Alice did it' now covers everything an always-on agent did as Alice while she slept. Attributable audit requires the bot's access to be separately identified, which is what per-user OAuth scopes through an MCP gateway provide." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can IT control or block Grok Bot?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Partly, if the company runs Cursor Teams: admins can disable Grok Bot organization-wide, toggle whether Bots launch Cursor agents, scope team rules, apply MCP allowlists/denylists, inspect and remove member computers, and Privacy Mode (Legacy) blocks Grok Bot entirely. Two gaps remain: a 'local execution ceiling' is listed as coming soon, and — the bigger one — Grok Bot is also sold through SuperGrok Heavy, a consumer subscription, so an employee can connect a bot to work tools with a personal account the company never sees. That makes it a shadow-IT question before it is a settings question." }
+        },
+        {
+          "@type": "Question",
+          "name": "How do you revoke a Grok Bot's access when an employee leaves?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The xAI-side steps are documented: admins can remove the member's computer, and 'Kill deletes the running virtual machine.' The same sentence continues: 'Durable storage is kept' — so what the bot saw and saved persists beyond the kill and needs its own deletion answer. And killing the VM does not touch the credentials the bot was using: every password it signed in with remains valid until rotated. Compare one OAuth revocation cutting every backend at once — the difference between a runbook and an afternoon of guesswork is where the credentials lived." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/answers/hermes-agent-enterprise-compliance/">Hermes</a>
+    <a href="/answers/openclaw-enterprise-compliance/">OpenClaw</a>
+    <a href="/answers/ai-agent-compliance-controls/">Compliance controls</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › Grok Bot in a company</p>
+  <h1>Grok Bot in your company: what IT, auditors and the GDPR will ask</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Grok Bot (xAI/SpaceXAI, beta since 11 August 2026) gives each user always-on agents on a <strong>cloud Linux VM that signs into apps with the employee's own credentials</strong> — the way a human would, including tools with no API. That is the pitch, and it is also the compliance surface: sign-ins from a datacenter VM sit outside your device-trust perimeter (xAI's docs say so), the promised <strong>audit view of bot actions doesn't exist yet</strong>, killing a bot <strong>keeps its durable storage</strong>, and downstream systems can no longer tell the employee from their bot. Unlike the <a href="/answers/hermes-agent-enterprise-compliance/">Hermes</a> and <a href="/answers/openclaw-enterprise-compliance/">OpenClaw</a> cases, this is not an installer's mistake — it is the product working as designed, reachable through a <em>consumer</em> subscription your IT never sees. The governable path exists and xAI's own docs point at it: <strong>Grok Bot inherits your team's MCP policy</strong> — so put company tools behind an OAuth 2.1 MCP gateway and make that the lane the bot uses.</p>
+  </div>
+
+  <p class="note"><strong>Transparency.</strong> We maintain <a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a>, an open-source access layer relevant to the fix below. Facts about Grok Bot are taken from xAI's <a href="https://x.ai/news/introducing-grok-bot">announcement</a> and its <a href="https://docs.x.ai/grok-bot/teams-and-enterprises">teams &amp; enterprises documentation</a>, checked <strong>17 August 2026</strong>. Grok Bot is in beta and enterprise access is waitlisted — details will change; corrections welcome as a GitHub issue. Same series for <a href="/answers/hermes-agent-enterprise-compliance/">Hermes Agent</a> and <a href="/answers/openclaw-enterprise-compliance/">OpenClaw</a>. <a href="/fr/grok-bot-entreprise/">Cette page existe en français.</a></p>
+
+  <h2>What Grok Bot is — and why the pitch is the risk</h2>
+  <p>Grok Bot is a team of always-on agents, each working on a persistent cloud computer, available to SuperGrok Heavy, Cursor Ultra and Cursor Teams Premium subscribers. Its differentiator is precisely what makes governance hard: a bot <em>navigates websites, clicks buttons and types into fields the way a human would</em>, signing into the tools the employee already uses with the employee's own credentials — including "legacy enterprise software" with <em>no clean API or MCP</em>. It keeps working while the laptop is off, and bots can coordinate with each other in group chat.</p>
+  <p>Hermes and OpenClaw raise VPS questions because installers deploy them wrong. Grok Bot raises them <em>as designed</em>: the credential handling, the unsupervised execution and the cloud residency are the product. The questions below are therefore for IT and security leadership, not for installers.</p>
+
+  <h2>What xAI got right — credit where due</h2>
+  <ul>
+    <li><strong>Per-member computers</strong>, which admins can inspect and remove; members can self-reset.</li>
+    <li><strong>Hardware keys survive</strong>: WebAuthn prompts are forwarded to the member's desktop app, so phishing-resistant factors are not simply broken.</li>
+    <li><strong>MCP done properly</strong>: Grok Bot inherits the team's existing MCP configuration and allowlist/denylist policy, and sign-in tokens for hosted MCP servers <em>stay with the Cursor backend, not stored on the computer</em>.</li>
+    <li><strong>Org-wide controls</strong> for Cursor Teams admins: disable Grok Bot entirely, toggle cloud-agent launching, scope team rules; Privacy Mode (Legacy) blocks Grok Bot outright.</li>
+    <li><strong>Training follows team privacy settings</strong>, same as Cursor's.</li>
+  </ul>
+  <p>These are real controls. The findings below are what they do not yet cover — much of it stated by xAI's own documentation.</p>
+
+  <h2>The audit grid, applied</h2>
+  <table>
+    <tr><th>Question</th><th>Grok Bot today (per xAI's docs, Aug 2026)</th><th>Maps to</th></tr>
+    <tr><td><strong>Who acted?</strong></td><td>Ambiguous by construction: the bot signs in as the employee, so downstream systems cannot distinguish the person from their always-on bot</td><td>ISO 27001 A.5.16, SOC 2 CC6.1</td></tr>
+    <tr><td><strong>With what rights?</strong></td><td>All of the employee's rights — password sign-ins cannot be scoped; least privilege is structurally unavailable in that lane</td><td>A.5.15, A.8.2, CC6.3</td></tr>
+    <tr><td><strong>Logged where?</strong></td><td>Spend and usage analytics; "an audit view of Bot actions is coming" — i.e., not today</td><td>A.8.15, CC7.2</td></tr>
+    <tr><td><strong>Revoked how?</strong></td><td>Kill the VM ("durable storage is kept") and rotate every password the bot used, by hand</td><td>A.5.18, CC6.2</td></tr>
+    <tr><td><strong>Inside the security perimeter?</strong></td><td>No — sign-ins happen in a datacenter VM; "device-trust agents unavailable natively", so conditional-access policies are bypassed or must be weakened to let the bot in</td><td>A.8.1, CC6.6</td></tr>
+  </table>
+  <p>The fifth row deserves emphasis because it is self-inflicted on day one: an organization enforcing device-trust either blocks the bots (and users route around IT), or punches an exception for a cloud VM it does not manage. Both outcomes appear in the next audit.</p>
+
+  <h2>The shadow-IT multiplier</h2>
+  <p>Everything above assumes the company knows the bots exist. Grok Bot is also sold through <strong>SuperGrok Heavy — a consumer subscription</strong>. An employee can create a bot on a personal account, hand it their work logins, and produce an always-on ghost worker IT has never heard of, exercising corporate credentials from an unmanaged VM. Enterprise onboarding is waitlisted; personal onboarding is not. Policy, detection (impossible-travel and datacenter-IP sign-in alerts) and an approved alternative are the only levers — a ban with no sanctioned path is how the personal-account version proliferates.</p>
+
+  <h2>The GDPR angle</h2>
+  <p><strong>Everything the bot sees transits and persists on a US provider's cloud VM.</strong> Screens, documents, mailboxes — processing of employee and customer personal data on xAI/Cursor infrastructure, to inventory under Art. 30 and assess under Chapter V (transfers). The Grok Bot documentation we checked states nothing about data residency, a DPA, or SOC 2 for this product; until the enterprise tier ships terms, that absence <em>is</em> the answer to put in the DPIA.</p>
+  <p><strong>"Durable storage is kept."</strong> Killing a bot deletes the VM but not its durable storage — a retention and erasure (Art. 5(1)(e), Art. 17) question with no documented deletion path yet.</p>
+  <p><strong>Training follows team privacy settings</strong> — which means for personal-tier usage, whatever the individual's settings say. A DPIA for sanctioned use, and the assumption of unsanctioned use, are both warranted (Art. 35, Art. 32).</p>
+
+  <h2>The fix: make the MCP lane the only lane for company data</h2>
+  <p>The remarkable thing in xAI's documentation is that the governed path is already built in: <strong>Grok Bot follows your team's MCP policy</strong> — allowlists, denylists, shared MCP authentication with Cursor, hosted-server tokens kept off the VM. The browser-credential lane and the MCP lane coexist; governance means moving company data to the second:</p>
+  <ul>
+    <li><strong>Expose company tools as MCP servers behind one OAuth 2.1 gateway</strong> — <a href="/guides/rest-api-to-mcp-server/">a ~120-line contract per app</a>, or <a href="/guides/github-app-mcp-backend/">an integration backend</a> for third-party APIs. Allowlist the gateway in the team MCP policy; denylist the rest.</li>
+    <li><strong>Each employee's bot then acts on a scoped, per-user OAuth grant</strong>, not their passwords: least privilege becomes <a href="/answers/agent-permission-layer/">scopes</a>, and bot actions become distinguishable from human ones — the attribution the "coming" audit view cannot provide.</li>
+    <li><strong>Every call writes one attributable audit line</strong> on your infrastructure — no waiting on a vendor roadmap for A.8.15.</li>
+    <li><strong>Revocation returns to one act</strong>: cut the grant, and the bot's access to every backend dies with it — no password-rotation hunt, regardless of what the durable storage kept.</li>
+  </ul>
+  <p>What remains in the browser lane — legacy tools with no API — remains ungoverned by construction; that residue is a risk-acceptance decision to write down, not a detail to discover in an incident. The controls-to-frameworks mapping is on <a href="/answers/ai-agent-compliance-controls/">AI agent compliance controls</a>; the threat-model side on <a href="/answers/mcp-security-best-practices/">MCP security best practices</a>.</p>
+
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Put an OAuth 2.1 gateway in front of your tools →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Is Grok Bot safe to use with company tools?</h3>
+    <p>Depends on the lane. The browser lane — the bot signing in with the employee's credentials from its cloud VM — bypasses device-trust, has no per-action audit today, and carries the employee's full rights unsupervised. The MCP lane inherits your team's allowlist policy and keeps hosted-server tokens off the VM. Company data belongs in the second.</p>
+    <h3>Where do Grok Bot credentials live?</h3>
+    <p>Sign-ins happen inside the bot's Linux VM; WebAuthn is forwarded to the member's desktop, and xAI recommends passkeys in a password manager for re-authentication — corporate credentials exercised and stored on a VM outside your perimeter. Hosted MCP server tokens, by contrast, "stay with the Cursor backend, not stored on the computer."</p>
+    <h3>Does Grok Bot have an audit trail?</h3>
+    <p>Not yet — usage analytics today, "an audit view of Bot actions is coming" per the docs. And since the bot acts as the employee, downstream logs cannot separate the person from the bot; that requires the bot's access to be separately identified, which per-user OAuth scopes provide.</p>
+    <h3>Can IT control or block it?</h3>
+    <p>With Cursor Teams: org-wide disable, cloud-agent toggle, team rules, MCP allowlists, computer inspection/removal; Privacy Mode (Legacy) blocks it entirely. The gap: SuperGrok Heavy is a consumer subscription, so personal-account bots with work logins are a shadow-IT problem no team setting reaches.</p>
+    <h3>How do you revoke a bot's access when someone leaves?</h3>
+    <p>Remove the member's computer — "Kill deletes the running virtual machine. Durable storage is kept." Then rotate every password the bot used, because killing the VM invalidates none of them. An OAuth grant behind a gateway revokes in one act; that difference is the whole argument.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
