@@ -7,6 +7,18 @@
 <meta name="description" content="What cortex-gateway.dev and its hosted demo collect, why, and for how long. No cookies, no client-side tracking, truncated IPs, demo accounts purged after 90 days of inactivity.">
 <link rel="canonical" href="https://cortex-gateway.dev/privacy/">
 <link rel="stylesheet" href="/assets/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Privacy and data retention",
+  "url": "https://cortex-gateway.dev/privacy/",
+  "description": "What cortex-gateway.dev and its hosted demo collect, why, and for how long.",
+  "dateModified": "2026-08-22",
+  "isPartOf": { "@type": "WebSite", "name": "Cortex Gateway", "url": "https://cortex-gateway.dev/" },
+  "publisher": { "@type": "Organization", "name": "Cortex Gateway", "url": "https://cortex-gateway.dev/" }
+}
+</script>
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
 <meta property="og:title" content="Privacy | Cortex Gateway">
 <meta property="og:description" content="No cookies, no client-side tracking, truncated IPs, demo accounts purged after 90 days of inactivity.">
@@ -46,7 +58,8 @@
   <p>The demo exists so you can evaluate the gateway with a real OAuth 2.1 flow. It collects the minimum that flow requires:</p>
   <table>
     <tr><th>Data</th><th>Purpose</th><th>Retention</th></tr>
-    <tr><td>Email address</td><td>Magic-link sign-in and account identity</td><td>Deleted after <strong>90 days without sign-in</strong> (with all tokens, sessions and consents)</td></tr>
+    <tr><td>Pending sign-in link</td><td>Delivering the link you asked for. The address is held here only until the link is used or expires — <strong>no account is created until you actually click it</strong></td><td>Link expires in 15 minutes; the row is deleted within <strong>1 day</strong></td></tr>
+    <tr><td>Email address</td><td>Account identity, once a sign-in link has been used</td><td>Deleted after <strong>90 days without sign-in</strong> (with all tokens, sessions and consents)</td></tr>
     <tr><td>OAuth artifacts (codes, tokens, consents)</td><td>Operating the OAuth 2.1 flow</td><td>Expired items removed within 7 days of expiry; all removed with the account</td></tr>
     <tr><td>Gateway audit trail</td><td>Demonstrating pseudonymized auditing (hashed identifiers, no raw email)</td><td><strong>90 days</strong></td></tr>
     <tr><td>Demo notes (write tools)</td><td>Demonstrating scope tiering</td><td>In-memory only — gone on restart, never stored in a database</td></tr>

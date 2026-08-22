@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MCP unsupported_protocol_version: why initialize gets a 400 and then times out | Cortex Gateway</title>
+<title>MCP unsupported_protocol_version: fix the 400 | Cortex Gateway</title>
 <meta name="description" content="Your MCP client sends initialize and receives 400 unsupported_protocol_version, then the connection times out. The cause is almost always the MCP-Protocol-Version header sent during initialize — negotiation happens in the body, the header carries the negotiated version and only exists after initialize.">
 <link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-unsupported-protocol-version/">
 <link rel="stylesheet" href="/assets/style.css">
