@@ -27,7 +27,6 @@ model User {
   scopes      String[]  @default(["mcp:demo:read"])
 
   sessions      Session[]
-  magicLinks    MagicLink[]
   authCodes     OauthAuthorizationCode[]
   accessTokens  OauthAccessToken[]
   refreshTokens OauthRefreshToken[]
@@ -39,13 +38,18 @@ model User {
 model MagicLink {
   id        String    @id @default(uuid()) @db.Uuid
   tokenHash String    @unique @map("token_hash") @db.VarChar(64)
-  userId    String    @map("user_id") @db.Uuid
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Email, not a user FK. A magic-link form is an open email-sending surface:
+  // creating the account when the link is *requested* lets anyone fill this
+  // table with third-party addresses that never asked for anything. The
+  // account is created in consumeMagicLink(), when the link is clicked.
+  email     String    @db.VarChar(255)
   createdAt DateTime  @default(now()) @map("created_at")
   expiresAt DateTime  @map("expires_at") // 15 min
   usedAt    DateTime? @map("used_at")
 
   @@index([expiresAt])
+  @@index([createdAt]) // daily send-budget count
+  @@index([email])
   @@map("magic_links")
 }
 

@@ -1,10 +1,14 @@
 /**
  * Self-service login for the demo authorization server — magic links.
  *
- * Anyone can sign up with an email: the first magic-link request creates the
- * user (default scopes: mcp:demo:read). With RESEND_API_KEY set the link is
- * emailed; without it the link is printed to stdout — enough for local dev,
- * NOT for a public deployment (set the key there).
+ * Anyone can sign up with an email. The account is created when the link is
+ * *clicked*, never when it is requested: the form is publicly reachable, so a
+ * request only proves that someone typed an address, not that its owner wants
+ * an account. With RESEND_API_KEY set the link is emailed; without it it is
+ * printed to stdout — enough for local dev, NOT for a public deployment.
+ *
+ * Sending mail on an unauthenticated request is also a resource an abuser can
+ * spend on someone else's behalf, hence the global daily budget below.
  *
  * Sessions: opaque 32-byte cookie token, SHA256-hashed in DB, 7 days,
  * host-only cookie (the consent screen lives on this same host).
@@ -19,31 +23,46 @@ const SESSION_COOKIE = 'demo_auth_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
 
+/**
+ * Ceiling on magic links sent in any 24h window, all senders combined. The
+ * demo sees a handful of real sign-ins a day; anything above this is abuse
+ * burning the domain's sending reputation. Counted in DB, not in memory, so a
+ * restart does not hand an abuser a fresh budget.
+ */
+const MAX_LINKS_PER_DAY = 40;
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function isValidEmail(email: string): boolean {
   return EMAIL_RE.test(email) && email.length <= 255;
 }
 
-/** Creates (or finds) the user and issues a magic link. Returns the URL. */
+/** Magic links sent in the last 24h, all senders combined. */
+export async function dailyLinkBudgetLeft(): Promise<number> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const used = await prisma.magicLink.count({ where: { createdAt: { gt: since } } });
+  return Math.max(0, MAX_LINKS_PER_DAY - used);
+}
+
+/**
+ * Issues a magic link for an address. Deliberately does NOT create the user:
+ * see consumeMagicLink(). Returns the URL to email.
+ */
 export async function createMagicLink(email: string, returnTo: string | null): Promise<string> {
   const normalized = email.trim().toLowerCase();
-  const user = await prisma.user.upsert({
-    where: { email: normalized },
-    create: { email: normalized },
-    update: {},
-  });
-
   const token = randomBase64url(32);
   await prisma.magicLink.create({
     data: {
       tokenHash: sha256Hex(token),
-      userId: user.id,
+      email: normalized,
       expiresAt: new Date(Date.now() + MAGIC_LINK_TTL_MS),
     },
   });
 
-  const url = new URL(`${getIssuer()}/api/login/verify`);
+  // Points at the confirmation page, not at the consuming endpoint: mail
+  // security scanners follow links in emails, and a GET that signs you in
+  // burns the link before its owner ever sees it.
+  const url = new URL(`${getIssuer()}/login/confirm`);
   url.searchParams.set('token', token);
   if (returnTo) url.searchParams.set('returnTo', returnTo);
   return url.toString();
@@ -71,15 +90,40 @@ export async function deliverMagicLink(email: string, link: string): Promise<'em
   return 'email';
 }
 
-/** Consumes a magic link token; returns the userId or null. */
+/**
+ * Checks a magic link without consuming it — lets the confirmation page tell
+ * "expired link" apart from "ready to sign in" before the user clicks.
+ */
+export async function peekMagicLink(token: string): Promise<{ email: string } | null> {
+  const record = await prisma.magicLink.findUnique({ where: { tokenHash: sha256Hex(token) } });
+  if (!record || record.usedAt || record.expiresAt < new Date()) return null;
+  return { email: record.email };
+}
+
+/**
+ * Consumes a magic link and creates the account on first sign-in. Returns the
+ * userId, or null if the link is unknown, expired or already used.
+ *
+ * The link is claimed with a conditional update: two concurrent clicks race on
+ * the database and exactly one of them wins.
+ */
 export async function consumeMagicLink(token: string): Promise<string | null> {
   const record = await prisma.magicLink.findUnique({ where: { tokenHash: sha256Hex(token) } });
   if (!record || record.usedAt || record.expiresAt < new Date()) return null;
-  await prisma.$transaction([
-    prisma.magicLink.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
-    prisma.user.update({ where: { id: record.userId }, data: { lastLoginAt: new Date() } }),
-  ]);
-  return record.userId;
+
+  const claimed = await prisma.magicLink.updateMany({
+    where: { id: record.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  if (claimed.count !== 1) return null;
+
+  const now = new Date();
+  const user = await prisma.user.upsert({
+    where: { email: record.email },
+    create: { email: record.email, lastLoginAt: now },
+    update: { lastLoginAt: now },
+  });
+  return user.id;
 }
 
 /** Opens a session and sets the cookie. */

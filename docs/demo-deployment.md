@@ -132,5 +132,19 @@ Once live, publish [registry/server.json](../registry/server.json) with the
 - **Data hygiene**: magic links 15 min, sessions 7 d, codes 10 min, access
   15 min, refresh 30 d, grants 30 d. A weekly
   `DELETE FROM ... WHERE expires_at < now()` on the auth DB keeps it tidy.
-- **Abuse**: DCR 5/h/IP, magic links 3/15min/email + 10/15min/IP, token 30/min,
-  gateway 200 req/min per token. The demo tools are read-only and harmless.
+- **Abuse**: DCR 5/h/IP, token 30/min, gateway 200 req/min per token. The demo
+  tools are read-only and harmless.
+- **The login form is the exposed surface.** It is unauthenticated and makes
+  the server send mail to an address the caller picks, so treat it as an abuse
+  surface first. Four gates, in `api/login/request`: honeypot field, signed
+  form token (proves the POST followed a real GET), rate limits **per /24**
+  (3/h) and per email (2/h), and a global budget of 40 links per 24h counted in
+  DB. Limiting per IP alone does not work — the farms that hit this rotate
+  hosts inside a handful of /24s.
+- **No account is created when a link is requested**, only when one is used.
+  Otherwise anyone can fill the user table with third-party addresses.
+- **Links are consumed by POST**, from the `/login/confirm` page. Corporate
+  mail filters fetch every URL in an inbound email; a GET that signs you in
+  burns the link before its owner clicks and credits a sign-in nobody made.
+- Blocking abusive networks at nginx is a useful complement, but it is a
+  stopgap: the ranges rotate. The application gates are what hold.
