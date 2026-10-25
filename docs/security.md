@@ -259,6 +259,132 @@ valid token for this resource.
 
 ---
 
+## 6. Token forwarding — what it implies
+
+**How it works.** A call carries the caller's own JWT to the backend that
+serves it. That is what removes the over-privileged service account: the
+backend sees the real user and applies the user's own rights. It is also a
+deliberate departure from the MCP authorization spec, which tells an MCP
+server not to pass through the token it received. The trade-off is stated
+here so you can decide whether it fits your deployment.
+
+**What a backend receives.** A token whose `aud` is the **gateway**, valid for
+its remaining lifetime, for the scopes the user granted to the client — not
+only the scope of the tool being called. A backend that is compromised, or run
+by someone you do not fully trust, can replay it against the gateway and reach
+every other backend the token's scopes cover.
+
+**What the gateway does about it.**
+
+- The token goes **only** to the backend that serves the call. The fan-out
+  builtins — `whoami`, `list_cortex_tickets`, and the forwarding of
+  `report_missing_capability` — reach only backends on which the caller holds
+  at least one declared scope. Before 0.3.0 they reached every healthy
+  backend, whatever the caller's scopes.
+- Plaintext transport to a remote backend is refused (§2), so the token is not
+  readable on the path.
+- Each backend may only declare scopes under its own prefix (§7), so a backend
+  cannot widen the set of tokens it is sent.
+
+**What you should do.** Treat every federated backend as part of the trust
+boundary of the tokens it receives: federate backends you operate or trust,
+keep access tokens short-lived, and have backends re-validate the token
+without ever storing or re-sending it. If a backend sits outside that trust
+boundary, front it with the MCP adapter (`docs/mcp-adapter.md`), which holds a
+separate downstream token per user and never forwards the gateway token.
+
+**What is not done yet.** Per-backend audiences — exchanging the caller's
+token for one scoped and audienced to the target backend (RFC 8693 token
+exchange) — would remove the replay surface entirely. It needs support on the
+authorization server side and is on the roadmap.
+
+---
+
+## 7. What a backend may declare
+
+The gateway trusts backends with their catalog, not with each other's
+namespace. At every refresh it drops — with an error on stderr naming the
+backend — any declaration a backend does not own:
+
+- **Scopes.** A tool, prompt or resource template must carry a scope under one
+  of the backend's prefixes. Default: `mcp:<id>:` (so `docs` may declare
+  `mcp:docs:read`, not `mcp:billing:write` nor the floor scope `mcp:access`).
+  Without this, a backend could put its tool behind another backend's grant,
+  or make it visible to every token.
+
+  ```bash
+  CORTEX_BACKEND_DOCS_SCOPE_PREFIXES=mcp:docs:,mcp:quality:
+  ```
+
+- **URI schemes.** `resources/read` is routed by scheme, with the caller's
+  token. A backend may only claim its own schemes — default: its id — and
+  `cortex://` is reserved to the gateway. Two backends configured with the same
+  scheme: the first in `CORTEX_BACKENDS` keeps it, the second's templates are
+  refused.
+
+  ```bash
+  CORTEX_BACKEND_DOCS_URI_SCHEMES=docs,kb
+  ```
+
+- **Prompt names** are prefixed like tools (`<app>_<name>`), so two backends
+  declaring the same prompt no longer collide, and neither can shadow the
+  other's.
+
+**Upgrading from 0.2.x.** A backend whose scopes do not start with
+`mcp:<id>:` loses those tools at the first refresh after upgrade — set its
+`_SCOPE_PREFIXES` explicitly. Prompt names change from `<name>` to
+`<app>_<name>` on the agent side; backends still receive their own name.
+
+---
+
+## 8. Resource reads are scope-checked
+
+`resources/templates/list` was always filtered by scope; `resources/read` was
+not, so any valid token could read any resource of a known scheme by guessing
+its URI. A read now resolves the templates the URI falls under and requires
+the scope of **every** one of them — with overlapping templates
+(`docs://{kind}/{id}` at read, `docs://admin/{id}` at admin), granting on any
+match would let the broad one open the narrow one. A URI that matches no
+declared template is refused: the scope that gates it cannot be determined, so
+it cannot be granted. Matching is case-sensitive past the scheme, and a URI
+carrying dot segments or a percent-encoded `/`, `.`, `\` or `%` is refused
+before matching, since the backend could resolve it into a path the matcher
+never saw. The `read_cortex_resource` builtin goes through the same check.
+
+`cortex://architecture` is readable by any token, so it is rendered for the
+caller: only the backends it holds a scope on, the tools it can see there,
+and no backend URL. The server instructions (`initialize`,
+`server/discover`) likewise name only the backends the caller holds a scope
+on.
+
+---
+
+## 9. Smaller hardening
+
+- **Pool sandbox closed by default.** With `CORTEX_REQUIRED_POOL` set, a token
+  **without** a `pool` claim is refused too — it used to pass — and the check
+  covers the SSE stream (GET) and session termination (DELETE), not only POST.
+- **Canonical URI required in production.** Without `CORTEX_CANONICAL_URI`
+  the gateway answers 503 `server_misconfigured`, with the reason on stderr,
+  rather than falling back to `http://localhost:3213/mcp` as its audience.
+- **Dev bypass.** Compared in constant time, accepted only for an exact
+  loopback `Host` with no forwarding header, never under
+  `NODE_ENV=production`, and with no implicit role (it used to default to
+  `admin`). `npm run dev` binds to 127.0.0.1.
+- **Client IP.** `X-Forwarded-For` is read only when you declare your proxies
+  (`CORTEX_TRUSTED_PROXY_HOPS=1` behind one nginx), and then from the right:
+  the leftmost entry is whatever the client wrote. The request limit keys on
+  the token's `jti`, then its `sub`; the IP is only the last resort.
+- **Missing-capability tickets.** Text fields are bounded before storage,
+  forwarding and notification, and each identity may file
+  `CORTEX_TICKET_RATE_PER_HOUR` tickets per hour (default 20).
+- **Audit purge.** `CRON_SECRET` is accepted in the `x-cron-secret` header of
+  a POST only, compared in constant time. The query-string form and the GET
+  handler are gone: a URL lands in logs and link previews, and one fetched
+  link would purge the audit trail.
+
+---
+
 ## Reporting
 
 Report security issues privately, through a GitHub security advisory on

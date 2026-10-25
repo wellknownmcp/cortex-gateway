@@ -1,12 +1,14 @@
 /**
- * Handlers for the MCP spec 2025-06-18 methods.
+ * Handlers for the MCP methods: spec 2025-06-18 (legacy, through
+ * `initialize`) and 2026-07-28 (modern, stateless — see lib/mcp-generation.ts).
  *
  * Implemented:
  * - initialize                 (lifecycle)
  * - notifications/initialized  (lifecycle, 202 no-body at the route level)
  * - tools/list, tools/call     (Tools primitive)
  * - resources/*, prompts/*     (Resources + Prompts primitives)
- * - ping
+ * - ping                       (legacy only)
+ * - server/discover            (2026-07-28 only)
  *
  * Not implemented (return method_not_found):
  * - sampling/*              (inverse flow)
@@ -32,13 +34,23 @@ import {
   lookupPrompt,
   listResourceTemplates,
   findBackendForUri,
+  matchResourceTemplates,
+  backendsReachableBy,
 } from './federator';
 import { loadBackends } from './registry';
 import { isQuarantined } from './tool-integrity';
 import { getPrismaCortex, isDatabaseConfigured } from './prisma';
 import { notifyAdminOnBlocking } from './notify';
+import { boundTicketFields } from './ticket-bounds';
+import { checkRateLimit, positiveIntEnv } from './rate-limit';
 import { canonicalUri } from './oauth-validator';
 import type { ValidatedRequest } from './oauth-validator';
+import {
+  LEGACY_VERSIONS,
+  SUPPORTED_VERSIONS,
+  wrapModernResult,
+  type Generation,
+} from './mcp-generation';
 
 /**
  * Backends that natively implement report_missing_capability + list_tickets
@@ -57,20 +69,51 @@ function backendOwnedTickets(): Set<string> {
   );
 }
 
-const SUPPORTED_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26'] as const;
-export const SERVER_PROTOCOL_VERSION = '2025-06-18';
+/** Version negotiated by `initialize` when the client asks for none we serve. */
+export const SERVER_PROTOCOL_VERSION = LEGACY_VERSIONS[0];
 
 export function serverName(): string {
   return process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway';
 }
 
-export const SERVER_VERSION = '0.2.0';
+export const SERVER_VERSION = '0.3.0';
 
 const CAPABILITIES = {
   tools: { listChanged: true },
   resources: { subscribe: false, listChanged: true },
   prompts: { listChanged: true },
 } as const;
+
+/**
+ * Capabilities announced by `server/discover` (2026-07-28). No `listChanged`
+ * nor `subscribe`: in 2026-07-28 those notifications go through
+ * `subscriptions/listen`, which the gateway does not implement yet.
+ * Announcing them would make the client open a stream answered by -32601.
+ */
+const MODERN_CAPABILITIES = {
+  tools: {},
+  resources: {},
+  prompts: {},
+} as const;
+
+/**
+ * Methods served to a 2026-07-28 client. `initialize` and `ping` no longer
+ * exist in that revision: the route answers 404 + -32601 for anything not
+ * listed here (transport §Protocol Version Header).
+ */
+export const MODERN_METHODS: ReadonlySet<string> = new Set([
+  'server/discover',
+  'tools/list',
+  'tools/call',
+  'resources/list',
+  'resources/templates/list',
+  'resources/read',
+  'prompts/list',
+  'prompts/get',
+]);
+
+/** Modern methods that designate a tool, a prompt or a resource by name / URI. */
+const NAMED_METHODS: ReadonlySet<string> = new Set(['tools/call', 'prompts/get', 'resources/read']);
 
 // ─── JSON-RPC types ───────────────────────────────────────────────────────
 
@@ -147,14 +190,42 @@ export interface DispatchParams {
    *   protocol. See docs/tool-search-mode.md.
    */
   toolMode?: ToolListMode;
+  /**
+   * Client generation (see lib/mcp-generation.ts). Default 'legacy': the
+   * historical behavior, unchanged. 'modern' restricts methods to
+   * MODERN_METHODS and wraps every result (resultType, serverInfo, cache).
+   */
+  generation?: Generation;
 }
 
 export async function handleMethod(args: DispatchParams): Promise<JsonRpcResponse> {
+  const { method, id, generation = 'legacy' } = args;
+  if (generation === 'legacy') return dispatch(args);
+
+  if (!MODERN_METHODS.has(method)) {
+    return rpcError(id, -32601, `Method not found: ${method}`);
+  }
+  const res = method === 'server/discover' ? handleDiscover(id, args.userCtx) : await dispatch(args);
+  if (!('result' in res)) {
+    // Unknown tool, prompt or resource: -32602 (Invalid params) in
+    // 2026-07-28, -32601 being reserved to unknown methods (spec
+    // server/resources §Error Handling). For these three methods the method
+    // itself exists, so a -32601 can only come from an unknown name or URI.
+    // Legacy keeps -32601.
+    if (res.error.code === -32601 && NAMED_METHODS.has(method)) {
+      return rpcError(id, -32602, res.error.message, res.error.data);
+    }
+    return res;
+  }
+  return rpcSuccess(id, wrapModernResult(method, res.result, { name: serverName(), version: SERVER_VERSION }));
+}
+
+async function dispatch(args: DispatchParams): Promise<JsonRpcResponse> {
   const { method, params, id, userCtx, backendsFilter, toolMode = 'normal' } = args;
 
   switch (method) {
     case 'initialize':
-      return handleInitialize(id, params);
+      return handleInitialize(id, params, userCtx);
     case 'tools/list':
       return handleToolsList(id, userCtx, backendsFilter, toolMode);
     case 'tools/call':
@@ -184,29 +255,42 @@ interface InitializeParams {
   capabilities?: Record<string, unknown>;
 }
 
-function handleInitialize(id: string | number | null, raw: unknown): JsonRpcResponse {
+function handleInitialize(id: string | number | null, raw: unknown, userCtx: ValidatedRequest): JsonRpcResponse {
   const params = (raw ?? {}) as InitializeParams;
   const clientVersion = typeof params.protocolVersion === 'string' ? params.protocolVersion : null;
 
   // Negotiation: echo the client's version when we support it, otherwise our
   // preferred version.
-  const negotiated = clientVersion && (SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes(clientVersion)
+  const negotiated = clientVersion && (LEGACY_VERSIONS as readonly string[]).includes(clientVersion)
     ? clientVersion
     : SERVER_PROTOCOL_VERSION;
-
-  // List of healthy federated backends, to orient the agent. Taken from the
-  // current catalog; falls back to the configured backend ids on a cold boot
-  // (before the first refresh completes).
-  const catalog = getCatalog();
-  const healthyBackends = catalog.healthyApps.length > 0
-    ? catalog.healthyApps
-    : loadBackends().map((b) => b.id);
 
   return rpcSuccess(id, {
     protocolVersion: negotiated,
     capabilities: CAPABILITIES,
     serverInfo: buildServerInfo(),
-    instructions: buildServerInstructions(healthyBackends),
+    instructions: buildServerInstructions(healthyBackendsForInstructions(userCtx)),
+  });
+}
+
+// Healthy backends the caller holds a scope on, to orient the agent. Only
+// those: the instructions go to every authenticated token, and the list of
+// backends a gateway federates is not every caller's business. Empty on a
+// cold boot (before the first refresh completes).
+function healthyBackendsForInstructions(userCtx: ValidatedRequest): readonly string[] {
+  return backendsReachableBy(new Set(userCtx.scopes)).map((b) => b.id);
+}
+
+// ─── server/discover (2026-07-28) ────────────────────────────────────────
+// Stateless equivalent of `initialize`: supported versions, capabilities,
+// instructions. `serverInfo`, `resultType` and the cache hints are added by
+// wrapModernResult, as for every modern result.
+
+function handleDiscover(id: string | number | null, userCtx: ValidatedRequest): JsonRpcResponse {
+  return rpcSuccess(id, {
+    supportedVersions: SUPPORTED_VERSIONS,
+    capabilities: MODERN_CAPABILITIES,
+    instructions: buildServerInstructions(healthyBackendsForInstructions(userCtx)),
   });
 }
 
@@ -247,7 +331,7 @@ function buildServerInstructions(healthyBackends: readonly string[]): string {
   return [
     `${name} — an MCP gateway that federates the tools of several backend applications.`,
     '',
-    `Backends currently available: ${healthyBackends.join(', ') || 'none yet'}.`,
+    `Backends you hold a scope on: ${healthyBackends.join(', ') || 'none'}.`,
     '',
     'Naming convention: every federated tool is prefixed with the id of the backend that exposes it (`docs_list_files`, `billing_get_invoice`, ...). Tools without a prefix are gateway builtins (`whoami`, `list_cortex_resources`, `read_cortex_resource`, `report_missing_capability`, `list_cortex_tickets`).',
     '',
@@ -441,6 +525,14 @@ function handleToolsList(
         },
       };
     });
+
+  // Deterministic order (spec 2026-07-28 "SHOULD", served to both
+  // generations): builtins in their fixed order, then federated tools sorted
+  // by name. Previously the order followed the registry, then each backend's
+  // own list: a backend reordering its tools changed the served list, and
+  // with it the client's prompt cache. Code-unit comparison (not
+  // localeCompare): independent of the process locale.
+  federated.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
   // Builtins always listed, no scope filter
   const builtins = toolMode === 'search'
@@ -733,26 +825,18 @@ function handleFindTools(
 }
 
 // ─── builtin: whoami ─────────────────────────────────────────────────────
-// Aggregates OAuth identity (gateway) + each healthy backend's whoami.
-// A failing backend is listed with `healthy: false` and the error — it never
-// blocks the global response.
+// Aggregates OAuth identity (gateway) + the whoami of each healthy backend on
+// which the caller holds a scope. A backend the caller has no scope on is not
+// asked: that would hand it the caller's token for nothing. A failing backend
+// is listed with `healthy: false` and the error — it never blocks the global
+// response.
 
 async function handleWhoami(
   id: string | number | null,
   userCtx: ValidatedRequest,
 ): Promise<JsonRpcResponse> {
   const catalog = getCatalog();
-  const healthyApps = catalog.healthyApps
-    .map((appId) => {
-      // Recover the full app definition through any registered tool
-      for (const entry of catalog.tools.values()) {
-        if (entry.app.id === appId) return entry.app;
-      }
-      return null;
-    })
-    .filter((a): a is NonNullable<typeof a> => a !== null)
-    // Dedupe when several tools point at the same app
-    .filter((app, idx, arr) => arr.findIndex((a) => a.id === app.id) === idx);
+  const healthyApps = backendsReachableBy(new Set(userCtx.scopes));
 
   const ctx: CortexUserContext = {
     userId: userCtx.sub,
@@ -861,10 +945,23 @@ async function handleResourcesRead(
     });
   }
 
-  // Dispatch to the federated backend owning the scheme
+  // Dispatch to the federated backend owning the scheme, under the scope of
+  // the template the URI falls under. Listing already filtered templates by
+  // scope; without the same check here, any token could read any resource by
+  // guessing its URI. A URI matching no template is refused: the scope that
+  // gates it cannot be determined, so it cannot be granted. A URI matching
+  // several templates needs ALL their scopes: with overlapping templates
+  // (`docs://{kind}/{id}` read, `docs://admin/{id}` admin), granting on any
+  // match would let the broad one open the narrow one.
   const backend = findBackendForUri(uri);
-  if (!backend) {
+  const templates = backend ? matchResourceTemplates(uri) : [];
+  if (!backend || templates.length === 0) {
     return rpcError(id, -32601, `Unknown resource or scheme: ${uri}`);
+  }
+  const granted = new Set(userCtx.scopes);
+  const missing = Array.from(new Set(templates.map((t) => t.template.scope))).filter((s) => !granted.has(s));
+  if (missing.length > 0) {
+    return rpcError(id, -32603, 'Insufficient scope', { required: missing });
   }
 
   const ctx: CortexUserContext = {
@@ -977,7 +1074,8 @@ async function handlePromptsGet(
       baseUrl: entry.app.baseUrl,
       backendPath: entry.app.backendPath,
       method: 'get_prompt',
-      params: { name, arguments: params.arguments ?? {} },
+      // The backend knows its prompt by its own name, not the prefixed alias.
+      params: { name: entry.originalName, arguments: params.arguments ?? {} },
       bearerToken: userCtx.bearerToken,
       userContext: ctx,
       timeoutMs: entry.app.timeoutMs ?? 10_000,
@@ -1000,28 +1098,24 @@ function renderArchitectureMarkdown(userCtx: ValidatedRequest): string {
   const canonical = canonicalUri();
   const audience = process.env.OAUTH_AUDIENCE ?? canonical;
 
-  const apps = new Map<string, { id: string; baseUrl: string; backendPath: string; toolCount: number }>();
-  for (const entry of catalog.tools.values()) {
-    const existing = apps.get(entry.app.id);
-    if (existing) {
-      existing.toolCount += 1;
-    } else {
-      apps.set(entry.app.id, {
-        id: entry.app.id,
-        baseUrl: entry.app.baseUrl,
-        backendPath: entry.app.backendPath,
-        toolCount: 1,
-      });
+  // Rendered for this caller only: the backends it holds a scope on, and the
+  // tools it can see there. No backend URL — the document is readable by any
+  // token, and internal addresses are a map for whoever wants to bypass the
+  // gateway.
+  // Same visibility rule as tools/list: granted scope, builtin homonyms masked.
+  const granted = new Set(userCtx.scopes);
+  const visibleTools = new Map<string, number>();
+  for (const { app, tool } of catalog.tools.values()) {
+    if (granted.has(tool.scope) && !BUILTIN_TOOL_NAMES.has(getOriginalToolName(tool.name))) {
+      visibleTools.set(app.id, (visibleTools.get(app.id) ?? 0) + 1);
     }
   }
-
-  const backendRows = Array.from(apps.values())
-    .map((a) => `| \`${a.id}\` | ${a.toolCount} | ${a.baseUrl}${a.backendPath} |`)
+  const reachable = backendsReachableBy(granted);
+  const backendRows = reachable
+    .map((a) => `| \`${a.id}\` | ${visibleTools.get(a.id) ?? 0} |`)
     .join('\n');
+  const visibleToolCount = Array.from(visibleTools.values()).reduce((a, b) => a + b, 0);
 
-  const unreachable = catalog.unreachableApps.length > 0
-    ? catalog.unreachableApps.map((a) => `\`${a}\``).join(', ')
-    : '_none_';
 
   return `# ${serverName()} — self-description
 
@@ -1031,7 +1125,8 @@ function renderArchitectureMarkdown(userCtx: ValidatedRequest): string {
 
 ## Principle
 
-This is an **MCP gateway** conforming to spec 2025-06-18 (Streamable HTTP). It
+This is an **MCP gateway** serving spec 2025-06-18 (Streamable HTTP, through
+\`initialize\`) and 2026-07-28 (stateless) on the same endpoint. It
 hosts no business logic: it routes \`tools/call\` invocations to the backend
 that owns each tool. Backends are plain HTTP apps exposing a single
 \`POST ${'{backendPath}'}\` endpoint (simplified JSON-RPC contract).
@@ -1043,7 +1138,7 @@ Three tiers:
          │  HTTPS + OAuth 2.1 JWT (Bearer)
          ▼
 [cortex-gateway]  ←— thin gateway, no business logic
-         │  HTTPS + same JWT propagated (RFC 8707)
+         │  HTTPS + the caller's JWT, forwarded
          ▼
 [backends: your apps]  ←— domain owners
          │  their own storage
@@ -1058,8 +1153,10 @@ Three tiers:
 3. **JWT audience**: \`${audience}\` — tokens issued for an MCP agent carry
    \`aud\` = the gateway's canonical URI (RFC 8707 audience-per-resource).
 4. **The gateway** validates signature + \`aud\` + \`exp\` through JWKS.
-5. **The gateway** propagates the same Bearer to the federated backend.
-6. **Each backend** re-validates the JWT with its own audience configuration.
+5. **The gateway** forwards the same Bearer to the backend that serves the
+   call — only that one, and only backends the caller holds a scope on.
+6. **Each backend** re-validates the JWT. Its \`aud\` is the gateway, not the
+   backend: a backend trusts the gateway, and must never replay the token.
 
 **Consequence**: a single access_token covers the whole federated session.
 Revocation at the authorization server cuts access everywhere simultaneously
@@ -1087,19 +1184,18 @@ write tool.
 
 ## Current state
 
-- **Protocol version**: ${SERVER_PROTOCOL_VERSION}
+- **Protocol versions**: ${SUPPORTED_VERSIONS.join(', ')}
 - **Current caller**: \`${userCtx.email || userCtx.sub}\` (pool \`${userCtx.pool || '—'}\`, role \`${userCtx.role || '—'}\`)
 - **Granted scopes**: ${Array.from(userCtx.scopes).map((s) => `\`${s}\``).join(', ') || '_none_'}
-- **Healthy backends**: ${catalog.healthyApps.length > 0 ? catalog.healthyApps.map((a) => `\`${a}\``).join(', ') : '_none_'}
-- **Unreachable backends**: ${unreachable}
-- **Total federated tools**: ${catalog.tools.size}
+- **Backends answering**: ${catalog.healthyApps.length} (${catalog.unreachableApps.length} unreachable at the last discovery)
+- **Federated tools visible to you**: ${visibleToolCount}
 - **Last discovery**: ${catalog.lastRefreshedAt.toISOString()}
 
-### Federated backends
+### Backends you hold a scope on
 
-| App | Tools | Endpoint |
-|---|---|---|
-${backendRows || '_none_'}
+| App | Tools visible to you |
+|---|---|
+${backendRows || '| _none_ | |'}
 
 ## Why this architecture
 
@@ -1137,10 +1233,26 @@ async function handleReportMissingCapability(
   args: Record<string, unknown>,
   userCtx: ValidatedRequest,
 ): Promise<JsonRpcResponse> {
-  const payload = args as ReportArgs;
+  // Fields are bounded before anything else sees them: storage, the backend
+  // that owns the ticket, and the platform notification.
+  const payload = boundTicketFields(args as ReportArgs);
 
   if (!payload.whatIWanted || !payload.userIntent || !payload.severity) {
     return rpcError(id, -32602, 'whatIWanted, userIntent and severity are required');
+  }
+  if (!['blocking', 'inconvenient', 'nice_to_have'].includes(payload.severity)) {
+    return rpcError(id, -32602, 'severity must be one of blocking, inconvenient, nice_to_have');
+  }
+
+  // Per-identity budget. This builtin needs no scope, writes rows and can page
+  // the platform team: the global request limit (200/min) alone let one token
+  // file a ticket every 300 ms. Dedup does not help — it keys on the text.
+  const perHour = positiveIntEnv('CORTEX_TICKET_RATE_PER_HOUR', 20);
+  const budget = checkRateLimit('ticket-report', userCtx.sub || userCtx.email || 'anonymous', perHour, 3_600_000);
+  if (!budget.allowed) {
+    return rpcError(id, -32000, 'Ticket rate limit exceeded', {
+      retryAfterSeconds: Math.ceil(budget.retryAfterMs / 1000),
+    });
   }
 
   // Backend-owned tickets pattern: each business backend owns its tickets.
@@ -1166,6 +1278,10 @@ async function reportMissingCapabilityToBackend(
       -32603,
       `Backend ${payload.contextApp} is not federated (check CORTEX_BACKEND_${(payload.contextApp ?? '').toUpperCase()}_URL)`,
     );
+  }
+  // The caller's token goes to the backend: only to one it holds a scope on.
+  if (!backendsReachableBy(new Set(userCtx.scopes)).some((b) => b.id === backend.id)) {
+    return rpcError(id, -32603, `No granted scope on backend ${backend.id} — file the ticket with contextApp 'cortex' instead`);
   }
   try {
     const data = await callBackend<{
@@ -1460,13 +1576,21 @@ async function handleListCortexTickets(
   const allTickets: AggregatedTicket[] = [];
 
   if (fetchBackends) {
-    const targetBackends = targetApp ? [targetApp] : Array.from(owned);
+    // Only backends the caller holds a scope on receive its token. Without a
+    // filter, the others are skipped silently; named explicitly, the refusal
+    // is reported.
+    const reachable = new Set(backendsReachableBy(new Set(userCtx.scopes)).map((b) => b.id));
+    const targetBackends = targetApp ? [targetApp] : Array.from(owned).filter((b) => reachable.has(b));
     const backendsConfig = loadBackends();
     await Promise.all(
       targetBackends.map(async (backendId) => {
         const backend = backendsConfig.find((b) => b.id === backendId);
         if (!backend) {
           sources[backendId] = { ok: false, error: 'not federated (env var missing)' };
+          return;
+        }
+        if (!reachable.has(backendId)) {
+          sources[backendId] = { ok: false, error: 'no granted scope on this backend' };
           return;
         }
         try {

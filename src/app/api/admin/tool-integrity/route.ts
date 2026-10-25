@@ -25,7 +25,7 @@
  * unit-testable without loading the framework runtime.
  */
 
-import { timingSafeEqual } from 'node:crypto';
+import { safeEqual } from '@/lib/safe-equal';
 import {
   acknowledgeTool,
   integrityReport,
@@ -38,11 +38,7 @@ function authorized(req: Request): boolean {
   const expected = process.env.CORTEX_ADMIN_SECRET ?? '';
   // No secret configured = no endpoint. Never fall back to open.
   if (!expected) return false;
-  const provided = req.headers.get('x-cortex-admin-secret') ?? '';
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  // Length first: timingSafeEqual throws on a mismatch.
-  return a.length === b.length && timingSafeEqual(a, b);
+  return safeEqual(req.headers.get('x-cortex-admin-secret'), expected);
 }
 
 /**

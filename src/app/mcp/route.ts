@@ -1,9 +1,17 @@
 /**
  * MCP endpoint — `/mcp`.
  *
- * Spec: Model Context Protocol 2025-06-18 (Streamable HTTP transport).
+ * Spec: Model Context Protocol 2025-06-18 (Streamable HTTP transport) AND
+ * 2026-07-28 (stateless) on the same endpoint — a "dual-era" server in the
+ * spec's terms. The choice is made per request (lib/mcp-generation.ts):
+ * - header `MCP-Protocol-Version: 2026-07-28` and/or a version in `_meta` →
+ *   modern path: no `initialize` nor session, `server/discover`, `Mcp-Method`
+ *   / `Mcp-Name` headers validated against the body, wrapped results
+ *   (resultType, serverInfo, ttlMs/cacheScope);
+ * - otherwise → historical path, unchanged.
  *
- * - POST   : JSON-RPC (initialize, tools/list, tools/call, resources/*, prompts/*, ping)
+ * - POST   : JSON-RPC (initialize, tools/list, tools/call, resources/*, prompts/*, ping;
+ *            server/discover in 2026-07-28)
  * - GET    : SSE stream — pushes unsolicited JSON-RPC notifications
  *            (notifications/tools/list_changed, resources/list_changed...)
  *            The client must send `Accept: text/event-stream`.
@@ -19,11 +27,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { validateRequest, buildWwwAuthenticate } from '@/lib/oauth-validator';
+import { checkRateLimit, getClientIp, positiveIntEnv } from '@/lib/rate-limit';
+import { validateRequest, buildWwwAuthenticate, type ValidatedRequest } from '@/lib/oauth-validator';
 import { isOriginAllowed } from '@/lib/origins';
 import { createSession, terminateSession, validateSession } from '@/lib/sessions';
-import { handleMethod, BUILTIN_TOOL_NAMES, type JsonRpcResponse } from '@/lib/mcp-methods';
+import { handleMethod, BUILTIN_TOOL_NAMES, MODERN_METHODS, type JsonRpcResponse } from '@/lib/mcp-methods';
+import {
+  checkStandardHeaders,
+  checkVersionHeader,
+  detectGeneration,
+  type ProtocolRefusal,
+} from '@/lib/mcp-generation';
 import { logAudit, hashEmail, hashParams } from '@/lib/audit-log';
 import { startPeriodicRefresh, lookupTool, findBackendForUri } from '@/lib/federator';
 import { subscribe as subscribeEvents } from '@/lib/event-bus';
@@ -31,12 +45,9 @@ import { subscribe as subscribeEvents } from '@/lib/event-bus';
 // Boot: start the periodic refresh of the federated catalog
 startPeriodicRefresh();
 
-const SUPPORTED_PROTOCOL_VERSIONS = new Set(['2025-06-18', '2025-03-26']);
-const DEFAULT_PROTOCOL_VERSION = '2025-03-26'; // fallback when the header is absent (spec §Protocol Version)
-
 const CORS_BASE = {
   'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version, Accept, X-Dev-Mode, X-Cortex-Backends, X-Cortex-Tool-Mode',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Accept, X-Dev-Mode, X-Cortex-Backends, X-Cortex-Tool-Mode',
   'Access-Control-Expose-Headers': 'Mcp-Session-Id, WWW-Authenticate',
 };
 
@@ -46,6 +57,68 @@ function corsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Origin': origin ?? '*',
     Vary: 'Origin',
   };
+}
+
+type JsonRpcBody = { method?: string; params?: unknown; id?: string | number | null; jsonrpc?: string };
+
+function refusalBody(refusal: ProtocolRefusal, id: string | number | null) {
+  return {
+    jsonrpc: '2.0' as const,
+    id,
+    error: { code: refusal.code, message: refusal.message, ...(refusal.data !== undefined ? { data: refusal.data } : {}) },
+  };
+}
+
+/** Protocol-level refusal (version, headers, `_meta`): HTTP 400 + JSON-RPC error. */
+function refuse(refusal: ProtocolRefusal, id: string | number | null, origin: string | null): NextResponse {
+  return NextResponse.json(refusalBody(refusal, id), { status: refusal.status, headers: corsHeaders(origin) });
+}
+
+/**
+ * Request id for a refusal pronounced BEFORE auth (unknown header version).
+ * The body is only read here, and bounded: an unauthenticated caller does not
+ * get more than 64 KB parsed. Unreadable, too large or without id → null.
+ */
+const MAX_REFUSAL_BODY_BYTES = 64 * 1024;
+
+async function idIfReadable(req: NextRequest): Promise<string | number | null> {
+  const reader = req.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_REFUSAL_BODY_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const id = (JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id?: unknown } | null)?.id;
+    return typeof id === 'string' || typeof id === 'number' ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Optional pool sandbox: when CORTEX_REQUIRED_POOL is set, only tokens
+ * carrying that `pool` claim are accepted, on every method (the SSE stream and
+ * session termination included). Useful when your authorization server
+ * segments user populations and this gateway serves only one. A token WITHOUT
+ * the claim is refused too: the gate used to test `userCtx.pool &&`, so
+ * dropping the claim was enough to walk through.
+ */
+function poolRefusal(userCtx: ValidatedRequest, origin: string | null): NextResponse | null {
+  const requiredPool = process.env.CORTEX_REQUIRED_POOL;
+  if (!requiredPool || userCtx.pool === requiredPool || userCtx.isDevBypass) return null;
+  return NextResponse.json(
+    { error: 'invalid_audience' },
+    { status: 403, headers: { ...corsHeaders(origin), 'WWW-Authenticate': buildWwwAuthenticate() } },
+  );
 }
 
 // ─── OPTIONS (CORS preflight) ─────────────────────────────────────────────
@@ -88,6 +161,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     if (auth.wwwAuthenticate) headers['WWW-Authenticate'] = auth.wwwAuthenticate;
     return NextResponse.json({ error: auth.error }, { status: auth.status, headers });
   }
+  const poolDenied = poolRefusal(auth.context, origin);
+  if (poolDenied) return poolDenied;
 
   const encoder = new TextEncoder();
 
@@ -163,6 +238,8 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     if (auth.wwwAuthenticate) headers['WWW-Authenticate'] = auth.wwwAuthenticate;
     return NextResponse.json({ error: auth.error }, { status: auth.status, headers });
   }
+  const poolDenied = poolRefusal(auth.context, origin);
+  if (poolDenied) return poolDenied;
   const sessionId = req.headers.get('mcp-session-id');
   const session = validateSession(sessionId);
   if (session && session.sub !== auth.context.sub) {
@@ -185,14 +262,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'forbidden_origin' }, { status: 403, headers: corsHeaders(origin) });
   }
 
-  // 2. Protocol version
-  const protocolVersion = req.headers.get('mcp-protocol-version') ?? DEFAULT_PROTOCOL_VERSION;
-  if (!SUPPORTED_PROTOCOL_VERSIONS.has(protocolVersion)) {
-    return NextResponse.json(
-      { error: 'unsupported_protocol_version', supported: Array.from(SUPPORTED_PROTOCOL_VERSIONS) },
-      { status: 400, headers: corsHeaders(origin) },
-    );
-  }
+  // 2. Protocol version (header only, before auth as before). Unknown version
+  // → 400 + -32022 with the supported versions, which 2026-07-28 clients
+  // recognize. Consistency with `_meta` is checked once the body is read (6).
+  const versionRefusal = checkVersionHeader(req.headers.get('mcp-protocol-version'));
+  if (versionRefusal) return refuse(versionRefusal, await idIfReadable(req), origin);
 
   // 3. Auth
   const auth = await validateRequest(req);
@@ -203,14 +277,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const userCtx = auth.context;
 
-  // 3bis. Rate limit per jti (unique per token) with IP fallback.
+  // 3bis. Rate limit per jti (unique per token), then per sub, then per IP.
   // Default 200 req/min: interactive MCP clients typically issue 5-10 calls
   // per user action, so 200/min leaves ample headroom for normal usage while
   // stopping an agent stuck in a loop (50-100 req/s) after ~2s.
+  // The sub step matters: without trusted proxies the IP is 'unknown', and
+  // every jti-less token would otherwise share one bucket.
   // Dev bypass exempted: useful for local test scripts.
   if (!userCtx.isDevBypass) {
-    const maxPerMinute = Number.parseInt(process.env.CORTEX_RATE_LIMIT_PER_MINUTE ?? '200', 10);
-    const rlKey = userCtx.jti ?? getClientIp(req);
+    const maxPerMinute = positiveIntEnv('CORTEX_RATE_LIMIT_PER_MINUTE', 200);
+    const rlKey = userCtx.jti ?? (userCtx.sub ? `sub:${userCtx.sub}` : getClientIp(req));
     const rl = checkRateLimit('mcp-request', rlKey, maxPerMinute, 60_000);
     if (!rl.allowed) {
       return NextResponse.json(
@@ -226,19 +302,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // 4. Optional pool sandbox: when CORTEX_REQUIRED_POOL is set, only tokens
-  // carrying that `pool` claim are accepted. Useful when your authorization
-  // server segments user populations and this gateway serves only one.
-  const requiredPool = process.env.CORTEX_REQUIRED_POOL;
-  if (requiredPool && userCtx.pool && userCtx.pool !== requiredPool && !userCtx.isDevBypass) {
-    return NextResponse.json(
-      { error: 'invalid_audience', detail: `This gateway requires pool=${requiredPool}` },
-      { status: 403, headers: { ...corsHeaders(origin), 'WWW-Authenticate': buildWwwAuthenticate() } },
-    );
-  }
+  // 4. Optional pool sandbox (see poolRefusal).
+  const poolDenied = poolRefusal(userCtx, origin);
+  if (poolDenied) return poolDenied;
 
   // 5. Parse the JSON-RPC body
-  let body: { method?: string; params?: unknown; id?: string | number | null; jsonrpc?: string };
+  let body: JsonRpcBody;
   try {
     body = await req.json();
   } catch {
@@ -266,9 +335,55 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // 6. Session
-  const sessionHeader = req.headers.get('mcp-session-id');
-  const isInitialize = body.method === 'initialize';
+  const toolName = body.method === 'tools/call' && typeof body.params === 'object' && body.params !== null
+    ? (body.params as { name?: string }).name ?? null
+    : null;
+
+  // 6. Generation (lib/mcp-generation.ts). In 2026-07-28: header and `_meta`
+  // consistent, `Mcp-Method` / `Mcp-Name` matching the body, otherwise 400.
+  // The legacy path runs no check beyond what it did before. These refusals
+  // follow auth, so they are audited: an authenticated caller sending
+  // inconsistent headers should be visible.
+  const method = body.method;
+  const refuseAndAudit = (refusal: ProtocolRefusal): NextResponse => {
+    const { targetApp, scopeUsed } = resolveAuditTarget(method, toolName, body.params);
+    logAudit({
+      ts: new Date().toISOString(),
+      caller_sub: userCtx.sub,
+      caller_email_hash: hashEmail(userCtx.email),
+      caller_role: userCtx.role,
+      caller_pool: userCtx.pool,
+      tool: toolName,
+      method,
+      target_app: targetApp,
+      scope_used: scopeUsed,
+      params_hash: hashParams(body.params),
+      response_size: JSON.stringify(refusalBody(refusal, id)).length,
+      latency_ms: Date.now() - startTs,
+      success: false,
+      error_code: String(refusal.code),
+      protocol_version: req.headers.get('mcp-protocol-version'),
+      origin,
+      client_id: userCtx.clientId,
+      session_id: null,
+      dev_bypass: userCtx.isDevBypass,
+    });
+    return refuse(refusal, id, origin);
+  };
+  const detection = detectGeneration(req.headers, body.params);
+  if (!detection.ok) return refuseAndAudit(detection.refusal);
+  const { generation, version: protocolVersion } = detection;
+  const modern = generation === 'modern';
+  if (modern) {
+    const headerRefusal = checkStandardHeaders(req.headers, method, body.params);
+    if (headerRefusal) return refuseAndAudit(headerRefusal);
+  }
+
+  // 6bis. Session — legacy only. A 2026-07-28 client has no session: an
+  // `Mcp-Session-Id` it sends is ignored and none is issued (transport
+  // §Earlier Streamable HTTP Revisions).
+  const sessionHeader = modern ? null : req.headers.get('mcp-session-id');
+  const isInitialize = !modern && method === 'initialize';
 
   if (!isInitialize && sessionHeader) {
     // Spec: non-initialize methods with an invalid session id → 404.
@@ -323,6 +438,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userCtx,
       backendsFilter,
       toolMode,
+      generation,
     });
   } catch (err) {
     rpcRes = {
@@ -352,9 +468,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 9. Audit log
   const success = 'result' in rpcRes;
   const errorCode = !success && 'error' in rpcRes ? String(rpcRes.error.code) : null;
-  const toolName = body.method === 'tools/call' && typeof body.params === 'object' && body.params !== null
-    ? (body.params as { name?: string }).name ?? null
-    : null;
 
   const responseSize = JSON.stringify(rpcRes).length;
 
@@ -404,7 +517,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ...(body.method === 'tools/list' && { tool_mode: toolMode }),
   });
 
-  return new NextResponse(JSON.stringify(rpcRes), { status: 200, headers: responseHeaders });
+  // Unknown method in 2026-07-28: 404 + -32601 (transport §Protocol Version
+  // Header), which a client tells apart from a 404 of a server with no MCP
+  // endpoint. The legacy path keeps its 200.
+  const status = modern && !MODERN_METHODS.has(method) ? 404 : 200;
+  return new NextResponse(JSON.stringify(rpcRes), { status, headers: responseHeaders });
 }
 
 /**

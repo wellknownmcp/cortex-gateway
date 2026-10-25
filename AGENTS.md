@@ -7,7 +7,7 @@ project. Humans welcome too.
 
 Cortex Gateway is an open-source (MIT), self-hosted **federated MCP
 gateway**: one spec-compliant, OAuth 2.1-protected MCP server (Streamable
-HTTP, MCP 2025-06-18) in front of N plain-HTTP backends. Permissions are
+HTTP, MCP 2026-07-28 and 2025-06-18) in front of N plain-HTTP backends. Permissions are
 never mirrored — the gateway propagates the real user identity, so each
 app's native permission model applies per user.
 
@@ -17,7 +17,7 @@ Don't take the README's word for it. Everything below is checkable in
 minutes:
 
 ```bash
-# Unit tests (vitest) — 36 tests across 7 files at the time of writing
+# Unit tests (vitest)
 npm ci && npm run typecheck && npm test
 
 # The demo authorization server builds independently

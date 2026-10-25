@@ -17,15 +17,22 @@ import type {
   FederatedCatalog,
   FederatedToolEntry,
 } from '@/contract';
-import { loadBackends } from './registry';
+import { isScopeAllowedFor, loadBackends, RESERVED_URI_SCHEMES, uriSchemesOf } from './registry';
 import { broadcast } from './event-bus';
 import { reviewCatalog } from './tool-integrity';
 
-const REFRESH_INTERVAL_MS = 60_000;
+/**
+ * Catalog refresh period. Exported: it is also the freshness (`ttlMs`)
+ * announced to MCP 2026-07-28 clients on list results (lib/mcp-generation.ts).
+ */
+export const REFRESH_INTERVAL_MS = 60_000;
 
 export interface FederatedPromptEntry {
   app: BackendApp;
+  /** The prompt as served to agents: `name` is prefixed (`<app>_<name>`). */
   prompt: CortexBackendPrompt;
+  /** Name the backend knows the prompt by, sent back on `get_prompt`. */
+  originalName: string;
 }
 
 export interface FederatedResourceTemplateEntry {
@@ -33,6 +40,17 @@ export interface FederatedResourceTemplateEntry {
   template: CortexBackendResourceTemplate;
   /** Scheme extracted from uriTemplate (e.g. 'docs' for 'docs://document/{id}'). */
   scheme: string;
+  /** Anchored matcher compiled from uriTemplate (see compileUriTemplate). */
+  matcher: RegExp;
+}
+
+function rejectDeclaration(app: BackendApp, kind: string, name: string, scope: unknown): void {
+  // eslint-disable-next-line no-console
+  console.error(`[cortex/federator] ${kind} rejected: scope outside the backend's prefixes`, {
+    app: app.id,
+    name,
+    scope,
+  });
 }
 
 let catalog: FederatedCatalog = {
@@ -60,6 +78,48 @@ function schemeOf(uriTemplate: string): string | null {
   const m = uriTemplate.match(/^([a-z][a-z0-9+.-]*):\/\//i);
   return m ? m[1].toLowerCase() : null;
 }
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Compiles an RFC 6570 URI template into an anchored matcher. Only the shapes
+ * a resource template uses are distinguished: `{var}` is one path segment,
+ * `{+var}` spans segments, `{?…}` / `{&…}` a query string, `{#…}` a fragment,
+ * `{/…}` and `{.…}` repeated segments. Matching is for authorization — which
+ * template, hence which scope, a URI falls under — not for extraction.
+ */
+export function compileUriTemplate(uriTemplate: string): RegExp {
+  let pattern = '';
+  let last = 0;
+  for (const m of uriTemplate.matchAll(/\{([+#./;?&]?)[^}]*\}/g)) {
+    pattern += escapeRegExp(uriTemplate.slice(last, m.index));
+    switch (m[1]) {
+      case '+': pattern += '.+'; break;
+      case '#': pattern += '(?:#.*)?'; break;
+      case '?':
+      case '&': pattern += '(?:[?&][^#]*)?'; break;
+      case '/': pattern += '(?:/[^/?#]+)*'; break;
+      case '.': pattern += '(?:\\.[^/?#.]+)*'; break;
+      case ';': pattern += '(?:;[^/?#]*)*'; break;
+      default: pattern += '[^/?#]+';
+    }
+    last = (m.index ?? 0) + m[0].length;
+  }
+  pattern += escapeRegExp(uriTemplate.slice(last));
+  // Case-sensitive: backends usually are, and a case-insensitive match would
+  // let `docs://ADMIN/1` fall under a template the backend never meant. Only
+  // the scheme is normalized (lowercased on both sides, RFC 3986 §3.1).
+  return new RegExp(`^${pattern.replace(/^[a-z][a-z0-9+.-]*/i, (s) => s.toLowerCase())}$`);
+}
+
+/**
+ * URIs refused before any template matching: dot segments and percent-encoded
+ * `/`, `.` or `%` can be resolved by the backend into a path the template
+ * matcher never saw (`docs://doc/..%2Fadmin/1`).
+ */
+const AMBIGUOUS_URI = /(?:^|\/)\.\.?(?:\/|$)|%(?:2f|2e|5c|25)/i;
 
 /**
  * Returns the current snapshot of the federated catalog.
@@ -127,6 +187,9 @@ export async function refreshCatalog(): Promise<void> {
     const newTemplates: FederatedResourceTemplateEntry[] = [];
     const healthy: string[] = [];
     const unreachable: string[] = [];
+    // Scheme → backend id, first claim wins (registry order). Operator config
+    // can still give two backends the same scheme; the second is refused.
+    const claimedSchemes = new Map<string, string>();
 
     // Naming convention: every federated tool is prefixed with its backend id
     // (`<app>_<originalName>`, e.g. `docs_list_files`). A uniform convention
@@ -140,6 +203,14 @@ export async function refreshCatalog(): Promise<void> {
       if (r.status === 'fulfilled') {
         healthy.push(app.id);
         for (const tool of r.value.toolsRes.tools ?? []) {
+          // A backend may only gate its tools behind its own scopes. Without
+          // this, a backend could declare `mcp:billing:write` (borrowing the
+          // trust of another backend's grant) or the gateway floor scope
+          // (making its tool visible to every token).
+          if (!isScopeAllowedFor(app, tool.scope)) {
+            rejectDeclaration(app, 'tool', tool.name, tool.scope);
+            continue;
+          }
           const finalName = `${app.id}_${tool.name}`;
           if (newTools.has(finalName)) {
             // Pathological case: the same app exposes the same tool twice.
@@ -153,16 +224,21 @@ export async function refreshCatalog(): Promise<void> {
           newAliasToOriginal.set(finalName, tool.name);
           newTools.set(finalName, { app, tool: { ...tool, name: finalName } });
         }
+        // Prompts follow the tool convention (`<app>_<name>`). Unprefixed, a
+        // second backend declaring the same name was silently dropped, and
+        // which one won depended on registry order.
         for (const prompt of r.value.promptsRes.prompts ?? []) {
-          if (newPrompts.has(prompt.name)) {
-            // eslint-disable-next-line no-console
-            console.warn('[cortex/federator] prompt name collision', {
-              prompt: prompt.name,
-              apps: [newPrompts.get(prompt.name)!.app.id, app.id],
-            });
+          if (!isScopeAllowedFor(app, prompt.scope)) {
+            rejectDeclaration(app, 'prompt', prompt.name, prompt.scope);
             continue;
           }
-          newPrompts.set(prompt.name, { app, prompt });
+          const finalName = `${app.id}_${prompt.name}`;
+          if (newPrompts.has(finalName)) {
+            // eslint-disable-next-line no-console
+            console.warn('[cortex/federator] duplicate prompt within one app', { finalName, app: app.id });
+            continue;
+          }
+          newPrompts.set(finalName, { app, prompt: { ...prompt, name: finalName }, originalName: prompt.name });
         }
         for (const template of r.value.templatesRes.resourceTemplates ?? []) {
           const scheme = schemeOf(template.uriTemplate);
@@ -174,7 +250,30 @@ export async function refreshCatalog(): Promise<void> {
             });
             continue;
           }
-          newTemplates.push({ app, template, scheme });
+          // Reads are routed by scheme and carry the caller's token: a backend
+          // claiming a scheme it does not own would receive tokens meant for
+          // another backend's resources.
+          const owner = claimedSchemes.get(scheme);
+          if (
+            RESERVED_URI_SCHEMES.has(scheme) ||
+            !uriSchemesOf(app).includes(scheme) ||
+            (owner !== undefined && owner !== app.id)
+          ) {
+            // eslint-disable-next-line no-console
+            console.error('[cortex/federator] resource template rejected: scheme not owned by this backend', {
+              app: app.id,
+              scheme,
+              allowed: uriSchemesOf(app),
+              ...(owner !== undefined && owner !== app.id ? { claimedBy: owner } : {}),
+            });
+            continue;
+          }
+          if (!isScopeAllowedFor(app, template.scope)) {
+            rejectDeclaration(app, 'resource template', template.uriTemplate, template.scope);
+            continue;
+          }
+          claimedSchemes.set(scheme, app.id);
+          newTemplates.push({ app, template, scheme, matcher: compileUriTemplate(template.uriTemplate) });
         }
       } else {
         unreachable.push(app.id);
@@ -310,13 +409,40 @@ export function listResourceTemplates(): FederatedResourceTemplateEntry[] {
 
 /** Finds the backend that owns a URI scheme (e.g. 'docs' → docs app). */
 export function findBackendForUri(uri: string): BackendApp | null {
-  try {
-    const m = uri.match(/^([a-z][a-z0-9+.-]*):\/\//i);
-    if (!m) return null;
-    const scheme = m[1].toLowerCase();
-    const entry = resourceTemplatesCatalog.find((e) => e.scheme === scheme);
-    return entry?.app ?? null;
-  } catch {
-    return null;
-  }
+  const scheme = schemeOf(uri);
+  if (!scheme) return null;
+  const entry = resourceTemplatesCatalog.find((e) => e.scheme === scheme);
+  return entry?.app ?? null;
+}
+
+/**
+ * Resource templates a URI falls under, all owned by the backend of its
+ * scheme. Empty when the scheme is unknown or no template matches: such a URI
+ * is not readable, since the scope that gates it cannot be determined.
+ */
+export function matchResourceTemplates(uri: string): FederatedResourceTemplateEntry[] {
+  const scheme = schemeOf(uri);
+  if (!scheme || AMBIGUOUS_URI.test(uri.slice(scheme.length + 3))) return [];
+  getCatalog();
+  const normalized = scheme + uri.slice(scheme.length);
+  return resourceTemplatesCatalog.filter((e) => e.scheme === scheme && e.matcher.test(normalized));
+}
+
+/**
+ * Healthy backends on which the caller holds at least one declared scope
+ * (tool, prompt or resource template). Fan-out builtins (`whoami`, ticket
+ * listing) only reach these: forwarding the caller's token to a backend it
+ * has no business with hands that backend a credential for nothing.
+ */
+export function backendsReachableBy(scopes: ReadonlySet<string>): BackendApp[] {
+  const current = getCatalog();
+  const healthy = new Set(current.healthyApps);
+  const reachable = new Map<string, BackendApp>();
+  const consider = (app: BackendApp, scope: string) => {
+    if (healthy.has(app.id) && scopes.has(scope) && !reachable.has(app.id)) reachable.set(app.id, app);
+  };
+  for (const { app, tool } of current.tools.values()) consider(app, tool.scope);
+  for (const { app, prompt } of promptCatalog.values()) consider(app, prompt.scope);
+  for (const { app, template } of resourceTemplatesCatalog) consider(app, template.scope);
+  return Array.from(reachable.values());
 }

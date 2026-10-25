@@ -30,8 +30,8 @@ app that you can also call directly (tests, batch jobs, other integrations).
 | `get_snapshot` | `CortexBackendSnapshot` | Aggregated KPIs for dashboards. MUST contain aggregates only (no per-user data). |
 | `list_prompts` | `{ prompts: [...] }` | MCP Prompts primitive. Optional; the gateway tolerates "unknown method". |
 | `get_prompt` | `{ description?, messages }` | Materializes a prompt. |
-| `list_resource_templates` | `{ resourceTemplates: [...] }` | MCP Resources primitive. Each template's URI scheme (e.g. `docs://...`) routes `resources/read` to this backend. |
-| `read_resource` | `{ contents: [...] }` | Resolves a URI of an owned scheme. |
+| `list_resource_templates` | `{ resourceTemplates: [...] }` | MCP Resources primitive. Each template's URI scheme (e.g. `docs://...`) routes `resources/read` to this backend. The scheme must be one the backend owns (default: its id). |
+| `read_resource` | `{ contents: [...] }` | Resolves a URI of an owned scheme. Only called for a URI matching one of the backend's templates, once the caller holds that template's scope. |
 | `report_missing_capability` | `{ ticketId, deduplicated, ackMessage? }` | Backend-owned agent tickets (add the backend id to `CORTEX_TICKET_BACKENDS`). |
 | `list_tickets` | `{ tickets: [...] }` | The calling agent's own tickets. |
 
@@ -109,7 +109,7 @@ role must not be told to go fetch more scopes.
 ```jsonc
 {
   "name": "search_documents",
-  "scope": "mcp:docs:read",              // required OAuth scope
+  "scope": "mcp:docs:read",              // required OAuth scope, under the backend's prefix (default mcp:<id>:)
   "description": "Search documents by keyword.",
   "params": { "query": "string", "limit": "number?" },   // simplified schema
   // OR a standard JSON Schema, propagated verbatim:

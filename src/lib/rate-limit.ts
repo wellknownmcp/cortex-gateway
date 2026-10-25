@@ -51,10 +51,31 @@ export function checkRateLimit(
   return { allowed: true, remaining: maxRequests - entry.count, retryAfterMs: 0 };
 }
 
+/**
+ * Client IP, for rate-limit keys only. Forwarding headers are written by
+ * whoever sends the request, so they are read only when the operator declares
+ * how many trusted proxies sit in front (`CORTEX_TRUSTED_PROXY_HOPS`, default
+ * 0). Each proxy appends the address it received from, so the client is the
+ * entry N positions from the right; anything further left is the caller's own
+ * claim. The leftmost entry, read previously, let a client pick its own bucket.
+ */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip') || 'unknown';
+  const hops = Number.parseInt(process.env.CORTEX_TRUSTED_PROXY_HOPS ?? '0', 10);
+  if (!Number.isFinite(hops) || hops <= 0) return 'unknown';
+  const chain = (request.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // Fewer entries than declared proxies: whatever is there was not written by
+  // a proxy we trust.
+  return chain.length >= hops ? chain[chain.length - hops] : 'unknown';
+}
+
+/** Positive integer from the environment, or the default when unset or malformed. */
+export function positiveIntEnv(name: string, fallback: number): number {
+  const value = Number.parseInt(process.env[name] ?? '', 10);
+  // NaN would disable a limit silently: `count >= NaN` is always false.
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 // Periodic cleanup of expired entries (every 5 min)

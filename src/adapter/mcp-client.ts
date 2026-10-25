@@ -182,7 +182,7 @@ async function ensureSession(url: string, token: string, timeoutMs: number): Pro
       params: {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: {},
-        clientInfo: { name: process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway', version: '0.2.0' },
+        clientInfo: { name: process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway', version: '0.3.0' },
       },
     },
     null,

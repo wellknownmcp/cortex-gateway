@@ -6,12 +6,15 @@
  * (hashed email/params, OAuth sub) — no cleartext PII — but volume and
  * retention are still bounded.
  *
- * Protected by CRON_SECRET (x-cron-secret header or ?secret= query param).
+ * Protected by CRON_SECRET, sent in the `x-cron-secret` header on a POST.
+ * Not in the query string and not on GET: a URL ends up in proxy logs, browser
+ * history and link previews, and one fetched link would have purged the audit.
  * Call it daily from your scheduler.
  */
 
 import { NextRequest } from 'next/server';
 import { getPrismaCortex, isDatabaseConfigured } from '@/lib/prisma';
+import { safeEqual } from '@/lib/safe-equal';
 
 function retentionDays(): number {
   const raw = Number.parseInt(process.env.CORTEX_AUDIT_RETENTION_DAYS ?? '365', 10);
@@ -19,10 +22,8 @@ function retentionDays(): number {
 }
 
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get('x-cron-secret') || request.nextUrl.searchParams.get('secret');
-  const expected = process.env.CRON_SECRET;
   // CRON_SECRET absent = refuse (no open deletion endpoint).
-  if (!expected || secret !== expected) {
+  if (!safeEqual(request.headers.get('x-cron-secret'), process.env.CRON_SECRET)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -46,9 +47,4 @@ export async function POST(request: NextRequest) {
     console.error('[cortex/cron] purge-audit failed', { error: msg });
     return Response.json({ error: msg }, { status: 500 });
   }
-}
-
-// GET supported for simple manual triggering
-export async function GET(request: NextRequest) {
-  return POST(request);
 }

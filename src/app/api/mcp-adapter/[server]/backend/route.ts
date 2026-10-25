@@ -18,9 +18,9 @@
  *   (ACL shape), telling the user to visit the linking flow.
  */
 
-import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { validateRequest } from '@/lib/oauth-validator';
+import { safeEqual } from '@/lib/safe-equal';
 import { isStaticTokenMethodAllowed } from '@/contract';
 import { getMcpServer } from '@/adapter/config';
 import { getValidToken, isLinked } from '@/adapter/vault';
@@ -28,11 +28,7 @@ import { bridgeListTools, bridgeCallTool, BridgeToolError } from '@/adapter/back
 import { McpDownstreamUnauthorized, McpDownstreamError } from '@/adapter/mcp-client';
 
 function isStaticToken(bearer: string | null): boolean {
-  const expected = process.env.CORTEX_TECHNICAL_TOKEN ?? '';
-  if (!bearer || !expected) return false;
-  const a = Buffer.from(bearer);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+  return safeEqual(bearer, process.env.CORTEX_TECHNICAL_TOKEN);
 }
 
 function json(status: number, body: unknown): NextResponse {

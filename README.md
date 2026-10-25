@@ -117,14 +117,26 @@ whole bundle with a single Cortex token. See
 example (Canva + Figma + your own backend).
 
 ## Roadmap
+- **Per-backend audiences** — exchange the caller's token for one audienced
+  to the target backend (RFC 8693), so a backend can no longer replay what it
+  receives against the gateway ([docs/security.md §6](docs/security.md)).
+- **Tool annotations and provenance** — carry `readOnlyHint` /
+  `destructiveHint` from the backend contract into `tools/list`, mark results
+  with their origin, and confirm writes.
+- **2026-07-28 completeness** — `subscriptions/listen` for list-change
+  notifications to stateless clients; backends are still called over the
+  backend contract, unaffected by the client's protocol generation.
 - **Machine identity for discovery** — replace the static technical token
   with a `client_credentials` flow once your AS supports it.
 - **Shared event bus / rate-limit store** — for multi-instance deployments.
 
 ## Features
 
-- MCP spec **2025-06-18** (Streamable HTTP transport: POST JSON-RPC, GET SSE
-  for `listChanged` notifications, DELETE session termination)
+- MCP spec **2026-07-28** (stateless: `server/discover`, no session,
+  `Mcp-Method` / `Mcp-Name` headers validated against the body, cache hints)
+  and **2025-06-18** (Streamable HTTP: `initialize`, GET SSE for
+  `listChanged` notifications, DELETE session termination) on the same
+  endpoint, chosen per request
 - Primitives: **tools**, **resources** (incl. URI templates), **prompts**
 - **OAuth 2.1 resource server**: JWKS verification, audience per resource
   (RFC 8707), protected-resource metadata (RFC 9728), optional RFC 7662
@@ -235,6 +247,9 @@ annotated list. The essentials:
 | `OAUTH_REQUIRED_SCOPES` | no | Baseline scope demanded before any dispatch |
 | `CORTEX_DATABASE_URL` | no | PostgreSQL for audit persistence + gateway tickets |
 | `CORTEX_TICKET_WEBHOOK_URL` | no | Webhook for blocking missing-capability tickets |
+| `CORTEX_BACKEND_<ID>_SCOPE_PREFIXES` | no | Scope prefixes the backend may declare (default `mcp:<id>:`) — [docs/security.md §7](docs/security.md) |
+| `CORTEX_BACKEND_<ID>_URI_SCHEMES` | no | URI schemes the backend may claim for resources (default `<id>`) |
+| `CORTEX_TRUSTED_PROXY_HOPS` | behind a proxy | Number of trusted proxies in front, for reading `X-Forwarded-For` (default 0 = ignored) |
 | `CORTEX_WEBSITE_URL` | no | `websiteUrl` shown by MCP clients (default: the gateway origin). Server icons: replace `public/icon-{light,dark}.png` |
 
 ## Security model
@@ -323,11 +338,23 @@ finding — full details in [docs/security.md](docs/security.md):
   CVE-2025-6514.
 - **Attributable audit.** Each line records which backend served the call and
   under which scope — not just the tool name.
+- **Backends stay in their lane.** A backend may only declare scopes under its
+  own prefix and claim its own URI schemes; prompts are prefixed like tools.
+  Resource reads are checked against the scope of the template the URI falls
+  under, not only filtered at listing.
 
 Honest scope: approvals persist across restarts (`CORTEX_TOOL_BASELINE_FILE`)
-but the store is not signed, so this proves "this definition changed since you
+and can be operator-signed, so this proves "this definition changed since you
 approved it here", not "this is the definition the vendor published".
-Operator-signed baselines are the next step, not a claim being made today.
+
+**Token forwarding, stated plainly.** The caller's token is forwarded to the
+backend that serves the call, and its audience is the gateway. That is what
+removes the service account, and it means a federated backend is inside the
+trust boundary of the tokens it receives: one that is compromised could replay
+a token against the gateway. The gateway limits who receives it (only the
+serving backend, only backends the caller holds a scope on, never over
+plaintext); per-backend audiences through token exchange are on the roadmap.
+Details and recommendations: [docs/security.md §6](docs/security.md).
 
 **Compliance.** These are the controls audits test for on automated access:
 least-privilege scopes, per-user identity (no over-privileged service account),

@@ -277,6 +277,19 @@ export interface BackendApp {
   backendPath: string;
   /** Timeout in ms for JSON-RPC calls to this backend. Default: 10000. */
   timeoutMs?: number;
+  /**
+   * Scope prefixes this backend may declare on its tools, prompts and
+   * resource templates. Default: `['mcp:<id>:']`. A declaration outside them
+   * is dropped at catalog refresh — otherwise any backend could gate its
+   * tools behind another backend's scope, or behind the gateway floor scope.
+   */
+  scopePrefixes?: readonly string[];
+  /**
+   * URI schemes this backend may claim for its resource templates. Default:
+   * `[<id>]`. Resource reads are routed by scheme, with the caller's token, so
+   * a backend must not be able to capture a scheme it does not own.
+   */
+  uriSchemes?: readonly string[];
 }
 
 /** Federated catalog entry: a tool and the app that owns it. */

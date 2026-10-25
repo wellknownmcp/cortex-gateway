@@ -9,6 +9,7 @@
  */
 
 import { createOAuthVerifier, InvalidTokenError, InsufficientScopeError } from './oauth';
+import { safeEqual } from './safe-equal';
 import type { OAuthVerifier, OAuthIntrospectConfig } from './oauth';
 
 export interface ValidatedRequest {
@@ -26,14 +27,30 @@ export interface ValidatedRequest {
   clientId: string;
   /** Token jti (for audit + revocation). */
   jti: string | null;
-  /** Raw token — propagated to backends, which re-validate it themselves. */
+  /**
+   * Raw token — propagated to the backend that serves a call, which
+   * re-validates it. Its audience is the gateway: see docs/security.md §6 on
+   * what that forwarding implies.
+   */
   bearerToken: string;
   /** Dev bypass mode (not a real OAuth token)? */
   isDevBypass: boolean;
 }
 
+/**
+ * Canonical URI of this MCP resource (RFC 9728), also the default token
+ * audience. Required in production: a localhost fallback there would make the
+ * gateway accept tokens minted for `http://localhost:3213/mcp` — an audience
+ * any authorization server in a dev setup may hand out — and advertise a
+ * discovery document pointing nowhere.
+ */
 export function canonicalUri(): string {
-  return process.env.CORTEX_CANONICAL_URI ?? 'http://localhost:3213/mcp';
+  const value = process.env.CORTEX_CANONICAL_URI;
+  if (value) return value;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('CORTEX_CANONICAL_URI is required in production (canonical URI of this MCP endpoint)');
+  }
+  return 'http://localhost:3213/mcp';
 }
 
 function issuer(): string {
@@ -82,9 +99,22 @@ function getVerifier(): OAuthVerifier {
   return _verifier;
 }
 
-function isLocalOrigin(req: Request): boolean {
-  const host = req.headers.get('host') ?? '';
-  return host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('[::1]');
+const LOOPBACK_HOST = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+
+/**
+ * Best-effort "this request came straight from this machine". The Host header
+ * is client-controlled, so it is matched exactly (`localhost.evil.example`
+ * used to pass a prefix test) and any forwarding header disqualifies the
+ * request: through a proxy, Host says nothing about who is calling. This is
+ * not a network boundary — that is NODE_ENV plus `npm run dev` binding to
+ * 127.0.0.1 — it keeps a stray non-production instance behind a proxy from
+ * honoring the bypass.
+ */
+function isDirectLoopbackRequest(req: Request): boolean {
+  if (req.headers.has('x-forwarded-for') || req.headers.has('forwarded') || req.headers.has('x-real-ip')) {
+    return false;
+  }
+  return LOOPBACK_HOST.test(req.headers.get('host') ?? '');
 }
 
 /**
@@ -93,8 +123,18 @@ function isLocalOrigin(req: Request): boolean {
  */
 export async function validateRequest(req: Request): Promise<
   | { ok: true; context: ValidatedRequest }
-  | { ok: false; status: 401 | 403; wwwAuthenticate?: string; error: string }
+  | { ok: false; status: 401 | 403 | 503; wwwAuthenticate?: string; error: string }
 > {
+  // Misconfiguration is answered as such, with the reason on stderr, rather
+  // than as an unhandled 500 thrown from the 401 path.
+  try {
+    canonicalUri();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[cortex] refusing to serve:', err instanceof Error ? err.message : err);
+    return { ok: false, status: 503, error: 'server_misconfigured' };
+  }
+
   // Dev bypass (localhost + non-production only). Lets you exercise the
   // gateway without a running OAuth server:
   //   CORTEX_DEV_BYPASS_TOKEN=secret CORTEX_DEV_BYPASS_SCOPES=mcp:demo:read
@@ -102,11 +142,9 @@ export async function validateRequest(req: Request): Promise<
   const devToken = process.env.CORTEX_DEV_BYPASS_TOKEN;
   const devHeader = req.headers.get('x-dev-mode');
   if (
-    devToken &&
-    devHeader &&
     process.env.NODE_ENV !== 'production' &&
-    isLocalOrigin(req) &&
-    devHeader === devToken
+    isDirectLoopbackRequest(req) &&
+    safeEqual(devHeader, devToken)
   ) {
     // eslint-disable-next-line no-console
     console.warn('[cortex] OAuth dev bypass active — NEVER enable in production');
@@ -118,12 +156,14 @@ export async function validateRequest(req: Request): Promise<
       context: {
         sub: 'dev:local',
         email: 'dev@localhost',
-        role: process.env.CORTEX_DEV_BYPASS_ROLE ?? 'admin',
+        // No implicit role: a backend that maps `admin` to full rights would
+        // otherwise grant them to every bypass caller.
+        role: process.env.CORTEX_DEV_BYPASS_ROLE ?? '',
         pool: process.env.CORTEX_REQUIRED_POOL ?? '',
         scopes: devScopes,
         clientId: 'dev-bypass',
         jti: null,
-        bearerToken: devToken,
+        bearerToken: devToken!,
         isDevBypass: true,
       },
     };
