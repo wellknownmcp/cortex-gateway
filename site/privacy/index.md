@@ -18,7 +18,8 @@ The demo exists so you can evaluate the gateway with a real OAuth 2.1 flow. It c
 
 | Data | Purpose | Retention |
 | --- | --- | --- |
-| Email address | Magic-link sign-in and account identity | Deleted after **90 days without sign-in** (with all tokens, sessions and consents) |
+| Pending sign-in link | Delivering the link you asked for. The address is held here only until the link is used or expires — **no account is created until you actually click it** | Link expires in 15 minutes; the row is deleted within **1 day** |
+| Email address | Account identity, once a sign-in link has been used | Deleted after **90 days without sign-in** (with all tokens, sessions and consents) |
 | OAuth artifacts (codes, tokens, consents) | Operating the OAuth 2.1 flow | Expired items removed within 7 days of expiry; all removed with the account |
 | Gateway audit trail | Demonstrating pseudonymized auditing (hashed identifiers, no raw email) | **90 days** |
 | Demo notes (write tools) | Demonstrating scope tiering | In-memory only — gone on restart, never stored in a database |

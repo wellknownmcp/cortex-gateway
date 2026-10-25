@@ -1,6 +1,6 @@
 {
   "name": "cortex-gateway",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Federated MCP gateway — one spec-compliant MCP server (Streamable HTTP + OAuth 2.1) in front of N plain-HTTP backends",
   "license": "MIT",
   "repository": {
@@ -16,7 +16,7 @@
     "ai-agents"
   ],
   "scripts": {
-    "dev": "next dev -p 3213",
+    "dev": "next dev -p 3213 -H 127.0.0.1",
     "build": "prisma generate && next build",
     "start": "next start -p 3213",
     "start:stdio": "node scripts/stdio-bridge.mjs",
@@ -32,7 +32,7 @@
   "dependencies": {
     "@prisma/client": "^6.2.1",
     "jose": "^5.9.6",
-    "next": "^15.5.18",
+    "next": "^15.5.28",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -43,6 +43,13 @@
     "prisma": "^6.2.1",
     "turndown": "^7.2.4",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "postcss": "^8.5.31",
+    "nanoid": "^3.3.20",
+    "source-map-js": "^1.2.2",
+    "sharp": "^0.35.5",
+    "deepmerge-ts": "^8.0.2"
   }
 }
