@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MCP tools/list is empty: six causes and how to tell them apart | Cortex Gateway</title>
-<meta name="description" content="Your agent connects, authenticates, and sees no tools. Six causes — missing scopes, a header narrowing the catalog, a cold-boot cache, a backend that is down, a rejected discovery token, a name collision — and the one call that discriminates between them.">
+<title>MCP tools: [] after OAuth: six causes of an empty tool list | Cortex Gateway</title>
+<meta name="description" content="Your MCP connector completed OAuth but shows tools: [] or no tools. Six causes — scopes, a filter header, a cold cache, a backend down — and the one call that tells them apart.">
 <link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-tools-list-empty/">
 <link rel="stylesheet" href="/assets/style.css">
 <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
-<meta property="og:title" content="MCP tools/list is empty: six causes and how to tell them apart">
+<meta property="og:title" content="MCP tools: [] after OAuth: six causes of an empty tool list">
 <meta property="og:description" content="The agent authenticates and sees no tools. Scopes, catalog cache, backend health, discovery token — and the one call that tells you which.">
 <meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-tools-list-empty/">
 <meta property="og:type" content="article">
@@ -24,7 +24,7 @@
       "@type": "Article",
       "headline": "MCP tools/list is empty: six causes and how to tell them apart",
       "url": "https://cortex-gateway.dev/answers/mcp-tools-list-empty/",
-      "dateModified": "2026-07-09",
+      "dateModified": "2026-10-26",
       "author": { "@type": "Organization", "name": "Cortex Gateway" }
     },
     {
@@ -38,6 +38,11 @@
     {
       "@type": "FAQPage",
       "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "My MCP connector is connected through OAuth but shows tools: []. Why?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Because the token it obtained carries no scope that any application tool requires. The usual cause is discovery run while the gateway advertised no scopes, right after a restart or while every backend was unreachable, so the client asked for none. Reconnect the connector once the catalog has refreshed. If the gateway builtins are listed and nothing else, the MCP layer itself is fine." }
+        },
         {
           "@type": "Question",
           "name": "Why does my MCP agent see no tools after connecting successfully?",
@@ -102,6 +107,14 @@
     <tr><td>Most tools, one missing</td><td>Cause 6: scope, name collision, or an unconfigured backend.</td></tr>
   </table>
 
+  <h2>In a client: the connector is connected, the tool list is empty</h2>
+  <p>In claude.ai, Claude Desktop, Claude Code or any other MCP client, the symptom has several spellings — an empty <code>tools: []</code> in a debug panel, “no tools available”, a connector shown as connected whose tools are unavailable — but the sequence is the same: OAuth succeeded, then <code>tools/list</code> came back with nothing the client could use. Read it with the table above, in this order:</p>
+  <ol>
+    <li><strong>The consent granted fewer scopes than you think.</strong> The client asks for the scopes advertised in <code>scopes_supported</code> at the moment it ran discovery. If that list was empty — see <a href="#the-chicken-and-egg">the chicken-and-egg below</a> — the token carries no application scope, and every application tool is filtered out. Disconnect the connector and connect it again once the gateway has refreshed its catalog.</li>
+    <li><strong>The client cached the empty list.</strong> Most clients read <code>tools/list</code> once per session. Fixing the server-side cause does not refresh a connector that is already open: reconnect, or start a new conversation.</li>
+    <li><strong>The response was not a tool list at all.</strong> A literal empty array with no gateway builtins usually means an error body was swallowed — check the HTTP status of the <code>tools/list</code> call before anything else.</li>
+  </ol>
+
   <h2>Cause 1 — your token does not carry the scope (most common)</h2>
   <p>A gateway filters the catalog by <strong>exact string match</strong> between the scope a tool declares and the scopes in the caller's token. A tool requiring <code>mcp:docs:read</code> is removed from <code>tools/list</code> for a token that does not hold it — silently, and on purpose.</p>
   <p>The silence is the feature. Least privilege means an agent must not even <em>learn</em> that a tool exists if its user may not call it. So there is no warning, no <code>403</code>, no log line saying "hid 14 tools". And because the comparison is literal, <code>mcp:docs:read</code> and <code>mcp:docs.read</code> are two unrelated scopes: a single character makes an entire application vanish.</p>
@@ -143,7 +156,7 @@ X-Cortex-Backends:                → builtins only
     <li><strong>Deprecated, not absent.</strong> A tool marked deprecated is still listed, with its removal date prefixed into the description. Agents that filter on description text have been known to drop them.</li>
   </ul>
 
-  <h2>The chicken-and-egg you will hit exactly once</h2>
+  <h2 id="the-chicken-and-egg">The chicken-and-egg you will hit exactly once</h2>
   <p>The <code>scopes_supported</code> field of <code>/.well-known/oauth-protected-resource</code> is derived from the live catalog: ship a tool with a new scope in any backend and that scope becomes discoverable without touching the gateway. Elegant — and it means that on a cold boot, or when every backend is unreachable, the document advertises <strong>no scopes at all</strong>.</p>
   <p>A client reading it at that exact moment requests no scopes, receives a token that grants none, and sees a catalog filtered down to the builtins. Everything then looks like cause 1, and re-authenticating fixes it, which teaches you nothing. The rule that saves the hour: <strong>after any restart, let one refresh cycle pass before you let a client run discovery.</strong></p>
 
@@ -164,6 +177,8 @@ X-Cortex-Backends:                → builtins only
   <div class="faq">
     <h3>Why does my MCP agent see no tools after connecting successfully?</h3>
     <p>If OAuth succeeded, the tools were filtered, not lost. Usually scopes: the catalog is filtered by exact match between each tool's required scope and the token's scopes, so a token never granted <code>mcp:docs:read</code> makes every docs tool disappear without an error. Otherwise the catalog itself is empty — a backend is down, or the gateway just booted. Call <code>whoami</code>: it reports your effective scopes and which backends are healthy.</p>
+    <h3>My MCP connector is connected through OAuth but shows tools: []. Why?</h3>
+    <p>Because the token it obtained carries no scope that any application tool requires. The usual cause is discovery run while the gateway advertised no scopes — right after a restart, or while every backend was unreachable — so the client asked for none. Reconnect the connector once the catalog has refreshed. If the gateway builtins are listed and nothing else, the MCP layer itself is fine.</p>
     <h3>Should tools/list ever return literally zero tools?</h3>
     <p>Not on a healthy gateway. Builtins like <code>whoami</code> are always listed and never scope-filtered, so a successful <code>tools/list</code> always contains at least those. An entirely empty array means you are reading an error body or hitting the wrong endpoint. Seeing <em>only</em> the builtins is a different diagnosis entirely: the catalog is fine, your scopes or a backend filter removed the rest.</p>
     <h3>Why does a scope typo silently remove tools instead of raising an error?</h3>

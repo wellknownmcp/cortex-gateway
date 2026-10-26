@@ -24,7 +24,7 @@
       "@type": "Article",
       "headline": "MCP unsupported_protocol_version: why initialize gets a 400 and then times out",
       "url": "https://cortex-gateway.dev/answers/mcp-unsupported-protocol-version/",
-      "dateModified": "2026-07-15",
+      "dateModified": "2026-10-26",
       "author": { "@type": "Organization", "name": "Cortex Gateway" }
     },
     {
@@ -57,6 +57,11 @@
           "@type": "Question",
           "name": "Why does the connection time out with MCP error -32001 instead of failing with a clear error?",
           "acceptedAnswer": { "@type": "Answer", "text": "Because the 400 rejection body is plain JSON, not a JSON-RPC message. A stdio-to-HTTP proxy that forwards it verbatim hands its MCP client a line that fails JSON-RPC parsing, so the client discards it, keeps waiting for a response to the initialize request id that will never come, and gives up at its request timeout — 60 seconds in mcp-proxy, surfaced as MCP error -32001: Request timed out. The timeout is the visible symptom; the 400 a minute earlier is the actual failure." }
+        },
+        {
+          "@type": "Question",
+          "name": "What is MCP error -32022?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The JSON-RPC error a server returns, with HTTP 400, when the MCP-Protocol-Version header names a revision it does not support. Defined by the 2026-07-28 revision, it carries data.supported (the versions the server accepts) and data.requested. Retry with a version from supported. Unlike the older plain-JSON unsupported_protocol_version body, it is a proper JSON-RPC response, so proxies relay it and clients fail fast instead of timing out." }
         },
         {
           "@type": "Question",
@@ -94,7 +99,7 @@
   </div>
 
   <h2>The symptom, exactly</h2>
-  <p>The MCP client — or a stdio-to-HTTP proxy in front of it, such as <code>mcp-proxy</code> — sends <code>initialize</code> and the server responds with HTTP 400 and a body like:</p>
+  <p>The MCP client — or a stdio-to-HTTP proxy in front of it, such as <code>mcp-proxy</code> (<a href="/answers/mcp-proxy-vs-supergateway/">compared with supergateway</a>) — sends <code>initialize</code> and the server responds with HTTP 400 and a body like:</p>
   <pre><code>{"error":"unsupported_protocol_version","supported":["2025-06-18","2025-03-26"]}</code></pre>
   <p>Nothing else happens for sixty seconds, then the client gives up:</p>
   <pre><code>McpError: MCP error -32001: Request timed out   { timeout: 60000 }</code></pre>
@@ -110,9 +115,9 @@
   <p>The rule that follows: <strong>during <code>initialize</code>, the header has no defined value yet</strong> — its value is the outcome of the negotiation that <code>initialize</code> performs. The specification covers the gap explicitly: a server receiving a request without the header SHOULD assume <code>2025-03-26</code>, the last revision before the header existed. Omitting the header on <code>initialize</code> is therefore always safe with a compliant server.</p>
 
   <h2>How the bug happens</h2>
-  <p>SDKs default to the newest protocol revision they implement. In mid-2026, a current MCP TypeScript SDK proposes <code>2025-11-25</code>, while a large share of deployed servers — Cortex Gateway included — speak <code>2025-06-18</code> and <code>2025-03-26</code>. That skew is normal and the body negotiation is designed to absorb it: the server sees an unknown proposal in the body and answers with the latest revision it supports.</p>
+  <p>SDKs default to the newest protocol revision they implement. In mid-2026, a current MCP TypeScript SDK proposes <code>2025-11-25</code>, while a large share of deployed servers still speak only <code>2025-06-18</code> and <code>2025-03-26</code>. That skew is normal and the body negotiation is designed to absorb it: the server sees an unknown proposal in the body and answers with the latest revision it supports.</p>
   <p>The failure needs one more ingredient: an intermediary — a stdio bridge, a proxy, a hand-rolled HTTP client — that <em>copies the client's proposed version into the header</em> of the <code>initialize</code> request. A server that validates the header strictly (a legitimate choice for post-initialize requests) now rejects the request <strong>before the body negotiation can run</strong>. The recoverable skew has become a hard 400.</p>
-  <p>This is exactly how Cortex Gateway's own stdio bridge failed its first <a href="https://glama.ai/mcp/servers/wellknownmcp/cortex-gateway">Glama</a> Docker inspection: the sandbox's <code>mcp-proxy</code> proposed <code>2025-11-25</code>, the bridge relayed that value as the header, and the gateway — which validates the header on every request — answered 400. The bridge has since been fixed to omit the header during <code>initialize</code>.</p>
+  <p>This is exactly how Cortex Gateway's own stdio bridge failed its first <a href="https://glama.ai/mcp/servers/wellknownmcp/cortex-gateway">Glama</a> Docker inspection: the sandbox's <code>mcp-proxy</code> proposed <code>2025-11-25</code>, the bridge relayed that value as the header, and the gateway — which validates the header on every request — answered 400. The bridge has since been fixed to omit the header during <code>initialize</code>, and since v0.3.0 the gateway negotiates <code>2025-11-25</code> itself.</p>
 
   <h2>What correct negotiation looks like</h2>
   <pre><code>→ POST /mcp        (no MCP-Protocol-Version header)
@@ -141,6 +146,13 @@
   </ul>
   <p>Rejecting <code>initialize</code> because its header names a revision you do not support turns every newer-SDK client into a hard failure for no security benefit: the request has not been dispatched yet, and the body negotiation would have resolved the skew one line later.</p>
 
+  <h2>What changed with MCP 2026-07-28</h2>
+  <p>The <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning">2026-07-28 revision</a> is stateless: there is no <code>initialize</code> any more, so the header stops being optional. Every request carries <code>MCP-Protocol-Version</code> <em>and</em> the same version in <code>params._meta["io.modelcontextprotocol/protocolVersion"]</code>, and a mismatch between the two is refused with <code>-32020</code>.</p>
+  <p>It also fixes the 60-second timeout at the source. An unsupported version is refused with HTTP 400 and a <strong>JSON-RPC error</strong>, code <code>-32022</code>, listing what the server does support:</p>
+  <pre><code>{"jsonrpc":"2.0","id":1,"error":{"code":-32022,"message":"Unsupported protocol version",
+ "data":{"supported":["2026-07-28","2025-11-25","2025-06-18","2025-03-26"],"requested":"2099-01-01"}}}</code></pre>
+  <p>A client reads <code>data.supported</code> and retries with a version from the list, instead of hanging on a body it cannot parse. A server can serve both generations on one endpoint — a "dual-era" server: a request carrying the 2026-07-28 header and <code>_meta</code> takes the stateless path, anything else the <code>initialize</code> path, unchanged. Cortex Gateway works this way since v0.3.0, and answers <code>-32022</code> on both paths.</p>
+
   <h2>Related failures that look the same</h2>
   <table>
     <tr><th>Symptom</th><th>Actually</th></tr>
@@ -160,6 +172,8 @@
     <p>SDKs default to the latest revision they implement, and the protocol absorbs the skew: the server answers the initialize body with the most recent version it supports, and the client continues on it or disconnects. Skew only becomes a bug when an intermediary copies the proposed version into the header, where a strict server rejects it before negotiation runs.</p>
     <h3>Why a 60-second timeout instead of a clear error?</h3>
     <p>The 400 body is plain JSON, not a JSON-RPC message. A proxy forwarding it verbatim hands its client an unparseable line; the client discards it and keeps waiting for a response to the <code>initialize</code> id, surfacing <code>MCP error -32001: Request timed out</code> a minute later. The timeout is the symptom; the 400 is the failure.</p>
+    <h3>What is MCP error -32022?</h3>
+    <p>The JSON-RPC error a server returns, with HTTP 400, when the <code>MCP-Protocol-Version</code> header names a revision it does not support. Defined by the 2026-07-28 revision, it carries <code>data.supported</code> — the versions the server accepts — and <code>data.requested</code>. Retry with a version from <code>supported</code>. Unlike the older plain-JSON <code>unsupported_protocol_version</code> body, it is a proper JSON-RPC response, so proxies relay it and clients fail fast instead of timing out.</p>
     <h3>How does MCP protocol version negotiation work?</h3>
     <p>The client proposes a revision in <code>params.protocolVersion</code>. The server echoes it if supported, otherwise answers with its preferred supported revision — and the client disconnects if it cannot accept that. Only after this exchange does a negotiated version exist, and that value goes into the <code>MCP-Protocol-Version</code> header of every subsequent request.</p>
     <h3>Should my server reject initialize when the header names an unsupported version?</h3>

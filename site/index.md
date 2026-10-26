@@ -55,7 +55,7 @@ Details in the [backend contract](https://github.com/wellknownmcp/cortex-gateway
 
 ## Guides
 
-[**Expose your REST API as an MCP server**Why generating from OpenAPI disappoints — and the five-step alternative](/guides/rest-api-to-mcp-server/) [**Secure your MCP server with OAuth 2.1**The 401 challenge, audience binding, scopes vs RBAC, multi-tenancy](/guides/secure-mcp-with-oauth/) [**Federate third-party MCP servers**Per-user token vault — the provider sees their account, not yours](/guides/federate-third-party-mcp-servers/) [**GitHub for agents, zero seats**A GitHub App behind a one-route backend — attribution stays yours](/guides/github-app-mcp-backend/) [**Too many MCP tools**The catalog is re-sent every turn — measure it, then cut 80%](/answers/mcp-too-many-tools/)
+[**Expose your REST API as an MCP server**Why generating from OpenAPI disappoints — and the five-step alternative](/guides/rest-api-to-mcp-server/) [**Secure your MCP server with OAuth 2.1**The 401 challenge, audience binding, scopes vs RBAC, multi-tenancy](/guides/secure-mcp-with-oauth/) [**Federate third-party MCP servers**Per-user token vault — the provider sees their account, not yours](/guides/federate-third-party-mcp-servers/) [**GitHub for agents, zero seats**A GitHub App behind a one-route backend — attribution stays yours](/guides/github-app-mcp-backend/) [**Expose an HTTP MCP server over stdio**For stdio-only clients and sandboxes — a bridge that keeps real OAuth](/guides/expose-http-mcp-server-over-stdio/) [**Too many MCP tools**The catalog is re-sent every turn — measure it, then cut 80%](/answers/mcp-too-many-tools/)
 
 ## Troubleshooting
 

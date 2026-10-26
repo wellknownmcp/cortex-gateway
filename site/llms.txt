@@ -1,8 +1,9 @@
 # Cortex Gateway
 
 > Open-source (MIT), self-hosted federated MCP gateway: one OAuth 2.1-protected,
-> spec-compliant MCP server (Streamable HTTP, MCP 2025-06-18) in front of N
-> plain-HTTP backends. Permissions are never mirrored: the gateway propagates
+> spec-compliant MCP server (Streamable HTTP; MCP 2026-07-28, 2025-11-25 and
+> 2025-06-18; checked against the official MCP conformance suite in CI) in
+> front of N plain-HTTP backends. Permissions are never mirrored: the gateway propagates
 > the real user identity (JWT to first-party backends, the user's own linked
 > OAuth token to proxied third-party MCP servers), so each app's native
 > permission model applies automatically at the user level.
@@ -94,8 +95,8 @@ Key facts
 ## Troubleshooting (symptom → cause → fix)
 - [MCP connector does nothing](https://cortex-gateway.dev/answers/mcp-connector-does-nothing/): the connector is added and nothing happens — missing WWW-Authenticate challenge, unexposed CORS header, Origin allowlist rejecting the web client, auth error returned as JSON-RPC 200
 - [OAuth issuer behind a reverse proxy](https://cortex-gateway.dev/answers/mcp-oauth-issuer-behind-proxy/): login succeeds then every call 401s — origin derived from the inbound request breaks the audience check; pin the canonical URI, never trust X-Forwarded-Host
-- [tools/list is empty](https://cortex-gateway.dev/answers/mcp-tools-list-empty/): agent authenticates but sees no tools — scope filtering (exact match, silent by design), X-Cortex-Backends narrowing, cold-boot catalog, backend down, discovery token refused, builtin name collision
-- [unsupported_protocol_version](https://cortex-gateway.dev/answers/mcp-unsupported-protocol-version/): initialize gets HTTP 400 then times out (-32001) — the MCP-Protocol-Version header was sent during initialize; negotiation happens in the body, the header carries the negotiated version and only exists afterwards
+- [tools/list is empty](https://cortex-gateway.dev/answers/mcp-tools-list-empty/): agent or connector authenticates (OAuth succeeded) but shows tools: [] — scope filtering (exact match, silent by design), X-Cortex-Backends narrowing, cold-boot catalog, backend down, discovery token refused, builtin name collision
+- [unsupported_protocol_version](https://cortex-gateway.dev/answers/mcp-unsupported-protocol-version/): initialize gets HTTP 400 then times out (-32001) — the MCP-Protocol-Version header was sent during initialize; negotiation happens in the body, the header carries the negotiated version and only exists afterwards; in MCP 2026-07-28 (stateless) the header is mandatory and an unsupported version is a JSON-RPC -32022 error listing the supported versions
 - [Open-source MCP gateways compared](https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/): six projects (IBM ContextForge, agentgateway, MCPJungle, Docker MCP Gateway, 1MCP, Lasso mcp-gateway, Cortex) separated on two axes — whose credential goes downstream, and where the authorization decision is made. Written by Cortex maintainers, verified from each repository 2026-08-16, states where each competitor wins.
 - [Composio alternative](https://cortex-gateway.dev/alternatives/composio/): honest hosted-vs-self-hosted comparison
 - [Pipedream MCP alternative](https://cortex-gateway.dev/alternatives/pipedream/): access layer vs workflow platform

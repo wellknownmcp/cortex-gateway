@@ -88,7 +88,9 @@ On axis 1: per-user, always, with no configuration that would make it otherwise.
 
 **What it costs you.** An OAuth 2.1 authorization server issuing RS256 JWTs with a JWKS endpoint. The repository ships a complete demo one — dynamic client registration, PKCE, magic-link signup, introspection, revocation — but if you have no identity provider and no intention of getting one, MCPJungle will make you happier this week.
 
-**What it does not do.** No policy engine. No container sandboxing. No prompt-injection guardrails. No A2A or REST federation. No observability stack. The third-party proxy adapter is **beta** — protocol layer unit-tested against MCP 2025-06-18, not certified against any specific commercial provider, tools only in V1, one scope per proxied provider.
+**How you check it.** The official [MCP conformance suite](https://github.com/modelcontextprotocol/conformance) runs in CI against the production build, through a real OAuth path: 22 of 32 server scenarios pass, on MCP 2026-07-28, 2025-11-25 and 2025-06-18. The other 10 exercise optional capabilities the gateway does not declare — completions, logging, subscriptions, progress, sampling, elicitation — and are listed with the reason in the repository, so a regression fails the build.
+
+**What it does not do.** No policy engine. No container sandboxing. No prompt-injection guardrails. No A2A or REST federation. No observability stack. The third-party proxy adapter is **beta** — protocol layer unit-tested against MCP 2025-06-18, not certified against any specific commercial provider, tools only in V1, one scope per proxied provider. And no per-backend token audience yet: a first-party backend receives the caller's token as is, audienced to the gateway, so it sits inside that token's trust boundary — [documented plainly](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/security.md), with RFC 8693 token exchange on the roadmap.
 
 ## The comparison that survives a version bump
 

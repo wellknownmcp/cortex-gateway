@@ -30,7 +30,7 @@ This is a genuinely good fit for a personal setup, or for tools that have no per
 
 ### The hosted tool platform
 
-A vendor runs the connectors, holds the OAuth tokens for hundreds of SaaS products, and gives your agent one endpoint. The catalog is enormous and you maintain none of it. In exchange the vendor's infrastructure holds your users' tokens, sees every tool call, and becomes a sub-processor in your compliance scope. Perfectly reasonable trade — as long as it was a trade you made on purpose. The [Composio](/alternatives/composio/) and [Pipedream](/alternatives/pipedream/) pages compare that model to self-hosting without pretending either is universally right.
+A vendor runs the connectors, holds the OAuth tokens for hundreds of SaaS products, and gives your agent one endpoint. The catalog is enormous and you maintain none of it. In exchange the vendor's infrastructure holds your users' tokens, sees every tool call, and becomes a sub-processor in your compliance scope. Perfectly reasonable trade — as long as it was a trade you made on purpose. The [Composio](/alternatives/composio/), [Pipedream](/alternatives/pipedream/) and [Zapier MCP](/alternatives/zapier-mcp/) pages compare that model to self-hosting without pretending either is universally right.
 
 ### The identity-propagating federation gateway
 
@@ -72,7 +72,7 @@ Because it sits in front of everything, a gateway's failure modes are the organi
 
 **It must not re-implement the applications' rules.** Mirrored permissions are copies with a half-life. The application that owns a record already knows who may read it — and will still know after next quarter's refactor, which the mirror will not survive. Enforce the delegation boundary at the gateway (an agent may not exceed its user's granted scopes), and everything else where the data lives. Re-check at both layers; defense in depth is cheap when neither layer is inventing anything.
 
-This is the [replicate-versus-delegate](/answers/agent-permission-layer/) distinction, applied to the component in the middle.
+This is the [replicate-versus-delegate](/answers/agent-permission-layer/) distinction, applied to the component in the middle. The threats specific to that component — tool definitions rewritten after approval, tokens forwarded to the wrong place — are mapped in [MCP security best practices](/answers/mcp-security-best-practices/).
 
 ## Concretely
 

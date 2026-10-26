@@ -25,7 +25,7 @@
       "headline": "Best open-source MCP gateways (2026): an honest comparison",
       "url": "https://cortex-gateway.dev/alternatives/open-source-mcp-gateways/",
       "datePublished": "2026-07-09",
-      "dateModified": "2026-08-16",
+      "dateModified": "2026-10-26",
       "author": { "@type": "Organization", "name": "Cortex Gateway" },
       "publisher": { "@type": "Organization", "name": "Cortex Gateway", "url": "https://cortex-gateway.dev/" }
     },
@@ -165,7 +165,8 @@
   <p>MIT. An OAuth 2.1 resource server: one spec-compliant MCP endpoint over Streamable HTTP in front of N applications, each of which exposes <a href="/guides/rest-api-to-mcp-server/">one plain HTTP endpoint</a> rather than embedding an MCP library. The user's JWT is propagated to first-party applications; third-party MCP servers receive <a href="/guides/federate-third-party-mcp-servers/">that user's own linked token</a> from a per-user AES-256-GCM vault.</p>
   <p>On axis 1: per-user, always, with no configuration that would make it otherwise. On axis 2: the gateway makes <strong>no authorization decision</strong>. It enforces the delegation boundary — an agent may not exceed the scopes its user granted — and refuses everything else to the application that owns the data. Because it decides nothing and holds no standing rights, there is nothing new to trust.</p>
   <p><strong>What it costs you.</strong> An OAuth 2.1 authorization server issuing RS256 JWTs with a JWKS endpoint. The repository ships a complete demo one — dynamic client registration, PKCE, magic-link signup, introspection, revocation — but if you have no identity provider and no intention of getting one, MCPJungle will make you happier this week.</p>
-  <p><strong>What it does not do.</strong> No policy engine. No container sandboxing. No prompt-injection guardrails. No A2A or REST federation. No observability stack. The third-party proxy adapter is <strong>beta</strong> — protocol layer unit-tested against MCP 2025-06-18, not certified against any specific commercial provider, tools only in V1, one scope per proxied provider.</p>
+  <p><strong>How you check it.</strong> The official <a href="https://github.com/modelcontextprotocol/conformance">MCP conformance suite</a> runs in CI against the production build, through a real OAuth path: 22 of 32 server scenarios pass, on MCP 2026-07-28, 2025-11-25 and 2025-06-18. The other 10 exercise optional capabilities the gateway does not declare — completions, logging, subscriptions, progress, sampling, elicitation — and are listed with the reason in the repository, so a regression fails the build.</p>
+  <p><strong>What it does not do.</strong> No policy engine. No container sandboxing. No prompt-injection guardrails. No A2A or REST federation. No observability stack. The third-party proxy adapter is <strong>beta</strong> — protocol layer unit-tested against MCP 2025-06-18, not certified against any specific commercial provider, tools only in V1, one scope per proxied provider. And no per-backend token audience yet: a first-party backend receives the caller's token as is, audienced to the gateway, so it sits inside that token's trust boundary — <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/security.md">documented plainly</a>, with RFC 8693 token exchange on the roadmap.</p>
 
   <h2>The comparison that survives a version bump</h2>
   <table>

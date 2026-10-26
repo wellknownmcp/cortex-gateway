@@ -72,7 +72,7 @@
   </ol>
 
   <h2>Path B — older versions: the mcp-remote bridge</h2>
-  <p>Versions predating remote-connector support only launch local stdio servers from <code>claude_desktop_config.json</code>. The <code>mcp-remote</code> package bridges stdio to a remote OAuth-protected server:</p>
+  <p>Versions predating remote-connector support only launch local stdio servers from <code>claude_desktop_config.json</code> (the general technique is in <a href="/guides/expose-http-mcp-server-over-stdio/">exposing an HTTP MCP server over stdio</a>). The <code>mcp-remote</code> package bridges stdio to a remote OAuth-protected server:</p>
   <pre><code>{
   "mcpServers": {
     "cortex": {

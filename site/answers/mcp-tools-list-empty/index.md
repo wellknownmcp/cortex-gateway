@@ -16,6 +16,14 @@ Gateway builtins — `whoami`, `list_cortex_resources`, `read_cortex_resource`, 
 | An empty array, no builtins at all | You are not reading a successful `tools/list`. Either the response is an error body, or you are hitting the wrong endpoint. Check the HTTP status first — a `401` here means [the OAuth challenge story](/answers/mcp-connector-does-nothing/). |
 | Most tools, one missing | Cause 6: scope, name collision, or an unconfigured backend. |
 
+## In a client: the connector is connected, the tool list is empty
+
+In claude.ai, Claude Desktop, Claude Code or any other MCP client, the symptom has several spellings — an empty `tools: []` in a debug panel, “no tools available”, a connector shown as connected whose tools are unavailable — but the sequence is the same: OAuth succeeded, then `tools/list` came back with nothing the client could use. Read it with the table above, in this order:
+
+1.  **The consent granted fewer scopes than you think.** The client asks for the scopes advertised in `scopes_supported` at the moment it ran discovery. If that list was empty — see [the chicken-and-egg below](#the-chicken-and-egg) — the token carries no application scope, and every application tool is filtered out. Disconnect the connector and connect it again once the gateway has refreshed its catalog.
+2.  **The client cached the empty list.** Most clients read `tools/list` once per session. Fixing the server-side cause does not refresh a connector that is already open: reconnect, or start a new conversation.
+3.  **The response was not a tool list at all.** A literal empty array with no gateway builtins usually means an error body was swallowed — check the HTTP status of the `tools/list` call before anything else.
+
 ## Cause 1 — your token does not carry the scope (most common)
 
 A gateway filters the catalog by **exact string match** between the scope a tool declares and the scopes in the caller's token. A tool requiring `mcp:docs:read` is removed from `tools/list` for a token that does not hold it — silently, and on purpose.
@@ -107,6 +115,10 @@ The [hosted demo](https://mcp.cortex-gateway.dev/) is a working reference: conne
 ### Why does my MCP agent see no tools after connecting successfully?
 
 If OAuth succeeded, the tools were filtered, not lost. Usually scopes: the catalog is filtered by exact match between each tool's required scope and the token's scopes, so a token never granted `mcp:docs:read` makes every docs tool disappear without an error. Otherwise the catalog itself is empty — a backend is down, or the gateway just booted. Call `whoami`: it reports your effective scopes and which backends are healthy.
+
+### My MCP connector is connected through OAuth but shows tools: \[\]. Why?
+
+Because the token it obtained carries no scope that any application tool requires. The usual cause is discovery run while the gateway advertised no scopes — right after a restart, or while every backend was unreachable — so the client asked for none. Reconnect the connector once the catalog has refreshed. If the gateway builtins are listed and nothing else, the MCP layer itself is fine.
 
 ### Should tools/list ever return literally zero tools?
 

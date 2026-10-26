@@ -17,7 +17,7 @@ Settings → Connectors → *Add custom connector* → `https://mcp.cortex-gatew
 
 ## Path B — older versions: the mcp-remote bridge
 
-Versions predating remote-connector support only launch local stdio servers from `claude_desktop_config.json`. The `mcp-remote` package bridges stdio to a remote OAuth-protected server:
+Versions predating remote-connector support only launch local stdio servers from `claude_desktop_config.json` (the general technique is in [exposing an HTTP MCP server over stdio](/guides/expose-http-mcp-server-over-stdio/)). The `mcp-remote` package bridges stdio to a remote OAuth-protected server:
 
 ```
 {

@@ -10,7 +10,7 @@ Pipedream brings an enormous app catalog and hosted MCP endpoints on top of its 
 
 **Pipedream** starts from integration breadth: thousands of connected apps, hosted triggers and workflows, and MCP endpoints that let agents reach that catalog with managed per-user auth. The platform operates everything — including the credential store.
 
-**Cortex Gateway** starts from the access layer itself. It is a thin, spec-compliant MCP server (Streamable HTTP, MCP 2025-06-18) that hosts no business logic: it validates OAuth 2.1 tokens, filters the federated tool catalog by the caller's scopes, routes each call to the app that owns the tool, and writes a pseudonymized audit line. Identity always travels: first-party backends re-validate your JWT; proxied third-party MCP servers receive the calling user's own linked token.
+**Cortex Gateway** starts from the access layer itself. It is a thin, spec-compliant MCP server — Streamable HTTP, MCP 2026-07-28, 2025-11-25 and 2025-06-18, checked against the official MCP conformance suite in CI — that hosts no business logic: it validates OAuth 2.1 tokens, filters the federated tool catalog by the caller's scopes, routes each call to the app that owns the tool, and writes a pseudonymized audit line. Identity always travels: first-party backends re-validate your JWT; proxied third-party MCP servers receive the calling user's own linked token.
 
 ## At a glance
 

@@ -116,7 +116,7 @@ Everything on this page is per-server work: discovery document, challenge, JWKS 
 
 [Cortex Gateway](https://github.com/wellknownmcp/cortex-gateway) implements it once, in front of all of them. Each application behind it stays a plain web service that [exposes one HTTP endpoint](/guides/rest-api-to-mcp-server/), re-validates the propagated JWT, and keeps enforcing its own rules. The gateway makes no authorization decision of its own — it carries identity and refuses what the scopes do not allow. There is nothing new to trust, which is the only property that makes a component sitting in front of everything acceptable.
 
-The repository ships a complete demo authorization server (dynamic client registration, PKCE, magic-link signup, introspection, revocation) so the OAuth side is a working reference rather than an exercise. The [hosted demo](https://mcp.cortex-gateway.dev/) is the same code: probe the `401`, read the metadata, run the flow.
+The repository ships a complete demo authorization server (dynamic client registration, PKCE, magic-link signup, introspection, revocation) so the OAuth side is a working reference rather than an exercise. OAuth closes the front door only; for what it leaves open — tool poisoning, rug pulls, token passthrough — see [MCP security best practices](/answers/mcp-security-best-practices/). The [hosted demo](https://mcp.cortex-gateway.dev/) is the same code: probe the `401`, read the metadata, run the flow.
 
 [Get started on GitHub →](https://github.com/wellknownmcp/cortex-gateway)
 
