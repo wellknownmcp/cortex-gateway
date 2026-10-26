@@ -134,7 +134,7 @@ example (Canva + Figma + your own backend).
 
 - MCP spec **2026-07-28** (stateless: `server/discover`, no session,
   `Mcp-Method` / `Mcp-Name` headers validated against the body, cache hints)
-  and **2025-06-18** (Streamable HTTP: `initialize`, GET SSE for
+  and **2025-11-25 / 2025-06-18** (Streamable HTTP: `initialize`, GET SSE for
   `listChanged` notifications, DELETE session termination) on the same
   endpoint, chosen per request
 - Primitives: **tools**, **resources** (incl. URI templates), **prompts**
@@ -154,6 +154,11 @@ example (Canva + Figma + your own backend).
   params) + optional PostgreSQL persistence with retention cron
 - Origin allow-list (anti DNS-rebinding), per-token rate limiting, optional
   pool sandbox
+- **Checked against the official MCP conformance suite** in CI, through a
+  real OAuth path: 22 of 32 server scenarios pass; the other 10 exercise
+  optional capabilities the gateway does not declare (completions, logging,
+  subscriptions, progress, sampling, elicitation) — listed with the reason in
+  [scripts/conformance/baseline.yml](scripts/conformance/baseline.yml)
 
 ## Quickstart (no OAuth server needed)
 

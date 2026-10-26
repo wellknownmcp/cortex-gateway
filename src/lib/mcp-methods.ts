@@ -1,5 +1,5 @@
 /**
- * Handlers for the MCP methods: spec 2025-06-18 (legacy, through
+ * Handlers for the MCP methods: spec 2025-11-25 / 2025-06-18 (legacy, through
  * `initialize`) and 2026-07-28 (modern, stateless — see lib/mcp-generation.ts).
  *
  * Implemented:
@@ -732,8 +732,10 @@ async function handleToolsCall(id: string | number | null, raw: unknown, userCtx
       timeoutMs: entry.app.timeoutMs ?? 10_000,
     });
 
-    return rpcSuccess(id, {
-      // MCP spec: tools/call result = { content: [...], isError?: boolean }
+    // MCP spec: tools/call result = { content: [...], isError?: boolean }.
+    // A backend that already speaks MCP content (image, audio, embedded
+    // resource...) has it relayed as is; anything else is serialized as text.
+    return rpcSuccess(id, asCallToolResult(result) ?? {
       content: [
         {
           type: 'text',
@@ -742,28 +744,84 @@ async function handleToolsCall(id: string | number | null, raw: unknown, userCtx
       ],
     });
   } catch (err) {
+    // Authorization failures stay protocol errors: the client may act on them
+    // (re-consent, new token). What the tool itself ran into — a business
+    // error, an ACL refusal, a timeout, an unreachable backend — is a tool
+    // execution error: a result with `isError: true` the model can read and
+    // recover from (spec server/tools §Error Handling).
     if (err instanceof CortexBackendInsufficientScope) {
       return rpcError(id, -32603, 'Backend refused scope', {
         required: err.requiredScope,
         method: err.method,
       });
     }
-    if (err instanceof CortexBackendAclDenied) {
-      return rpcError(id, -32603, 'Backend ACL denied', {
-        reason: err.reason,
-      });
-    }
     if (err instanceof CortexBackendUnauthorized) {
       return rpcError(id, -32603, 'Backend auth failed — token may have expired');
     }
+    if (err instanceof CortexBackendAclDenied) {
+      return rpcSuccess(id, toolExecutionError(`Access denied by ${entry.app.id}: ${err.reason ?? 'insufficient role'}`));
+    }
     if (err instanceof CortexBackendTimeout) {
-      return rpcError(id, -32603, err.message);
+      return rpcSuccess(id, toolExecutionError(err.message));
     }
     if (err instanceof CortexBackendError) {
-      return rpcErrorFromBackendError(id, err);
+      const body = (err.body ?? null) as Record<string, unknown> | null;
+      const message = typeof body?.error === 'string' ? body.error : err.message;
+      // Extra fields (a `hint`, the offending value...) are what lets the
+      // model fix its call: kept, after the message.
+      const extra = body && typeof body === 'object' ? Object.keys(body).filter((k) => k !== 'error') : [];
+      return rpcSuccess(id, toolExecutionError(message, extra.length > 0 ? body : undefined));
     }
-    return rpcError(id, -32603, err instanceof Error ? err.message : 'Internal error');
+    return rpcSuccess(id, toolExecutionError(err instanceof Error ? err.message : 'Tool execution failed'));
   }
+}
+
+function toolExecutionError(message: string, detail?: unknown): Record<string, unknown> {
+  const text = detail === undefined ? message : `${message}\n\n${JSON.stringify(detail)}`;
+  return { content: [{ type: 'text', text }], isError: true };
+}
+
+const isString = (v: unknown): v is string => typeof v === 'string';
+
+/** True for a well-formed MCP content block (text, image, audio, resource, resource_link). */
+function isContentBlock(block: unknown): boolean {
+  if (typeof block !== 'object' || block === null) return false;
+  const b = block as Record<string, unknown>;
+  switch (b.type) {
+    case 'text':
+      return isString(b.text);
+    case 'image':
+    case 'audio':
+      return isString(b.data) && isString(b.mimeType);
+    case 'resource': {
+      const r = b.resource as Record<string, unknown> | undefined;
+      return typeof r === 'object' && r !== null && isString(r.uri) && (isString(r.text) || isString(r.blob));
+    }
+    case 'resource_link':
+      return isString(b.uri) && isString(b.name);
+    default:
+      return false;
+  }
+}
+
+/**
+ * A backend result that is already an MCP CallToolResult — a non-empty
+ * `content` array of well-formed blocks — relayed with only the fields the
+ * spec defines. Anything else (plain business JSON, including an object that
+ * happens to have a `content` key) returns null and is serialized as text, as
+ * before: a near miss must not silently drop data.
+ */
+function asCallToolResult(result: unknown): Record<string, unknown> | null {
+  if (typeof result !== 'object' || result === null || Array.isArray(result)) return null;
+  const r = result as Record<string, unknown>;
+  if (!Array.isArray(r.content) || r.content.length === 0 || !r.content.every(isContentBlock)) return null;
+  return {
+    content: r.content,
+    ...(typeof r.isError === 'boolean' ? { isError: r.isError } : {}),
+    ...(typeof r.structuredContent === 'object' && r.structuredContent !== null && !Array.isArray(r.structuredContent)
+      ? { structuredContent: r.structuredContent }
+      : {}),
+  };
 }
 
 // ─── builtin: find_tools ─────────────────────────────────────────────────
@@ -1125,7 +1183,7 @@ function renderArchitectureMarkdown(userCtx: ValidatedRequest): string {
 
 ## Principle
 
-This is an **MCP gateway** serving spec 2025-06-18 (Streamable HTTP, through
+This is an **MCP gateway** serving spec 2025-11-25 and 2025-06-18 (Streamable HTTP, through
 \`initialize\`) and 2026-07-28 (stateless) on the same endpoint. It
 hosts no business logic: it routes \`tools/call\` invocations to the backend
 that owns each tool. Backends are plain HTTP apps exposing a single

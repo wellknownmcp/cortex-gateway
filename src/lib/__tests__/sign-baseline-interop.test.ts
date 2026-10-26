@@ -27,7 +27,9 @@ function catalog(...tools: Array<Partial<CortexBackendTool> & { name: string }>)
   return map;
 }
 
-describe('offline signer ↔ gateway interop', () => {
+// Each case spawns the signing script as a child process: the 5 s default is
+// too tight on a loaded runner, and a timeout there says nothing about signing.
+describe('offline signer ↔ gateway interop', { timeout: 30_000 }, () => {
   let dir: string;
   let file: string;
   let priv: string;

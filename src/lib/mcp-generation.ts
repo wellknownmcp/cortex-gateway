@@ -1,7 +1,7 @@
 /**
  * Two generations of the MCP protocol served on the same `/mcp` endpoint.
  *
- * - **Legacy** (2025-06-18, 2025-03-26): `initialize` handshake,
+ * - **Legacy** (2025-11-25, 2025-06-18, 2025-03-26): `initialize` handshake,
  *   `Mcp-Session-Id` session. What most deployed clients speak; this path is
  *   unchanged.
  * - **Modern** (2026-07-28): stateless. Every request carries its version in
@@ -21,7 +21,7 @@ import { REFRESH_INTERVAL_MS } from './federator';
 
 export const MODERN_VERSION = '2026-07-28';
 /** Versions served by the historical `initialize` path, preferred first. */
-export const LEGACY_VERSIONS = ['2025-06-18', '2025-03-26'] as const;
+export const LEGACY_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26'] as const;
 export const SUPPORTED_VERSIONS: readonly string[] = [MODERN_VERSION, ...LEGACY_VERSIONS];
 /**
  * A request without a `MCP-Protocol-Version` header is treated as 2025-03-26,

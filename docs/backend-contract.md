@@ -39,6 +39,16 @@ Any other method name is a **tool**: when the gateway receives
 `tools/call` for `<backendId>_<toolName>`, it POSTs
 `{ "method": "<toolName>", "params": <arguments> }` to the backend.
 
+What the tool returns:
+
+- **Any JSON** — serialized as one text block. The default, and what most
+  business tools want.
+- **An MCP `CallToolResult`** — `{ "content": [...], "isError"?, "structuredContent"? }`
+  where every block is a well-formed `text`, `image`, `audio`, `resource` or
+  `resource_link` — relayed as is. Use it to return images, audio or embedded
+  resources. A near miss (one malformed block) falls back to text, so no data
+  is silently dropped.
+
 ## `get_help`: describe the business, not just the mechanics
 
 A tool catalog tells an agent *what it can call*; it does not teach the
@@ -98,8 +108,8 @@ logged at the backend that owns the domain. Together, `get_help` +
 |---|---|---|
 | 401 | Token invalid/expired | Surfaced as "Backend auth failed" |
 | 403 with `{ "required": "<scope>" }` | Missing OAuth scope | Surfaced as "Backend refused scope" |
-| 403 without `required` | Application ACL (role/membership) | Surfaced as "Backend ACL denied" with the body's `error` string |
-| 400 / 500 with `{ "error": "..." }` | Business error | The `error` string is propagated to the MCP client, full body in `data.backendError` |
+| 403 without `required` | Application ACL (role/membership) | On `tools/call`: a tool execution error (`isError: true`) naming the reason. Elsewhere: "Backend ACL denied" with the body's `error` string |
+| 400 / 500 with `{ "error": "..." }` | Business error | On `tools/call`: a tool execution error — a result with `isError: true` whose text is the `error` string, followed by the body when it carries more fields (a `hint`, the offending value). The model reads it and can fix its call. On resources and prompts: a JSON-RPC error, full body in `data.backendError` |
 
 The 403 discrimination matters: a caller holding the right scope but lacking a
 role must not be told to go fetch more scopes.

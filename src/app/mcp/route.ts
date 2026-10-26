@@ -1,7 +1,7 @@
 /**
  * MCP endpoint — `/mcp`.
  *
- * Spec: Model Context Protocol 2025-06-18 (Streamable HTTP transport) AND
+ * Spec: Model Context Protocol 2025-11-25 / 2025-06-18 (Streamable HTTP transport) AND
  * 2026-07-28 (stateless) on the same endpoint — a "dual-era" server in the
  * spec's terms. The choice is made per request (lib/mcp-generation.ts):
  * - header `MCP-Protocol-Version: 2026-07-28` and/or a version in `_meta` →

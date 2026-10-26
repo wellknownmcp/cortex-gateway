@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import type { BackendApp, FederatedToolEntry } from '@/contract';
+import { CortexBackendAclDenied, CortexBackendError, CortexBackendUnauthorized } from '@/contract';
 
 const { validateRequest, callBackend, logAudit } = vi.hoisted(() => ({
   validateRequest: vi.fn(),
@@ -170,7 +171,7 @@ describe('MCP 2026-07-28: no initialize, no session', () => {
 
   it('server/discover: versions, capabilities without listChanged, public cache', async () => {
     const { body } = await read(await POST(modern('server/discover')));
-    expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-06-18', '2025-03-26']);
+    expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26']);
     expect(body.result.capabilities).toEqual({ tools: {}, resources: {}, prompts: {} });
     // Private: the instructions name the backends this caller holds a scope on.
     expect(body.result.cacheScope).toBe('private');
@@ -409,5 +410,41 @@ describe('report_missing_capability', () => {
       delete process.env.CORTEX_BACKENDS;
       delete process.env.CORTEX_BACKEND_BILLING_URL;
     }
+  });
+});
+
+describe('tools/call results follow the spec', () => {
+  const call = () => POST(legacy('tools/call', { name: 'docs_search', arguments: {} }));
+
+  it('relays MCP content blocks from a backend that already speaks them', async () => {
+    const content = [
+      { type: 'image', data: 'AAAA', mimeType: 'image/png' },
+      { type: 'resource', resource: { uri: 'docs://document/1', mimeType: 'text/plain', text: 'x' } },
+    ];
+    callBackend.mockResolvedValue({ content, isError: false, extra: 'dropped' });
+    const { body } = await read(await call());
+    expect(body.result).toEqual({ content, isError: false });
+  });
+
+  it('serializes as text anything that is not a well-formed CallToolResult', async () => {
+    callBackend.mockResolvedValue({ content: [{ title: 'an article, not a content block' }] });
+    const { body } = await read(await call());
+    expect(body.result.content).toEqual([{ type: 'text', text: '{"content":[{"title":"an article, not a content block"}]}' }]);
+  });
+
+  it('reports a backend business error as a tool execution error, keeping its hint', async () => {
+    callBackend.mockRejectedValue(new CortexBackendError('Backend 400', 400, { error: 'limit must be <= 100', hint: 'use pagination' }));
+    const { body } = await read(await call());
+    expect(body.error).toBeUndefined();
+    expect(body.result.isError).toBe(true);
+    expect(body.result.content[0].text).toContain('limit must be <= 100');
+    expect(body.result.content[0].text).toContain('use pagination');
+  });
+
+  it('reports an ACL refusal as a tool execution error, and a backend 401 as a protocol error', async () => {
+    callBackend.mockRejectedValueOnce(new CortexBackendAclDenied('not a member', { error: 'not a member' }));
+    expect((await read(await call())).body.result).toMatchObject({ isError: true });
+    callBackend.mockRejectedValueOnce(new CortexBackendUnauthorized({}));
+    expect((await read(await call())).body.error.code).toBe(-32603);
   });
 });

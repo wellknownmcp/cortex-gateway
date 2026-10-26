@@ -1,0 +1,22 @@
+# Known gaps against @modelcontextprotocol/conformance (server scenarios).
+#
+# None is a spec violation: each is an optional capability the gateway does
+# not declare, so not serving it is conformant. They fail the suite because it
+# exercises every capability. A scenario listed here that starts passing fails
+# the run too — remove it from the list in the same change.
+server:
+  # Capabilities not declared: completions, logging, resource subscriptions.
+  - completion-complete
+  - logging-set-level
+  - tools-call-with-logging
+  - resources-subscribe
+  - resources-unsubscribe
+  # Progress notifications are optional; the backend contract is one
+  # request, one response, with no channel to stream them through.
+  - tools-call-with-progress
+  # Server-to-client requests (sampling, elicitation): the backend contract
+  # cannot relay a backend's question back to the client.
+  - tools-call-sampling
+  - tools-call-elicitation
+  - elicitation-sep1034-defaults
+  - elicitation-sep1330-enums

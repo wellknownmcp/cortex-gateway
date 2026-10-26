@@ -24,6 +24,9 @@ jobs:
         env:
           CORTEX_CANONICAL_URI: https://mcp.example.com/mcp
           OAUTH_ISSUER: https://auth.example.com
+      # Official MCP conformance suite against the production build, real
+      # OAuth verification, known gaps in scripts/conformance/baseline.yml.
+      - run: node scripts/conformance/run.mjs
 
   demo-auth-server:
     runs-on: ubuntu-latest
