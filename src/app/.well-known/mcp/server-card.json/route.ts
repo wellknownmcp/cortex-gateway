@@ -23,7 +23,8 @@
 
 import { NextResponse } from 'next/server';
 import { canonicalUri } from '@/lib/oauth-validator';
-import { SERVER_VERSION, SERVER_PROTOCOL_VERSION, serverName } from '@/lib/mcp-methods';
+import { SERVER_VERSION, serverName } from '@/lib/mcp-methods';
+import { SUPPORTED_VERSIONS } from '@/lib/mcp-generation';
 
 export async function GET(): Promise<NextResponse> {
   const endpoint = canonicalUri();
@@ -44,7 +45,7 @@ export async function GET(): Promise<NextResponse> {
           url: endpoint,
           // Same constant `initialize` answers with — the card cannot drift
           // from what the endpoint actually negotiates.
-          supportedProtocolVersions: [SERVER_PROTOCOL_VERSION],
+          supportedProtocolVersions: [...SUPPORTED_VERSIONS],
         },
       ],
     },
