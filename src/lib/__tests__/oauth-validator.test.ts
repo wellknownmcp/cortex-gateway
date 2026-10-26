@@ -37,6 +37,15 @@ describe('dev bypass', () => {
   it('refuses a request that came through a proxy', async () => {
     const res = await validateRequest(req({ host: 'localhost', 'x-dev-mode': 'dev-secret', 'x-forwarded-for': '203.0.113.9' }));
     expect(res.ok).toBe(false);
+    const viaLocalProxy = await validateRequest(req({ host: 'localhost', 'x-dev-mode': 'dev-secret', 'x-real-ip': '127.0.0.1' }));
+    expect(viaLocalProxy.ok).toBe(false);
+  });
+
+  it('accepts the x-forwarded-for Next fills in with the loopback socket address', async () => {
+    for (const xff of ['127.0.0.1', '::1', '::ffff:127.0.0.1']) {
+      const res = await validateRequest(req({ host: 'localhost:3213', 'x-dev-mode': 'dev-secret', 'x-forwarded-for': xff }));
+      expect(res.ok).toBe(true);
+    }
   });
 
   it('refuses a wrong secret, and never activates in production', async () => {

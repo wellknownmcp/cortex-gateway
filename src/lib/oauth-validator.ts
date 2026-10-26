@@ -100,20 +100,27 @@ function getVerifier(): OAuthVerifier {
 }
 
 const LOOPBACK_HOST = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
+const LOOPBACK_ADDRESS = /^(?:127(?:\.\d{1,3}){3}|::1|::ffff:127(?:\.\d{1,3}){3})$/i;
 
 /**
  * Best-effort "this request came straight from this machine". The Host header
  * is client-controlled, so it is matched exactly (`localhost.evil.example`
- * used to pass a prefix test) and any forwarding header disqualifies the
- * request: through a proxy, Host says nothing about who is calling. This is
- * not a network boundary — that is NODE_ENV plus `npm run dev` binding to
- * 127.0.0.1 — it keeps a stray non-production instance behind a proxy from
- * honoring the bypass.
+ * used to pass a prefix test). Next fills `x-forwarded-for` with the socket's
+ * remote address when the client sent none, so the header is expected — but
+ * every hop in it must be loopback: through a proxy, Host says nothing about
+ * who is calling. `Forwarded` and `X-Real-IP` are only ever set by a proxy and
+ * disqualify the request. This is not a network boundary — a client may write
+ * its own `x-forwarded-for`, and Next keeps it; the boundary is NODE_ENV plus
+ * `npm run dev` binding to 127.0.0.1. It keeps a stray non-production instance
+ * behind a proxy from honoring the bypass.
  */
 function isDirectLoopbackRequest(req: Request): boolean {
-  if (req.headers.has('x-forwarded-for') || req.headers.has('forwarded') || req.headers.has('x-real-ip')) {
-    return false;
-  }
+  if (req.headers.has('forwarded') || req.headers.has('x-real-ip')) return false;
+  const hops = (req.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!hops.every((h) => LOOPBACK_ADDRESS.test(h))) return false;
   return LOOPBACK_HOST.test(req.headers.get('host') ?? '');
 }
 

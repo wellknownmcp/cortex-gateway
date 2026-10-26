@@ -368,7 +368,7 @@ on.
   the gateway answers 503 `server_misconfigured`, with the reason on stderr,
   rather than falling back to `http://localhost:3213/mcp` as its audience.
 - **Dev bypass.** Compared in constant time, accepted only for an exact
-  loopback `Host` with no forwarding header, never under
+  loopback `Host`, only loopback hops in `x-forwarded-for`, never under
   `NODE_ENV=production`, and with no implicit role (it used to default to
   `admin`). `npm run dev` binds to 127.0.0.1.
 - **Client IP.** `X-Forwarded-For` is read only when you declare your proxies
