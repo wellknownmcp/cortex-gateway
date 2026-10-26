@@ -59,6 +59,24 @@ const token = await new SignJWT({ scope: 'mcp:test:read mcp:json:read', client_i
   .setExpirationTime(now + 3600)
   .sign(privateKey);
 
+// ─── Proxy adding the Bearer token ────────────────────────────────────────
+// Started before the gateway: its origin is the one the gateway must allow.
+
+const proxy = createServer((req, res) => {
+  const headers = { ...req.headers, authorization: `Bearer ${token}` };
+  const up = request({ host: '127.0.0.1', port: GATEWAY_PORT, path: req.url, method: req.method, headers }, (r) => {
+    res.writeHead(r.statusCode ?? 502, r.headers);
+    r.pipe(res);
+  });
+  up.on('error', (e) => {
+    res.writeHead(502);
+    res.end(String(e));
+  });
+  req.pipe(up);
+});
+await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+const url = `http://127.0.0.1:${proxy.address().port}/mcp`;
+
 const require = createRequire(import.meta.url);
 const nextBin = join(dirname(require.resolve('next/package.json')), 'dist/bin/next');
 const mode = process.env.CONFORMANCE_NEXT === 'dev' ? 'dev' : 'start';
@@ -76,6 +94,10 @@ const gateway = spawn(process.execPath, [nextBin, mode, '-p', String(GATEWAY_POR
     CORTEX_CANONICAL_URI: CANONICAL_URI,
     CORTEX_DEV_BYPASS_TOKEN: '',
     CORTEX_DATABASE_URL: '',
+    // A localhost server declares its own origin; production allows no
+    // localhost origin by default (lib/origins.ts). The DNS-rebinding scenario
+    // checks both sides: this origin accepted, a foreign one refused.
+    CORTEX_ALLOWED_ORIGINS: new URL(url).origin,
     NEXT_TELEMETRY_DISABLED: '1',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -83,22 +105,7 @@ const gateway = spawn(process.execPath, [nextBin, mode, '-p', String(GATEWAY_POR
 gateway.stdout.pipe(process.stderr);
 gateway.stderr.pipe(process.stderr);
 
-// ─── 3. Proxy adding the Bearer token ─────────────────────────────────────
 
-const proxy = createServer((req, res) => {
-  const headers = { ...req.headers, authorization: `Bearer ${token}` };
-  const up = request({ host: '127.0.0.1', port: GATEWAY_PORT, path: req.url, method: req.method, headers }, (r) => {
-    res.writeHead(r.statusCode ?? 502, r.headers);
-    r.pipe(res);
-  });
-  up.on('error', (e) => {
-    res.writeHead(502);
-    res.end(String(e));
-  });
-  req.pipe(up);
-});
-await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
-const url = `http://127.0.0.1:${proxy.address().port}/mcp`;
 
 let exitCode = 1;
 try {
