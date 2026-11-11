@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twelve internal apps behind one MCP connector | Cortex Gateway</title>
+<meta name="description" content="Notes from the gateway Cortex Gateway was extracted from: twelve applications, 200+ tools, 42,000 tokens of tools/list per conversation before filtering, and what each number changed.">
+<link rel="canonical" href="https://cortex-gateway.dev/use-cases/twelve-apps-in-production/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="Twelve internal apps behind one MCP connector">
+<meta property="og:description" content="Twelve applications, 200+ tools, 42,000 tokens of tools/list per conversation before filtering. What running an MCP gateway for a company changed in its design.">
+<meta property="og:url" content="https://cortex-gateway.dev/use-cases/twelve-apps-in-production/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "Twelve internal apps behind one MCP connector",
+      "url": "https://cortex-gateway.dev/use-cases/twelve-apps-in-production/",
+      "dateModified": "2026-11-11",
+      "author": { "@type": "Person", "name": "Anragde", "url": "https://github.com/Anragde" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Use cases", "item": "https://cortex-gateway.dev/use-cases/twelve-apps-in-production/" },
+        { "@type": "ListItem", "position": 3, "name": "Twelve apps in production" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How many tools can one MCP connector expose before it becomes a problem?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The limit is the model's context, not the protocol. In the deployment described here, twelve applications expose more than two hundred tools, and the full tools/list measured 42,000 tokens per conversation before any filtering. That cost is paid before the user has typed anything. Two measures brought it down: letting a session ask for the tools of a few backends only, and a search mode where tools/list carries names and one-line descriptions and the full schema is fetched on demand." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does one connector for a whole company mean every agent sees every tool?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. The catalog is filtered by the OAuth scopes of the person the agent acts for, so an agent never lists a tool its user may not call. The figure of two hundred tools is what an account with every scope sees. Most people see the tools of the two or three applications they work in." }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Cortex Gateway the same code as the gateway described here?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Cortex Gateway was extracted from it in July 2026 and the two have lived separately since: the open-source one is configured entirely by environment variables where the internal one is specific to its company, and it has parts the internal one does not need, such as the adapter for third-party MCP servers. The design is the same, and fixes travel in both directions." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Use cases › Twelve apps in production</p>
+  <h1>Twelve internal apps behind one MCP connector</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p>Cortex Gateway was extracted from a gateway that serves one company: <strong>twelve internal applications, more than two hundred tools, one connector</strong>. This page is what that deployment taught, with the numbers that can be published. The company is not named and no usage figures are given. The <a href="/use-cases/company-federation/">company-federation page</a> is the worked example; this one is the field notes.</p>
+  </div>
+
+  <h2>The setting</h2>
+  <p>One small application per function, each with its own database and its own rights: administration, sales, a document dataroom, quality management, finance, data protection, investor relations, code hosting, and a few more. Rights follow the org chart, and each application enforced them long before any agent existed.</p>
+  <p>The team has an MCP-capable assistant. The requirement was one sentence: <strong>an agent may do what its user may do, in every application, and nothing else.</strong></p>
+  <table>
+    <tr><th></th><th>In this deployment</th></tr>
+    <tr><td>Applications federated</td><td>12</td></tr>
+    <tr><td>Tools, for an account holding every scope</td><td>more than 200</td></tr>
+    <tr><td>Connectors a person installs</td><td>1</td></tr>
+    <tr><td>Credentials the gateway holds for the applications</td><td>1 static token, accepted for catalog methods only</td></tr>
+    <tr><td>Full <code>tools/list</code>, before filtering</td><td>42,000 tokens per conversation</td></tr>
+  </table>
+
+  <h2>What 42,000 tokens changed</h2>
+  <p>Every tool definition is sent to the model at the start of a conversation. With two hundred of them, that measured 42,000 tokens before the user had typed a word. No protocol limit was reached. The cost was the model's attention, and its precision at picking the right tool.</p>
+  <p>Three things followed, all in the open-source gateway:</p>
+  <ul>
+    <li><strong>Scope filtering first.</strong> Two hundred is what an account with every scope sees. Most people hold the scopes of two or three applications, and their agent lists only those tools. A tool a user may not call is never described to their agent.</li>
+    <li><strong>A session can name its backends.</strong> An agent working on the dataroom has no use for finance tools. It asks for the backends it needs, and the rest is not listed. This narrows the catalog and grants nothing: a call outside the list is still checked against the token.</li>
+    <li><strong>Search mode.</strong> <code>tools/list</code> carries names and one-line descriptions; the full schema of a tool is fetched when the agent decides to use it. Details in <a href="/answers/mcp-too-many-tools/">MCP: too many tools</a>.</li>
+  </ul>
+  <p>A smaller one came later: <code>tools/list</code> is sorted by name. The order used to follow each application's own list, so a release that reordered its tools changed the catalog the client had cached.</p>
+
+  <h2>What two hundred tools need besides schemas</h2>
+  <p>A catalog tells an agent what it can call. It does not teach it the business. Past a few dozen tools, agents guess, and they guess wrong in ways that look plausible.</p>
+  <ul>
+    <li><strong>Every application answers <code>get_help</code>.</strong> Its workflows, its conventions and its vocabulary, written by the people who own it and versioned with its code. The gateway's instructions tell every agent to read it before guessing.</li>
+    <li><strong>Agents can say what is missing.</strong> When an agent cannot do what it was asked, it files a ticket through a built-in tool instead of improvising. The backlog of unmet needs writes itself, per application.</li>
+    <li><strong>A refusal explains itself.</strong> When an application refuses a call, its reason reaches the model as a tool error it can read and act on, not as an opaque failure.</li>
+  </ul>
+
+  <h2>What stayed boring, on purpose</h2>
+  <ul>
+    <li><strong>The gateway decides nothing.</strong> It checks that the agent does not exceed the scopes its user granted, and passes the user's identity on. Who may read which record is still decided where the record lives.</li>
+    <li><strong>Twelve applications, zero MCP libraries.</strong> Each one answers a single HTTP endpoint. Adding the thirteenth is an endpoint and an environment variable.</li>
+    <li><strong>One audit line per call</strong>, naming the person behind the agent, in one place.</li>
+    <li><strong>One revocation.</strong> When someone leaves, their agent loses every application at once.</li>
+  </ul>
+
+  <h2>What it took to keep it honest</h2>
+  <p>In October 2026 the internal gateway went through a security review. Each finding was then checked against the open-source code. Those that applied were fixed in <a href="https://github.com/wellknownmcp/cortex-gateway/releases/tag/v0.3.0">v0.3.0</a>, and the one that could not be fixed in a release, the forwarding of the caller's token to backends, is <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/security.md">documented with what it implies</a>.</p>
+  <p>The same month, the stateless MCP revision 2026-07-28 went live there next to the <code>initialize</code> path, on the same endpoint. Clients on the older revisions saw no difference, which was the point.</p>
+
+  <h2>What this page does not claim</h2>
+  <ul>
+    <li><strong>It is not the same code.</strong> Cortex Gateway was extracted from that gateway in July 2026, and the two have lived separately since. The open-source one is generic and configured by environment; it also has parts the other does not need, such as the <a href="/guides/federate-third-party-mcp-servers/">adapter for third-party MCP servers</a>. The design is shared, and fixes travel both ways.</li>
+    <li><strong>No usage figures.</strong> Number of users, calls per day and response times are not published here.</li>
+    <li><strong>One deployment is one deployment.</strong> It shows the design holds at twelve applications for one organization. It says nothing about a hundred.</li>
+  </ul>
+
+  <h2>If your situation looks like this</h2>
+  <p>Several internal applications, a team already working with an assistant, and no wish to hand an aggregator the union of everyone's rights: the <a href="/use-cases/company-federation/">worked example</a> shows the architecture, and the <a href="https://github.com/wellknownmcp/cortex-gateway">repository</a> is MIT-licensed. If you would rather not do it alone, <a href="/about/">this is work I take on</a>.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>How many tools can one MCP connector expose before it becomes a problem?</h3>
+    <p>The limit is the model's context, not the protocol. Here, two hundred tools measured 42,000 tokens of <code>tools/list</code> per conversation before filtering. Scope filtering, per-session backend selection and a search mode brought that down.</p>
+    <h3>Does one connector mean every agent sees every tool?</h3>
+    <p>No. The catalog is filtered by the scopes of the person the agent acts for. Two hundred is what an account with every scope sees; most people see the tools of two or three applications.</p>
+    <h3>Is Cortex Gateway the same code as the gateway described here?</h3>
+    <p>No. It was extracted from it in July 2026 and the two have lived separately since. Same design, fixes in both directions.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/about/">About</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>

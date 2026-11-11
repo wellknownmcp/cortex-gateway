@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About Cortex Gateway: who builds it, and why | Cortex Gateway</title>
+<meta name="description" content="Cortex Gateway is built and maintained by one developer, extracted from a gateway that runs twelve internal apps for a company. Why it exists, what can be checked, and how to get help.">
+<link rel="canonical" href="https://cortex-gateway.dev/about/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="About Cortex Gateway: who builds it, and why">
+<meta property="og:description" content="One developer, one gateway extracted from production. Why it exists, what can be checked, and how to get help connecting your own apps to MCP.">
+<meta property="og:url" content="https://cortex-gateway.dev/about/">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "AboutPage",
+      "name": "About Cortex Gateway",
+      "url": "https://cortex-gateway.dev/about/",
+      "dateModified": "2026-11-11",
+      "mainEntity": {
+        "@type": "Person",
+        "name": "Anragde",
+        "url": "https://github.com/Anragde",
+        "email": "opensource@wellknownmcp.org",
+        "knowsAbout": ["Model Context Protocol", "OAuth 2.1", "MCP gateways", "MCP Apps"]
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "About" }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › About</p>
+  <h1>About Cortex Gateway</h1>
+
+  <div class="tldr">
+    <strong>In short</strong>
+    <p>Cortex Gateway is built and maintained by one developer, <a href="https://github.com/Anragde">Anragde</a> on GitHub. It was extracted from a gateway I built for a company, where it puts twelve internal applications behind one MCP connector. It is MIT-licensed and nothing here is for sale. If you want the same thing for your own applications, I take on that work: <a href="mailto:opensource@wellknownmcp.org">opensource@wellknownmcp.org</a>.</p>
+  </div>
+
+  <h2>Why it exists</h2>
+  <p>My wife's company has one small internal application per function: administration, sales, a dataroom, and so on. Rights follow the org chart. When the team got a Claude plan, everyone wanted to hand their own agent the keys, with exactly their own rights. Nothing more, nothing less.</p>
+  <p>One MCP connector per application did not scale. An aggregator on a service account was the wrong answer: every agent would have held the union of everyone's access. So I built a gateway where the agent's access <em>is</em> the user's access. One connector for the company, every call carrying the real caller's identity, each application still enforcing the permissions it already had.</p>
+  <p>Later a post went around saying someone should build exactly that. It is what convinced me to extract the gateway from that stack and publish it.</p>
+
+  <h2>Where it runs</h2>
+  <p>The gateway this project comes from federates twelve applications and more than two hundred tools for that company. What that taught, with the numbers I can publish, is in <a href="/use-cases/twelve-apps-in-production/">twelve internal apps behind one MCP connector</a>.</p>
+  <p>The two codebases are siblings, not copies. The open-source one is generic where the internal one is specific, and it has parts the internal one does not need, such as the adapter for third-party MCP servers. Fixes travel in both directions.</p>
+
+  <h2>What you can check</h2>
+  <p>A project page can claim anything. These can be verified without taking my word for it:</p>
+  <ul>
+    <li><strong>The official MCP conformance suite runs in CI</strong>, against the production build and a real OAuth path. The scenarios that fail are listed with the reason, in <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/scripts/conformance/baseline.yml">one file</a>.</li>
+    <li><strong>The security document says what the gateway does not do</strong>, control by control: <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/security.md">docs/security.md</a>.</li>
+    <li><strong>The protocol layer is written by hand</strong>, without an MCP SDK, for MCP 2026-07-28 and the three revisions before it, on the same endpoint.</li>
+    <li><strong>A hosted demo</strong> answers at <a href="https://mcp.cortex-gateway.dev/">mcp.cortex-gateway.dev</a>, with its own OAuth 2.1 authorization server. Add it as a custom connector and read the tools your scopes allow.</li>
+    <li><strong>The release history</strong> is public: <a href="https://github.com/wellknownmcp/cortex-gateway/releases">four releases</a> since July 2026, each with upgrade notes.</li>
+  </ul>
+
+  <h2>Working together</h2>
+  <p>I help teams put their own applications behind MCP without giving up the permission model those applications already have. Typically:</p>
+  <ul>
+    <li>making an existing application callable by agents, through one HTTP endpoint and no MCP library;</li>
+    <li>the OAuth 2.1 side that real clients are strict about: discovery, the 401 challenge, audience binding, an issuer behind a reverse proxy;</li>
+    <li>one connector for several applications, with scopes that mean something across them and an audit trail that names the person;</li>
+    <li>MCP Apps views, and what they change once several backends share an endpoint.</li>
+  </ul>
+  <p>Write to <a href="mailto:opensource@wellknownmcp.org">opensource@wellknownmcp.org</a> with what you have and what you want agents to reach. A bug or a question about the project itself belongs on <a href="https://github.com/wellknownmcp/cortex-gateway/issues">GitHub</a>; a vulnerability goes through a <a href="https://github.com/wellknownmcp/cortex-gateway/security/advisories/new">private advisory</a>.</p>
+  <a class="cta" href="mailto:opensource@wellknownmcp.org">Get in touch →</a>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/about/">About</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
