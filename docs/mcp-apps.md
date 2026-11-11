@@ -109,6 +109,17 @@ without its view.
   given backend, do not let it declare views: review `ui` at approval time
   (integrity `block` mode quarantines a tool that gains one), or serve that
   backend from a gateway of its own.
+- **It does not translate the tool names a view calls.** A view calls tools
+  through its host, by name, and the gateway only knows the published names
+  (`<backendId>_<tool>`). A view written for the gateway calls
+  `docs_refresh`; a view written for a standalone server calls `refresh`, and
+  that call is answered "unknown tool" here. This matters most for native MCP
+  servers behind the adapter: their views display, but the buttons that call
+  back into the server do not work unless the view uses the prefixed names.
+  The call carries no origin, so the gateway cannot resolve a bare name
+  safely; hosts passing the originating view with the call would fix both
+  this and the confinement limit above
+  ([ext-apps discussion #490](https://github.com/modelcontextprotocol/ext-apps/discussions/490)).
 - It does not relay `_meta` on tool results, only `content`,
   `structuredContent` and `isError`.
 - It does not check what the connecting client announced: `_meta.ui` is sent

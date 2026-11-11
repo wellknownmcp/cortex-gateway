@@ -60,6 +60,14 @@ Behind a gateway, the connection *is* the gateway. A `tools/call` does not say w
 
 The ceiling is the user's own reach, plus whatever confirmation the host puts in front of a call: no scope is lifted, and every call lands in the same audit trail. But it is the user's *whole* reach, not the declaring backend's. Federating a backend that declares views means trusting its HTML to that extent, and it is a reason to look at `ui` when a tool is approved, not after.
 
+## The names a view calls
+
+The same missing piece of information breaks something more visible. A view calls tools by the names its author knows: the server's own. The gateway publishes them under a prefix. A view shipped by a standalone server calls `refresh`; the gateway only knows `weather_refresh`, and answers "unknown tool".
+
+So a view that only *displays* a result survives a gateway as soon as the four things above are relayed. A view whose buttons *call back* into its server does not, unless it was written with the prefixed names. Resolving a bare name by guessing the backend is not something a gateway should do: with two backends exposing the same name, the guess decides who receives the call.
+
+Both problems have one fix, and it is on the host side: pass the originating view's resource URI with each call made on its behalf. It has been [proposed for routing](https://github.com/modelcontextprotocol/ext-apps/discussions/490); it would give gateways the means to confine a view as well.
+
 ## Pinning: the declaration, not the content
 
 A gateway that [fingerprints tool definitions](/answers/mcp-security-best-practices/) to catch a rewrite after approval should include the `ui` block. Swapping the view behind an approved tool, adding one, or moving a write tool to `visibility: ["app"]` so the model no longer sees it are all changes of what was approved.
@@ -68,7 +76,7 @@ The HTML is another matter. It changes with every release of the backend, legiti
 
 ## Concretely
 
-[Cortex Gateway](https://github.com/wellknownmcp/cortex-gateway) relays MCP Apps since 0.4.0, for backends that speak its [plain-HTTP contract](/guides/rest-api-to-mcp-server/) and for [native MCP servers](/guides/federate-third-party-mcp-servers/) alike. It builds no view. A backend adds `ui: { resourceUri: "ui://preview" }` to a tool and answers one more method; the gateway publishes the view as `ui://<backendId>/preview`, serves it under the scope of the declaring tool, adds `structuredContent` to the result, and counts `ui` in the tool's fingerprint. What it does not do is listed in the same document as what it does: [docs/mcp-apps.md](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/mcp-apps.md).
+[Cortex Gateway](https://github.com/wellknownmcp/cortex-gateway) relays MCP Apps since 0.4.0, for backends that speak its [plain-HTTP contract](/guides/rest-api-to-mcp-server/) and for [native MCP servers](/guides/federate-third-party-mcp-servers/) alike. It builds no view. A backend adds `ui: { resourceUri: "ui://preview" }` to a tool and answers one more method; the gateway publishes the view as `ui://<backendId>/preview`, serves it under the scope of the declaring tool, adds `structuredContent` to the result, and counts `ui` in the tool's fingerprint. It does not translate the bare tool names a third-party view calls. What it does not do is listed in the same document as what it does: [docs/mcp-apps.md](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/mcp-apps.md).
 
 The relay is checked end to end in CI, against the production build and a real OAuth path, next to the official MCP conformance suite. The demo backend ships a small view for its `get_time` tool, about eighty lines including the HTML, as a starting point. On the [hosted demo](https://mcp.cortex-gateway.dev/), that view renders in Claude through the gateway: connect, ask for the server time, and the clock appears in the conversation.
 
