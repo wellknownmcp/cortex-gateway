@@ -144,7 +144,7 @@ backend "docs" is asked for  ui://preview</code></pre>
 
   <h2>Concretely</h2>
   <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> relays MCP Apps since 0.4.0, for backends that speak its <a href="/guides/rest-api-to-mcp-server/">plain-HTTP contract</a> and for <a href="/guides/federate-third-party-mcp-servers/">native MCP servers</a> alike. It builds no view. A backend adds <code>ui: { resourceUri: "ui://preview" }</code> to a tool and answers one more method; the gateway publishes the view as <code>ui://&lt;backendId&gt;/preview</code>, serves it under the scope of the declaring tool, adds <code>structuredContent</code> to the result, and counts <code>ui</code> in the tool's fingerprint. What it does not do is listed in the same document as what it does: <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/mcp-apps.md">docs/mcp-apps.md</a>.</p>
-  <p>The relay is checked end to end in CI, against the production build and a real OAuth path, next to the official MCP conformance suite. The demo backend ships a small view for its <code>get_time</code> tool, about eighty lines including the HTML, as a starting point.</p>
+  <p>The relay is checked end to end in CI, against the production build and a real OAuth path, next to the official MCP conformance suite. The demo backend ships a small view for its <code>get_time</code> tool, about eighty lines including the HTML, as a starting point. On the <a href="https://mcp.cortex-gateway.dev/">hosted demo</a>, that view renders in Claude through the gateway: connect, ask for the server time, and the clock appears in the conversation.</p>
   <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
 
   <h2>FAQ</h2>

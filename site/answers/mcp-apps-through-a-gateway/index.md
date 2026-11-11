@@ -70,7 +70,7 @@ The HTML is another matter. It changes with every release of the backend, legiti
 
 [Cortex Gateway](https://github.com/wellknownmcp/cortex-gateway) relays MCP Apps since 0.4.0, for backends that speak its [plain-HTTP contract](/guides/rest-api-to-mcp-server/) and for [native MCP servers](/guides/federate-third-party-mcp-servers/) alike. It builds no view. A backend adds `ui: { resourceUri: "ui://preview" }` to a tool and answers one more method; the gateway publishes the view as `ui://<backendId>/preview`, serves it under the scope of the declaring tool, adds `structuredContent` to the result, and counts `ui` in the tool's fingerprint. What it does not do is listed in the same document as what it does: [docs/mcp-apps.md](https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/mcp-apps.md).
 
-The relay is checked end to end in CI, against the production build and a real OAuth path, next to the official MCP conformance suite. The demo backend ships a small view for its `get_time` tool, about eighty lines including the HTML, as a starting point.
+The relay is checked end to end in CI, against the production build and a real OAuth path, next to the official MCP conformance suite. The demo backend ships a small view for its `get_time` tool, about eighty lines including the HTML, as a starting point. On the [hosted demo](https://mcp.cortex-gateway.dev/), that view renders in Claude through the gateway: connect, ask for the server time, and the clock appears in the conversation.
 
 [Get started on GitHub →](https://github.com/wellknownmcp/cortex-gateway)
 
