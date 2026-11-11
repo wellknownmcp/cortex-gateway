@@ -6,7 +6,7 @@
 
 Putting several native MCP servers behind one endpoint is easy. Doing it *without flattening identity* is the whole problem. The usual aggregator configures one credential per downstream server, so every caller shares it and the provider sees a single over-privileged account. The alternative: each user **links their own account once**, their grant is sealed in a per-user encrypted vault, and at call time the proxy presents *their* token. The provider sees their seat, their rate limits, their audit trail. One consent per provider per user — that part is non-negotiable OAuth, not a design choice.
 
-Status: the proxy adapter is **beta**. Its protocol layer is covered by unit tests against the MCP specification (2025-06-18); it is not certified against any particular commercial provider. Tools only in V1 — downstream prompts and resources are not projected, and interactive features (sampling, elicitation) do not cross the bridge.
+Status: the proxy adapter is **beta**. Its protocol layer is covered by unit tests against the MCP specification (2025-06-18); it is not certified against any particular commercial provider. It projects tools and the [MCP Apps views](/answers/mcp-apps-through-a-gateway/) those tools declare — other downstream prompts and resources are not projected, and interactive features (sampling, elicitation) do not cross the bridge.
 
 ## What the adapter actually is
 
@@ -107,7 +107,7 @@ The honest cost is the consent screens. Per-user linking is more friction than a
 
 ## Limits worth knowing before you commit
 
--   **Tools only, in V1.** Downstream prompts and resources are not projected upstream. Interactive MCP features — sampling, elicitation — do not cross the bridge.
+-   **Tools and their views only.** A tool's MCP Apps view crosses, read with the calling user's own linked token. Other downstream prompts and resources are not projected upstream. Interactive MCP features — sampling, elicitation — do not cross the bridge.
 -   **One scope per provider.** All tools of a downstream server share a single Cortex scope; per-tool scope mapping is future work. If a provider mixes read and write tools, your scope is as coarse as its worst tool.
 -   **Session cache is in-process.** Multi-instance deployments re-initialize per instance. Harmless — just extra handshakes.
 -   **Licensing.** Federation moves *access*, not licences. Each user links their own account and must hold the appropriate plan or seat. Read each provider's terms before re-exposing their MCP server; re-exposing a service under a shared account is precisely what per-user linking exists to avoid.
@@ -152,4 +152,4 @@ Every stored grant becomes unreadable and users must re-link. That is correct be
 
 ### Is the adapter production-ready?
 
-It is beta. The protocol layer is unit-tested against the MCP specification (2025-06-18) but not certified against any specific commercial provider, and V1 projects tools only. Treat a new provider as an integration to validate, not a checkbox.
+It is beta. The protocol layer is unit-tested against the MCP specification (2025-06-18) but not certified against any specific commercial provider, and it projects tools and their MCP Apps views only. Treat a new provider as an integration to validate, not a checkbox.

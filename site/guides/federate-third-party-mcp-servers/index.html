@@ -24,7 +24,7 @@
       "@type": "Article",
       "headline": "Federate third-party MCP servers behind one endpoint, without sharing credentials",
       "url": "https://cortex-gateway.dev/guides/federate-third-party-mcp-servers/",
-      "dateModified": "2026-07-09",
+      "dateModified": "2026-11-11",
       "author": { "@type": "Organization", "name": "Cortex Gateway" }
     },
     {
@@ -104,7 +104,7 @@
   <div class="tldr">
     <strong>TL;DR</strong>
     <p>Putting several native MCP servers behind one endpoint is easy. Doing it <em>without flattening identity</em> is the whole problem. The usual aggregator configures one credential per downstream server, so every caller shares it and the provider sees a single over-privileged account. The alternative: each user <strong>links their own account once</strong>, their grant is sealed in a per-user encrypted vault, and at call time the proxy presents <em>their</em> token. The provider sees their seat, their rate limits, their audit trail. One consent per provider per user — that part is non-negotiable OAuth, not a design choice.</p>
-    <p class="note">Status: the proxy adapter is <strong>beta</strong>. Its protocol layer is covered by unit tests against the MCP specification (2025-06-18); it is not certified against any particular commercial provider. Tools only in V1 — downstream prompts and resources are not projected, and interactive features (sampling, elicitation) do not cross the bridge.</p>
+    <p class="note">Status: the proxy adapter is <strong>beta</strong>. Its protocol layer is covered by unit tests against the MCP specification (2025-06-18); it is not certified against any particular commercial provider. It projects tools and the <a href="/answers/mcp-apps-through-a-gateway/">MCP Apps views</a> those tools declare — other downstream prompts and resources are not projected, and interactive features (sampling, elicitation) do not cross the bridge.</p>
   </div>
 
   <h2>What the adapter actually is</h2>
@@ -174,7 +174,7 @@ CORTEX_DATABASE_URL=postgresql://...    # required by the vault</code></pre>
 
   <h2>Limits worth knowing before you commit</h2>
   <ul>
-    <li><strong>Tools only, in V1.</strong> Downstream prompts and resources are not projected upstream. Interactive MCP features — sampling, elicitation — do not cross the bridge.</li>
+    <li><strong>Tools and their views only.</strong> A tool's MCP Apps view crosses, read with the calling user's own linked token. Other downstream prompts and resources are not projected upstream. Interactive MCP features — sampling, elicitation — do not cross the bridge.</li>
     <li><strong>One scope per provider.</strong> All tools of a downstream server share a single Cortex scope; per-tool scope mapping is future work. If a provider mixes read and write tools, your scope is as coarse as its worst tool.</li>
     <li><strong>Session cache is in-process.</strong> Multi-instance deployments re-initialize per instance. Harmless — just extra handshakes.</li>
     <li><strong>Licensing.</strong> Federation moves <em>access</em>, not licences. Each user links their own account and must hold the appropriate plan or seat. Read each provider's terms before re-exposing their MCP server; re-exposing a service under a shared account is precisely what per-user linking exists to avoid.</li>
@@ -202,7 +202,7 @@ CORTEX_DATABASE_URL=postgresql://...    # required by the vault</code></pre>
     <h3>What happens if I rotate the vault key?</h3>
     <p>Every stored grant becomes unreadable and users must re-link. That is correct behaviour, and a planned operational event — not something to discover during an incident.</p>
     <h3>Is the adapter production-ready?</h3>
-    <p>It is beta. The protocol layer is unit-tested against the MCP specification (2025-06-18) but not certified against any specific commercial provider, and V1 projects tools only. Treat a new provider as an integration to validate, not a checkbox.</p>
+    <p>It is beta. The protocol layer is unit-tested against the MCP specification (2025-06-18) but not certified against any specific commercial provider, and it projects tools and their MCP Apps views only. Treat a new provider as an integration to validate, not a checkbox.</p>
   </div>
 </main>
 <footer class="site">

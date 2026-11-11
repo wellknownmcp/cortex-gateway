@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Apps through a gateway: what must be relayed | Cortex Gateway</title>
+<meta name="description" content="A gateway not written for MCP Apps drops the views silently. The four things it must relay, how to scope a ui:// resource, and what a view can reach behind one endpoint.">
+<link rel="canonical" href="https://cortex-gateway.dev/answers/mcp-apps-through-a-gateway/">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<meta property="og:title" content="MCP Apps through a gateway: what must be relayed">
+<meta property="og:description" content="Four things a gateway has to relay for MCP Apps views to survive it, and what a view can reach once several backends sit behind one endpoint.">
+<meta property="og:url" content="https://cortex-gateway.dev/answers/mcp-apps-through-a-gateway/">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cortex-gateway.dev/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Article",
+      "headline": "MCP Apps through a gateway: what must be relayed",
+      "url": "https://cortex-gateway.dev/answers/mcp-apps-through-a-gateway/",
+      "dateModified": "2026-11-11",
+      "author": { "@type": "Organization", "name": "Cortex Gateway" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://cortex-gateway.dev/" },
+        { "@type": "ListItem", "position": 2, "name": "Answers", "item": "https://cortex-gateway.dev/answers/mcp-apps-through-a-gateway/" },
+        { "@type": "ListItem", "position": 3, "name": "MCP Apps through a gateway" }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Do MCP Apps work through an MCP gateway or proxy?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Only if the gateway relays four things: the _meta.ui block on each tool in tools/list, resources/read on the ui:// resource that block points to, structuredContent in the tools/call result, and the extension io.modelcontextprotocol/ui in the capabilities it exchanges on both sides. A gateway written before the extension usually rebuilds tool definitions from the fields it knows, so _meta.ui is dropped and nothing fails: the host shows the text result and never asks for a view." }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does my MCP App show only text when the server is behind a gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Check tools/list as the client receives it. If the tool has no _meta.ui.resourceUri, the gateway dropped it and the host has no reason to render anything. If it is there, read that URI with resources/read through the gateway: an error or an empty contents array means the gateway does not route ui:// resources. If both work, compare the tools/call result: a view renders structuredContent, and a gateway that flattens results to one text block removes it." }
+        },
+        {
+          "@type": "Question",
+          "name": "How should a gateway namespace ui:// resources from several servers?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The same way it namespaces tool names. Two servers can both declare ui://dashboard, so the gateway has to publish each URI under an identifier of the server that owns it, for example ui://<backendId>/dashboard, rewrite _meta.ui.resourceUri accordingly, and translate back when the host reads the resource. Routing by an identifier inside the URI avoids guessing which server owns the ui scheme." }
+        },
+        {
+          "@type": "Question",
+          "name": "Who should be allowed to read a ui:// resource through a gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "The callers who can call a tool that declares it. A view has no scope of its own in the extension, so the natural rule is to serve it only when a federated tool declares that exact URI and the caller holds the scope of one of the declaring tools. Every other read, including a forged URI or a view of a backend the caller has no scope on, should be refused by the gateway without forwarding the caller's token to any backend." }
+        },
+        {
+          "@type": "Question",
+          "name": "Can an MCP App view call tools from another server behind the same gateway?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. The extension scopes a view's tool calls to the server connection it came from, and behind a gateway that connection is the whole gateway. A tools/call does not say which view sent it, so the gateway cannot confine a view to the backend that served it. A view can ask the host to call any tool the user can call through the gateway, within the user's scopes and whatever confirmation the host applies. Federating a backend that declares views means trusting its HTML to that extent." }
+        },
+        {
+          "@type": "Question",
+          "name": "Does tool-definition pinning cover MCP Apps views?",
+          "acceptedAnswer": { "@type": "Answer", "text": "It can cover the declaration and usually not the content. A gateway that fingerprints tool definitions should include the ui block, because swapping the view behind an approved tool or hiding a write tool from the model with visibility app is a definition change. The HTML behind an unchanged URI is a different matter: it legitimately changes with every release of the backend, and a control that fires on each release ends up switched off." }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<header class="site">
+  <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="20" height="20"> cortex-gateway</a>
+  <nav>
+    <a href="/connect/claude-desktop/">Connect a client</a>
+    <a href="/alternatives/open-source-mcp-gateways/">Alternatives</a>
+    <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a>
+    <a href="https://mcp.cortex-gateway.dev/">Live demo</a>
+  </nav>
+</header>
+<main>
+  <p class="crumbs"><a href="/">Home</a> › Answers › MCP Apps through a gateway</p>
+  <h1>MCP Apps through a gateway: what must be relayed</h1>
+
+  <div class="tldr">
+    <strong>TL;DR</strong>
+    <p><a href="https://github.com/modelcontextprotocol/ext-apps">MCP Apps</a> (extension <code>io.modelcontextprotocol/ui</code>) lets a tool come with an interactive view. Put a gateway or a proxy in front of the server and the view survives only if the gateway relays <strong>four things</strong>: <code>_meta.ui</code> on the tool, <code>resources/read</code> on the <code>ui://</code> resource, <code>structuredContent</code> in the result, and the extension in the capabilities. A gateway that predates the extension drops the first one, and <strong>nothing fails</strong>: the host shows text. Once several servers sit behind one endpoint, one consequence deserves to be said out loud: <strong>a view can reach every tool the user can call</strong>, not only the tools of the server that served it.</p>
+  </div>
+
+  <h2>The four things that have to pass</h2>
+  <table>
+    <tr><th>Where</th><th>What the server sends</th><th>What usually happens in a gateway</th></tr>
+    <tr><td><code>tools/list</code></td><td><code>_meta.ui.resourceUri</code>, a <code>ui://</code> URI, and optionally <code>_meta.ui.visibility</code></td><td>Tool definitions are rebuilt from the fields the gateway knows. <code>_meta</code> is not one of them.</td></tr>
+    <tr><td><code>resources/read</code></td><td>The view: one HTML document, <code>mimeType: text/html;profile=mcp-app</code>, with its CSP in <code>_meta.ui</code></td><td>Resources are routed by scheme or not at all, and no server "owns" <code>ui</code>.</td></tr>
+    <tr><td><code>tools/call</code></td><td><code>content</code> for the model, <code>structuredContent</code> for the view</td><td>The result is flattened to one text block.</td></tr>
+    <tr><td><code>initialize</code></td><td>The client announces the extension under <code>capabilities.extensions</code>; a server may register its view-enabled tools only for clients that do</td><td>The gateway is the client of the server behind it, and announces nothing.</td></tr>
+  </table>
+  <p>The last row is the easy one to miss when the gateway fronts a <em>native</em> MCP server. The specification says servers <em>should</em> check the client's capabilities before registering tools with views. The client that server sees is the gateway. If the gateway does not announce the extension downstream, a careful server hands it the text-only variants, and there is nothing left to relay.</p>
+
+  <h2>Diagnosing a view that does not render</h2>
+  <p>In order, from the client's side of the gateway:</p>
+  <ol>
+    <li><strong><code>tools/list</code>.</strong> Does the tool carry <code>_meta.ui.resourceUri</code>? If not, stop here: the host has no reason to render anything.</li>
+    <li><strong><code>resources/read</code></strong> on that URI. An error, or an empty <code>contents</code>, means the gateway does not route <code>ui://</code>.</li>
+    <li><strong><code>tools/call</code>.</strong> Is there a <code>structuredContent</code> next to <code>content</code>? A view with nothing to render looks like a view that failed.</li>
+    <li><strong>The view's own CSP.</strong> A host allows no external connection unless <code>_meta.ui.csp</code> on the resource declares the domain. That metadata has to cross the gateway too.</li>
+  </ol>
+
+  <h2>Namespacing: two servers, one <code>ui://dashboard</code></h2>
+  <p>A gateway already solves this for tool names, usually with a prefix. View URIs need the same treatment, in both directions: publish each one under an identifier of the server that owns it, rewrite <code>_meta.ui.resourceUri</code> to match, and translate back when the host reads it.</p>
+  <pre><code>backend "docs" declares      ui://preview
+client sees, in tools/list   ui://docs/preview
+client reads                 ui://docs/preview
+backend "docs" is asked for  ui://preview</code></pre>
+  <p>Routing on an identifier inside the URI has a second benefit: the gateway never has to decide which server owns the scheme. <code>ui</code> belongs to none of them, and should not be claimable by any.</p>
+
+  <h2>Who may read a view</h2>
+  <p>The extension gives a view no scope of its own. Behind a gateway that filters tools by scope, the rule that follows is short: <strong>the people who can call the tool are the people who can read its view.</strong></p>
+  <ul>
+    <li>A view is served only if a federated tool declares that exact URI.</li>
+    <li>The caller must hold the scope of one of the tools declaring it.</li>
+    <li>Everything else is refused by the gateway itself: an undeclared path, a forged URI, a view of a backend the caller has no scope on. The backend is not called, so it never receives the token of a caller it has no business with.</li>
+  </ul>
+  <p>That last point is the same discipline as for <a href="/answers/mcp-security-best-practices/">resource reads in general</a>: a gateway that forwards the caller's token must decide <em>before</em> forwarding.</p>
+
+  <h2>What a view can reach</h2>
+  <p>A view calls tools by asking its host, and the extension scopes those calls to the server connection the view came from. With one server per connector, that is a real boundary: the weather view can call the weather server's tools.</p>
+  <p>Behind a gateway, the connection <em>is</em> the gateway. A <code>tools/call</code> does not say which view sent it, so the gateway cannot tell a call made by the model from a call made by a view, nor one backend's view from another's. Two consequences:</p>
+  <ul>
+    <li>A view served by backend A can ask the host to call a tool of backend B, with the user's token and scopes.</li>
+    <li><code>visibility: ["app"]</code> hides a tool from the model in a conforming host. It does not reserve the tool to the views of its own backend.</li>
+  </ul>
+  <p>The ceiling is the user's own reach, plus whatever confirmation the host puts in front of a call: no scope is lifted, and every call lands in the same audit trail. But it is the user's <em>whole</em> reach, not the declaring backend's. Federating a backend that declares views means trusting its HTML to that extent, and it is a reason to look at <code>ui</code> when a tool is approved, not after.</p>
+
+  <h2>Pinning: the declaration, not the content</h2>
+  <p>A gateway that <a href="/answers/mcp-security-best-practices/">fingerprints tool definitions</a> to catch a rewrite after approval should include the <code>ui</code> block. Swapping the view behind an approved tool, adding one, or moving a write tool to <code>visibility: ["app"]</code> so the model no longer sees it are all changes of what was approved.</p>
+  <p>The HTML is another matter. It changes with every release of the backend, legitimately, behind an unchanged URI. A control that fires on each of those ends up switched off, which is worse than a limit stated plainly: the content of a view is the backend's, and the host's sandbox and CSP are what contain it.</p>
+
+  <h2>Concretely</h2>
+  <p><a href="https://github.com/wellknownmcp/cortex-gateway">Cortex Gateway</a> relays MCP Apps since 0.4.0, for backends that speak its <a href="/guides/rest-api-to-mcp-server/">plain-HTTP contract</a> and for <a href="/guides/federate-third-party-mcp-servers/">native MCP servers</a> alike. It builds no view. A backend adds <code>ui: { resourceUri: "ui://preview" }</code> to a tool and answers one more method; the gateway publishes the view as <code>ui://&lt;backendId&gt;/preview</code>, serves it under the scope of the declaring tool, adds <code>structuredContent</code> to the result, and counts <code>ui</code> in the tool's fingerprint. What it does not do is listed in the same document as what it does: <a href="https://github.com/wellknownmcp/cortex-gateway/blob/main/docs/mcp-apps.md">docs/mcp-apps.md</a>.</p>
+  <p>The relay is checked end to end in CI, against the production build and a real OAuth path, next to the official MCP conformance suite. The demo backend ships a small view for its <code>get_time</code> tool, about eighty lines including the HTML, as a starting point.</p>
+  <a class="cta" href="https://github.com/wellknownmcp/cortex-gateway">Get started on GitHub →</a>
+
+  <h2>FAQ</h2>
+  <div class="faq">
+    <h3>Do MCP Apps work through an MCP gateway or proxy?</h3>
+    <p>Only if it relays four things: <code>_meta.ui</code> on each tool, <code>resources/read</code> on the <code>ui://</code> resource, <code>structuredContent</code> in the result, and the extension in the capabilities on both sides. A gateway written before the extension usually drops <code>_meta.ui</code>, and nothing fails: the host shows the text result and never asks for a view.</p>
+    <h3>Why does my MCP App show only text behind a gateway?</h3>
+    <p>Look at <code>tools/list</code> as the client receives it. No <code>_meta.ui.resourceUri</code>: the gateway dropped it. If it is there, read the URI through the gateway; an error means <code>ui://</code> is not routed. If both work, check the result for <code>structuredContent</code>.</p>
+    <h3>How should a gateway namespace <code>ui://</code> resources?</h3>
+    <p>Like tool names. Publish each URI under an identifier of the owning server (<code>ui://&lt;backendId&gt;/dashboard</code>), rewrite <code>_meta.ui.resourceUri</code> to match, and translate back on read.</p>
+    <h3>Who should be allowed to read a <code>ui://</code> resource?</h3>
+    <p>The callers who can call a tool that declares it. Serve a view only when a federated tool declares that exact URI and the caller holds that tool's scope; refuse the rest without calling any backend.</p>
+    <h3>Can a view call tools from another server behind the same gateway?</h3>
+    <p>Yes. The host sees the gateway as one server and a <code>tools/call</code> does not name the view that sent it. A view can ask for any tool the user can call, within the user's scopes. Trust a backend's views to that extent, or do not let that backend declare any.</p>
+    <h3>Does tool-definition pinning cover views?</h3>
+    <p>The declaration, yes: <code>ui</code> belongs in the fingerprint. The HTML behind an unchanged URI, usually not, since it changes with every backend release.</p>
+    <h3>Does a host without MCP Apps break on <code>_meta.ui</code>?</h3>
+    <p>No. Unknown <code>_meta</code> keys are ignored, and the extension requires every tool with a view to keep returning meaningful text. A client that does not render views shows that text.</p>
+  </div>
+</main>
+<footer class="site">
+  <a href="https://github.com/wellknownmcp/cortex-gateway">GitHub</a> ·
+  <a href="https://mcp.cortex-gateway.dev/">Demo gateway</a> ·
+  <a href="/llms.txt">llms.txt</a> ·
+  <a href="/privacy/">Privacy</a> · MIT License
+</footer>
+</body>
+</html>
