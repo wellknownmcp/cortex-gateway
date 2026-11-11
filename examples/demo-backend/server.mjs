@@ -9,6 +9,7 @@
  *  - list_tools / list_prompts / list_resource_templates  (catalog, static token OK)
  *  - get_snapshot                                          (aggregates, static token OK)
  *  - get_help, whoami, echo, get_time, list_notes          (data methods, user token required)
+ *  - read_resource on ui://clock                           (the MCP Apps view of get_time)
  *  - save_note, delete_note                                (write tools — mcp:demo:write scope)
  *
  * DEMO ONLY: it accepts any Bearer token. A real backend must
@@ -49,6 +50,9 @@ const TOOLS = [
       additionalProperties: false,
     },
     version: '1.0.0',
+    // MCP Apps: hosts that support the extension render the result in this
+    // view. The gateway publishes it as ui://demo/clock (docs/mcp-apps.md).
+    ui: { resourceUri: 'ui://clock' },
   },
   {
     name: 'list_notes',
@@ -72,6 +76,81 @@ const TOOLS = [
     version: '1.0.0',
   },
 ];
+
+/**
+ * The view of get_time: one self-contained HTML document, no external
+ * resource (the default CSP of an MCP Apps host allows none). It speaks the
+ * view side of the protocol by hand: ui/initialize, then it waits for the
+ * tool result the host pushes and renders its structuredContent.
+ */
+const CLOCK_VIEW = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<title>Server time</title>
+<style>
+  body { margin: 0; padding: 16px; font: 14px/1.4 system-ui, sans-serif; }
+  .time { font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .meta { margin-top: 4px; opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="time" id="time">--:--:--</div>
+<div class="meta" id="meta">Waiting for the tool result.</div>
+<script>
+(function () {
+  var nextId = 1;
+  var pending = {};
+  function send(message) {
+    window.parent.postMessage(Object.assign({ jsonrpc: '2.0' }, message), '*');
+  }
+  function request(method, params) {
+    var id = nextId++;
+    return new Promise(function (resolve, reject) {
+      pending[id] = { resolve: resolve, reject: reject };
+      send({ id: id, method: method, params: params });
+    });
+  }
+  function reportSize() {
+    var el = document.documentElement;
+    send({ method: 'ui/notifications/size-changed', params: { width: el.scrollWidth, height: el.scrollHeight } });
+  }
+  function render(result) {
+    var data = result && result.structuredContent;
+    if (!data || typeof data.time !== 'string') return;
+    var date = new Date(data.time);
+    var valid = !isNaN(date.getTime());
+    document.getElementById('time').textContent = valid ? date.toISOString().slice(11, 19) + ' UTC' : data.time;
+    document.getElementById('meta').textContent =
+      (valid ? date.toISOString().slice(0, 10) + ', ' : '') + 'clock: ' + String(data.timezone || 'utc');
+    reportSize();
+  }
+  window.addEventListener('message', function (event) {
+    var message = event.data;
+    if (!message || message.jsonrpc !== '2.0') return;
+    if (!message.method && pending[message.id]) {
+      var waiting = pending[message.id];
+      delete pending[message.id];
+      if (message.error) waiting.reject(message.error);
+      else waiting.resolve(message.result);
+    } else if (message.method === 'ui/notifications/tool-result') {
+      render(message.params);
+    } else if (message.method === 'ui/resource-teardown' && message.id !== undefined) {
+      send({ id: message.id, result: {} });
+    }
+  });
+  var info = { name: 'demo-clock', version: '1.0.0' };
+  request('ui/initialize', { protocolVersion: '2026-01-26', appInfo: info, clientInfo: info, appCapabilities: {} })
+    .then(function () {
+      send({ method: 'ui/notifications/initialized' });
+      reportSize();
+    })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>`;
 
 // In-memory note store — deliberately ephemeral (public demo).
 const MAX_NOTES = 100;
@@ -126,6 +205,26 @@ const handlers = {
     time: new Date().toISOString(),
     timezone: params.timezone ?? 'utc',
   }),
+  // The gateway only forwards a view read for a URI one of our tools
+  // declares, to a caller holding that tool's scope — re-checked here.
+  read_resource: (params, ctx) => {
+    requireScope(ctx, 'mcp:demo:read');
+    if (params.uri !== 'ui://clock') {
+      const err = new Error(`Unknown resource: ${params.uri}`);
+      err.status = 400;
+      throw err;
+    }
+    return {
+      contents: [
+        {
+          uri: params.uri,
+          mimeType: 'text/html;profile=mcp-app',
+          text: CLOCK_VIEW,
+          _meta: { ui: { prefersBorder: true } },
+        },
+      ],
+    };
+  },
   list_notes: () => ({ notes: [...notes.values()] }),
   save_note: (params, ctx) => {
     requireScope(ctx, 'mcp:demo:write');

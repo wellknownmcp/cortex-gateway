@@ -172,7 +172,12 @@ describe('MCP 2026-07-28: no initialize, no session', () => {
   it('server/discover: versions, capabilities without listChanged, public cache', async () => {
     const { body } = await read(await POST(modern('server/discover')));
     expect(body.result.supportedVersions).toEqual(['2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26']);
-    expect(body.result.capabilities).toEqual({ tools: {}, resources: {}, prompts: {} });
+    expect(body.result.capabilities).toEqual({
+      tools: {},
+      resources: {},
+      prompts: {},
+      extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } },
+    });
     // Private: the instructions name the backends this caller holds a scope on.
     expect(body.result.cacheScope).toBe('private');
     expect(body.result.instructions).toContain('Backends you hold a scope on: docs.');

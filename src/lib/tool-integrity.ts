@@ -41,9 +41,19 @@ const FINGERPRINTED_FIELDS = [
   'inputSchema',
   'version',
   'deprecated',
+  'ui',
 ] as const;
 
 type FingerprintedField = (typeof FINGERPRINTED_FIELDS)[number];
+
+/**
+ * Fields added to the fingerprint after baselines were already persisted and
+ * signed in the field. They enter the digest only when the tool declares
+ * them, and a stored baseline that predates them reads as "not declared":
+ * upgrading the gateway must not turn every approved tool into a mutation.
+ */
+const LATE_FIELDS: ReadonlySet<FingerprintedField> = new Set<FingerprintedField>(['ui']);
+const UNDECLARED = 'null';
 
 interface ToolBaseline {
   app: string;
@@ -298,7 +308,7 @@ function loadStore(): void {
       baseline.set(name, {
         app: t.app,
         firstSeenAt: new Date(t.firstSeenAt),
-        fields: t.fields as Record<FingerprintedField, string>,
+        fields: withLateFields(t.fields),
         digest: t.digest,
       });
     }
@@ -430,6 +440,15 @@ function canonical(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
 }
 
+/** A baseline stored before a late field existed: the field reads as not declared. */
+function withLateFields(stored: Record<string, string>): Record<FingerprintedField, string> {
+  const out = { ...stored } as Record<FingerprintedField, string>;
+  for (const field of LATE_FIELDS) {
+    if (typeof out[field] !== 'string') out[field] = UNDECLARED;
+  }
+  return out;
+}
+
 function fieldsOf(tool: CortexBackendTool): Record<FingerprintedField, string> {
   const out = {} as Record<FingerprintedField, string>;
   for (const field of FINGERPRINTED_FIELDS) {
@@ -440,7 +459,11 @@ function fieldsOf(tool: CortexBackendTool): Record<FingerprintedField, string> {
 
 function digestOf(fields: Record<FingerprintedField, string>): string {
   return createHash('sha256')
-    .update(FINGERPRINTED_FIELDS.map((f) => `${f}=${fields[f]}`).join(' '))
+    .update(
+      FINGERPRINTED_FIELDS.filter((f) => !LATE_FIELDS.has(f) || fields[f] !== UNDECLARED)
+        .map((f) => `${f}=${fields[f]}`)
+        .join('\0'),
+    )
     .digest('hex')
     .slice(0, 16);
 }

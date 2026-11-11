@@ -28,6 +28,9 @@ const tools = [
   { name: 'tool_with_progress', scope: S, description: 'Reports progress.', inputSchema: { type: 'object', properties: {} } },
   { name: 'sampling', scope: S, description: 'Requests sampling.', inputSchema: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] } },
   { name: 'elicitation', scope: S, description: 'Requests elicitation.', inputSchema: { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] } },
+  // MCP Apps: a tool declaring a view. Not a conformance scenario — run.mjs
+  // checks the relay itself (published _meta.ui, view read, structuredContent).
+  { name: 'ui_panel', scope: S, description: 'Returns a status panel.', inputSchema: { type: 'object', properties: {} }, ui: { resourceUri: 'ui://panel' } },
   // Served under backend id "json" → json_schema_2020_12_tool. The "test"
   // backend drops it: mcp:json:read is outside its scope prefix.
   {
@@ -95,6 +98,9 @@ const handlers = {
     ],
   }),
   read_resource: ({ uri }) => {
+    if (uri === 'ui://panel') {
+      return { contents: [{ uri, mimeType: 'text/html;profile=mcp-app', text: '<!doctype html><title>Panel</title><p>Fixture view</p>', _meta: { ui: { prefersBorder: true } } }] };
+    }
     if (uri === 'test://static-text') return { contents: [{ uri, mimeType: 'text/plain', text: 'This is the content of the static text resource.' }] };
     if (uri === 'test://static-binary') return { contents: [{ uri, mimeType: 'image/png', blob: PNG }] };
     if (uri === 'test://watched-resource') return { contents: [{ uri, mimeType: 'text/plain', text: 'Watched resource content.' }] };
@@ -112,6 +118,10 @@ for (const t of tools) {
     return { content: content[t.name] ?? [{ type: 'text', text: 'ok' }] };
   };
 }
+
+// Plain business JSON, as most backends answer: the gateway adds
+// structuredContent because the tool declares a view.
+handlers.ui_panel = () => ({ status: 'ok', items: 3 });
 
 /** Starts the fixture on 127.0.0.1:<port>; resolves with the server. */
 export function startFixtureBackend(port) {

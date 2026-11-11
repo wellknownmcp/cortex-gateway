@@ -138,6 +138,11 @@ example (Canva + Figma + your own backend).
   `listChanged` notifications, DELETE session termination) on the same
   endpoint, chosen per request
 - Primitives: **tools**, **resources** (incl. URI templates), **prompts**
+- **MCP Apps** (`io.modelcontextprotocol/ui`): the interactive views your
+  backends declare are relayed — `_meta.ui`, the `ui://` resource,
+  `structuredContent` — under the scope of the tool that declares them, for
+  contract backends and native MCP servers alike
+  ([docs/mcp-apps.md](docs/mcp-apps.md))
 - **OAuth 2.1 resource server**: JWKS verification, audience per resource
   (RFC 8707), protected-resource metadata (RFC 9728), optional RFC 7662
   introspection for revocation

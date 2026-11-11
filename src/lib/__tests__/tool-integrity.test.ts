@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, writeFileSync, statSync } from 'node:fs';
-import { generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -180,6 +180,37 @@ describe('tool integrity (rug-pull detection)', () => {
     expect(integrityReport().quarantined).toEqual([]);
   });
 
+  describe('MCP Apps declaration (ui)', () => {
+    it('a view swapped under an unchanged tool is a mutation naming ui', () => {
+      review(catalog({ name: 'docs_preview', ui: { resourceUri: 'ui://preview' } }));
+      const diff = review(catalog({ name: 'docs_preview', ui: { resourceUri: 'ui://other' } }));
+      expect(diff.mutated).toHaveLength(1);
+      expect(diff.mutated[0]).toMatchObject({ tool: 'docs_preview', changed: ['ui'] });
+    });
+
+    it('a view added to an approved tool, or a tool hidden from the model, is a mutation too', () => {
+      review(catalog({ name: 'docs_search' }, { name: 'docs_delete', ui: { resourceUri: 'ui://confirm' } }));
+      const diff = review(
+        catalog(
+          { name: 'docs_search', ui: { resourceUri: 'ui://results' } },
+          { name: 'docs_delete', ui: { resourceUri: 'ui://confirm', visibility: ['app'] } },
+        ),
+      );
+      expect(diff.mutated.map((m) => [m.tool, m.changed])).toEqual([
+        ['docs_search', ['ui']],
+        ['docs_delete', ['ui']],
+      ]);
+    });
+
+    it('in block mode the tool is quarantined until acknowledged', () => {
+      process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+      review(catalog({ name: 'docs_preview', ui: { resourceUri: 'ui://preview' } }));
+      const diff = review(catalog({ name: 'docs_preview', ui: { resourceUri: 'ui://other' } }));
+      expect(diff.quarantined).toEqual(['docs_preview']);
+      expect(isQuarantined('docs_preview')).toBe(true);
+    });
+  });
+
   describe('persisted baseline', () => {
     let dir: string;
     let file: string;
@@ -210,6 +241,31 @@ describe('tool integrity (rug-pull detection)', () => {
       expect(diff.added).toEqual([]);
       expect(diff.mutated).toHaveLength(1);
       expect(diff.mutated[0]).toMatchObject({ tool: 'docs_search', changed: ['description'] });
+    });
+
+    it('a baseline stored before the ui field existed still matches: an upgrade mutates nothing', () => {
+      process.env.CORTEX_TOOL_INTEGRITY_MODE = 'block';
+      review(catalog({ name: 'docs_search' }));
+      const store = JSON.parse(readFileSync(file, 'utf8'));
+      // The digest of a tool without ui is the pre-ui formula, computed here
+      // independently: six fields, NUL-joined, first 16 hex of sha256.
+      const legacyDigest = createHash('sha256')
+        .update(
+          ['scope="mcp:docs:read"', 'description="Search the documents."', 'params=null', 'inputSchema=null', 'version=null', 'deprecated=null'].join('\0'),
+        )
+        .digest('hex')
+        .slice(0, 16);
+      expect(store.tools.docs_search.digest).toBe(legacyDigest);
+
+      // What an older gateway wrote: no `ui` among the fields.
+      delete store.tools.docs_search.fields.ui;
+      writeFileSync(file, JSON.stringify(store));
+      restart();
+      expect(review(catalog({ name: 'docs_search' }))).toMatchObject({ added: [], mutated: [], quarantined: [] });
+
+      // And a view appearing afterwards is still caught, and named.
+      const diff = review(catalog({ name: 'docs_search', ui: { resourceUri: 'ui://results' } }));
+      expect(diff.mutated[0]).toMatchObject({ tool: 'docs_search', changed: ['ui'] });
     });
 
     it('keeps the original approval date across restarts', () => {

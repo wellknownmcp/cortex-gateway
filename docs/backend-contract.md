@@ -31,7 +31,7 @@ app that you can also call directly (tests, batch jobs, other integrations).
 | `list_prompts` | `{ prompts: [...] }` | MCP Prompts primitive. Optional; the gateway tolerates "unknown method". |
 | `get_prompt` | `{ description?, messages }` | Materializes a prompt. |
 | `list_resource_templates` | `{ resourceTemplates: [...] }` | MCP Resources primitive. Each template's URI scheme (e.g. `docs://...`) routes `resources/read` to this backend. The scheme must be one the backend owns (default: its id). |
-| `read_resource` | `{ contents: [...] }` | Resolves a URI of an owned scheme. Only called for a URI matching one of the backend's templates, once the caller holds that template's scope. |
+| `read_resource` | `{ contents: [...] }` | Resolves a URI of an owned scheme. Only called for a URI matching one of the backend's templates, once the caller holds that template's scope. Also serves the MCP Apps views the backend's tools declare (`ui://<path>`), see [mcp-apps.md](mcp-apps.md). |
 | `report_missing_capability` | `{ ticketId, deduplicated, ackMessage? }` | Backend-owned agent tickets (add the backend id to `CORTEX_TICKET_BACKENDS`). |
 | `list_tickets` | `{ tickets: [...] }` | The calling agent's own tickets. |
 
@@ -48,6 +48,10 @@ What the tool returns:
   `resource_link` — relayed as is. Use it to return images, audio or embedded
   resources. A near miss (one malformed block) falls back to text, so no data
   is silently dropped.
+
+A tool that declares an MCP Apps view (`ui`, below) gets one more thing: an
+object result is also served as `structuredContent`, which is what the view
+renders. The text block is unchanged.
 
 ## `get_help`: describe the business, not just the mechanics
 
@@ -128,6 +132,10 @@ role must not be told to go fetch more scopes.
   "deprecated": {                          // optional
     "removedAt": "2027-01-01",
     "replacedBy": "search_documents_v2"
+  },
+  "ui": {                                  // optional — MCP Apps view, see mcp-apps.md
+    "resourceUri": "ui://results",        // served by your read_resource
+    "visibility": ["model", "app"]
   }
 }
 ```

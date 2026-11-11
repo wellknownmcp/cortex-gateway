@@ -31,7 +31,7 @@ import { checkRateLimit, getClientIp, positiveIntEnv } from '@/lib/rate-limit';
 import { validateRequest, buildWwwAuthenticate, type ValidatedRequest } from '@/lib/oauth-validator';
 import { isOriginAllowed } from '@/lib/origins';
 import { createSession, terminateSession, validateSession } from '@/lib/sessions';
-import { handleMethod, BUILTIN_TOOL_NAMES, MODERN_METHODS, type JsonRpcResponse } from '@/lib/mcp-methods';
+import { handleMethod, uiViewBackendId, BUILTIN_TOOL_NAMES, MODERN_METHODS, type JsonRpcResponse } from '@/lib/mcp-methods';
 import {
   checkStandardHeaders,
   checkVersionHeader,
@@ -530,7 +530,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
  *
  * Two data-bearing paths are attributed:
  *  - `tools/call`     via the federated catalog (`<app>_<tool>` → app + scope)
- *  - `resources/read` via the URI scheme → owning backend
+ *  - `resources/read` via the URI scheme → owning backend, or for an MCP
+ *    Apps view (`ui://<backendId>/...`) the backend whose tool declares it
  *
  * `gateway` means a builtin: served in-process, federating to nothing. `null`
  * means the method reaches no backend (initialize, tools/list...) or the tool
@@ -556,6 +557,9 @@ function resolveAuditTarget(
     if (typeof uri === 'string') {
       const app = findBackendForUri(uri);
       if (app) return { targetApp: app.id, scopeUsed: null };
+      // MCP Apps views are routed by the backend id in the URI, not by scheme.
+      const viewBackend = uiViewBackendId(uri);
+      if (viewBackend) return { targetApp: viewBackend, scopeUsed: null };
     }
   }
 

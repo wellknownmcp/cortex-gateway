@@ -21,7 +21,7 @@ change detection on tool *names* misses it entirely.
 
 **The control.** At every catalog refresh the gateway fingerprints the
 security-relevant surface of each federated tool — `scope`, `description`,
-`params`, `inputSchema`, `version`, `deprecated` — and compares it against the
+`params`, `inputSchema`, `version`, `deprecated`, `ui` — and compares it against the
 definition first seen for that name. Key order is normalized, so a backend
 reserializing the same schema is not a false positive.
 
@@ -356,6 +356,26 @@ caller: only the backends it holds a scope on, the tools it can see there,
 and no backend URL. The server instructions (`initialize`,
 `server/discover`) likewise name only the backends the caller holds a scope
 on.
+
+**MCP Apps views** (`ui://<backendId>/<path>`, see [mcp-apps.md](mcp-apps.md))
+are gated by tools rather than templates. A view is served only if a
+federated tool of that backend declares that exact URI, to a caller holding
+the scope of one of the declaring tools; every other case is refused without
+calling the backend. `ui` is a reserved scheme no backend can claim through a
+template, and the `ui` declaration is part of the tool fingerprint of §1:
+swapping a view, or hiding a write tool from the model with
+`visibility: ["app"]`, is a reported definition change.
+
+What this does not cover: the **content** of a view. The HTML behind an
+unchanged URI can change without tripping the fingerprint, and the gateway
+neither inspects nor sandboxes it — the host does, from the CSP the backend
+sends. Nor is a view confined to its own backend: the host sees the gateway as
+one server, and a `tools/call` does not say which view sent it. A hostile view
+can ask the host to call any tool the user can call through the gateway,
+another backend's included, within the user's scopes and whatever confirmation
+the host applies. That is the ceiling, and it is the user's whole reach, not
+the declaring backend's: a backend allowed to declare views must be trusted to
+that extent, and `ui` is worth reviewing at approval time for that reason.
 
 ---
 

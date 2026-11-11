@@ -1,5 +1,6 @@
 export type {
   CortexBackendTool,
+  CortexBackendToolUi,
   CortexBackendCatalog,
   CortexRpcRequest,
   CortexUserContext,

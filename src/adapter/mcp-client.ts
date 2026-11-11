@@ -14,6 +14,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { UI_EXTENSION_CAPABILITY } from '@/lib/mcp-apps';
 
 const PROTOCOL_VERSION = '2025-06-18';
 
@@ -181,7 +182,12 @@ async function ensureSession(url: string, token: string, timeoutMs: number): Pro
       method: 'initialize',
       params: {
         protocolVersion: PROTOCOL_VERSION,
-        capabilities: {},
+        // MCP Apps: a server may register its view-enabled tools only for
+        // clients announcing the extension (spec §Capability Negotiation).
+        // The gateway relays those views to whichever host connects to it;
+        // a host without MCP Apps falls back on the text content, which the
+        // spec requires every such tool to keep meaningful.
+        capabilities: { extensions: UI_EXTENSION_CAPABILITY },
         clientInfo: { name: process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway', version: '0.3.0' },
       },
     },
@@ -259,6 +265,8 @@ export interface McpTool {
   name: string;
   description?: string;
   inputSchema?: Record<string, unknown>;
+  /** Carries the MCP Apps declaration (`_meta.ui`) when the server has one. */
+  _meta?: Record<string, unknown>;
 }
 
 /** tools/list with cursor pagination (bounded at 10 pages). */
@@ -292,4 +300,17 @@ export async function mcpCallTool(
   args: Record<string, unknown>,
 ): Promise<McpCallResult> {
   return mcpRequest<McpCallResult>(url, token, 'tools/call', { name, arguments: args });
+}
+
+export interface McpResourceContents {
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  blob?: string;
+  _meta?: Record<string, unknown>;
+}
+
+export async function mcpReadResource(url: string, token: string, uri: string): Promise<McpResourceContents[]> {
+  const res = await mcpRequest<{ contents?: McpResourceContents[] }>(url, token, 'resources/read', { uri });
+  return Array.isArray(res?.contents) ? res.contents : [];
 }

@@ -13,7 +13,8 @@
  * - static technical token → catalog methods only. list_tools uses the
  *   downstream token of CORTEX_MCP_<ID>_CATALOG_SUB when the downstream MCP
  *   requires auth to list tools (most do).
- * - user OAuth JWT → tool invocations, resolved through the token vault
+ * - user OAuth JWT → tool invocations and MCP Apps view reads
+ *   (`read_resource` on `ui://`), resolved through the token vault
  *   (per-user downstream tokens). Unlinked account → 403 without `required`
  *   (ACL shape), telling the user to visit the linking flow.
  */
@@ -24,7 +25,7 @@ import { safeEqual } from '@/lib/safe-equal';
 import { isStaticTokenMethodAllowed } from '@/contract';
 import { getMcpServer } from '@/adapter/config';
 import { getValidToken, isLinked } from '@/adapter/vault';
-import { bridgeListTools, bridgeCallTool, BridgeToolError } from '@/adapter/backend-bridge';
+import { bridgeListTools, bridgeCallTool, bridgeReadResource, BridgeToolError } from '@/adapter/backend-bridge';
 import { McpDownstreamUnauthorized, McpDownstreamError } from '@/adapter/mcp-client';
 
 function isStaticToken(bearer: string | null): boolean {
@@ -116,7 +117,8 @@ export async function POST(
     }
   }
 
-  // Any other method = a downstream tool invocation.
+  // read_resource = an MCP Apps view; any other method = a downstream tool
+  // invocation. Both run with the caller's own linked downstream token.
   let token: string | null;
   try {
     token = await getValidToken(sub, server);
@@ -132,7 +134,10 @@ export async function POST(
   }
 
   try {
-    const result = await bridgeCallTool(server, token, method, body.params ?? {});
+    const result =
+      method === 'read_resource'
+        ? await bridgeReadResource(server, token, body.params?.uri)
+        : await bridgeCallTool(server, token, method, body.params ?? {});
     return json(200, result as Record<string, unknown>);
   } catch (err) {
     if (err instanceof McpDownstreamUnauthorized) {

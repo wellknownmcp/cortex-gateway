@@ -15,8 +15,9 @@ like any other backend. The gateway core does not change.
 
 Status: **beta** — protocol layer covered by unit tests against the MCP spec
 (2025-06-18); not yet certified against specific commercial providers.
-Tools only in V1 (prompts/resources of downstream servers are not projected;
-interactive MCP features — sampling, elicitation — do not cross the bridge).
+Tools, and the MCP Apps views those tools declare ([mcp-apps.md](mcp-apps.md)).
+Other prompts/resources of downstream servers are not projected; interactive
+MCP features — sampling, elicitation — do not cross the bridge.
 
 ## Worked example — a "design bundle"
 
@@ -116,7 +117,15 @@ uses the *calling user's* token.
 
 ## Limits (V1)
 
-- Tools only; downstream prompts/resources are not projected.
+- Tools and their MCP Apps views only; other downstream prompts/resources
+  are not projected. A view is read with the calling user's linked token.
+- A downstream tool named like a backend-contract method (`list_tools`,
+  `list_prompts`, `list_resource_templates`, `read_resource`, `whoami`) is
+  federated as `tool_<name>` — e.g. `<serverId>_tool_read_resource` — so a
+  call to it is never mistaken for the contract method.
+- A tool result is relayed as the downstream server sent it (`content` and
+  `structuredContent` together) when every content block is well formed;
+  otherwise it is flattened to its structured part, or its text.
 - Per-server scope (all tools of a provider share one Cortex scope);
   per-tool scope mapping is future work.
 - In-process downstream session cache (multi-instance deployments will

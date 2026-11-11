@@ -18,8 +18,12 @@
 import type { BackendApp } from '@/contract';
 import { acceptBackendUrl } from './secure-url';
 
-/** Schemes the gateway serves itself; no backend may claim them. */
-export const RESERVED_URI_SCHEMES: ReadonlySet<string> = new Set(['cortex']);
+/**
+ * Schemes the gateway serves or routes itself; no backend may claim them
+ * through a resource template. `ui` is routed by backend id and gated by the
+ * scope of the declaring tools (lib/mcp-apps.ts), not by template.
+ */
+export const RESERVED_URI_SCHEMES: ReadonlySet<string> = new Set(['cortex', 'ui']);
 
 function csv(raw: string | undefined): string[] {
   return (raw ?? '')
@@ -39,9 +43,14 @@ function pick(id: string): BackendApp | null {
   const timeoutRaw = process.env[`CORTEX_BACKEND_${idUpper}_TIMEOUT_MS`];
   const timeoutMs = timeoutRaw ? Number.parseInt(timeoutRaw, 10) : 10_000;
   const scopePrefixes = csv(process.env[`CORTEX_BACKEND_${idUpper}_SCOPE_PREFIXES`]);
-  const uriSchemes = csv(process.env[`CORTEX_BACKEND_${idUpper}_URI_SCHEMES`])
-    .map((s) => s.toLowerCase())
-    .filter((s) => !RESERVED_URI_SCHEMES.has(s));
+  const configuredSchemes = csv(process.env[`CORTEX_BACKEND_${idUpper}_URI_SCHEMES`]).map((s) => s.toLowerCase());
+  const uriSchemes = configuredSchemes.filter((s) => !RESERVED_URI_SCHEMES.has(s));
+  if (uriSchemes.length !== configuredSchemes.length || (configuredSchemes.length === 0 && RESERVED_URI_SCHEMES.has(id))) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[cortex/registry] backend '${id}': the schemes ${Array.from(RESERVED_URI_SCHEMES).join(', ')} are reserved to the gateway — resource templates under them are refused (set CORTEX_BACKEND_${idUpper}_URI_SCHEMES to a scheme of its own)`,
+    );
+  }
   if (uriSchemes.length === 0 && !/^[a-z][a-z0-9+.-]*$/.test(id)) {
     // eslint-disable-next-line no-console
     console.warn(

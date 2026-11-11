@@ -25,7 +25,13 @@ import {
   CortexBackendTimeout,
   CortexBackendUnauthorized,
 } from '@/contract';
-import type { CortexUserContext, CortexBackendResourceRead } from '@/contract';
+import type {
+  BackendApp,
+  CortexBackendTool,
+  CortexUserContext,
+  CortexBackendResourceRead,
+  FederatedToolEntry,
+} from '@/contract';
 import {
   getCatalog,
   getOriginalToolName,
@@ -44,6 +50,16 @@ import { notifyAdminOnBlocking } from './notify';
 import { boundTicketFields } from './ticket-bounds';
 import { checkRateLimit, positiveIntEnv } from './rate-limit';
 import { canonicalUri } from './oauth-validator';
+import { isContentBlock } from './content-blocks';
+import {
+  UI_EXTENSION_CAPABILITY,
+  UI_SCHEME_PREFIX,
+  isModelVisible,
+  parsePublishedUiUri,
+  publishedUiMeta,
+  republishContents,
+  uiStructuredContent,
+} from './mcp-apps';
 import type { ValidatedRequest } from './oauth-validator';
 import {
   LEGACY_VERSIONS,
@@ -82,6 +98,8 @@ const CAPABILITIES = {
   tools: { listChanged: true },
   resources: { subscribe: false, listChanged: true },
   prompts: { listChanged: true },
+  // MCP Apps: the gateway relays the views its backends declare (lib/mcp-apps.ts).
+  extensions: UI_EXTENSION_CAPABILITY,
 } as const;
 
 /**
@@ -94,6 +112,7 @@ const MODERN_CAPABILITIES = {
   tools: {},
   resources: {},
   prompts: {},
+  extensions: UI_EXTENSION_CAPABILITY,
 } as const;
 
 /**
@@ -518,11 +537,7 @@ function handleToolsList(
         name: tool.name,
         description,
         inputSchema,
-        _meta: {
-          version: tool.version ?? '1.0.0',
-          app: app.id,
-          ...(tool.deprecated ? { deprecated: tool.deprecated } : {}),
-        },
+        _meta: federatedToolMeta(app, tool),
       };
     });
 
@@ -540,6 +555,21 @@ function handleToolsList(
     : CORTEX_BUILTIN_TOOLS;
   const tools = [...builtins, ...federated];
   return rpcSuccess(id, { tools });
+}
+
+/**
+ * `_meta` of a federated tool, identical in tools/list (both modes) and
+ * find_tools. `ui` is the MCP Apps declaration, with the view URI published
+ * under the backend id.
+ */
+function federatedToolMeta(app: BackendApp, tool: CortexBackendTool): Record<string, unknown> {
+  const ui = publishedUiMeta(app.id, tool);
+  return {
+    version: tool.version ?? '1.0.0',
+    app: app.id,
+    ...(tool.deprecated ? { deprecated: tool.deprecated } : {}),
+    ...(ui ? { ui } : {}),
+  };
 }
 
 /**
@@ -735,6 +765,9 @@ async function handleToolsCall(id: string | number | null, raw: unknown, userCtx
     // MCP spec: tools/call result = { content: [...], isError?: boolean }.
     // A backend that already speaks MCP content (image, audio, embedded
     // resource...) has it relayed as is; anything else is serialized as text.
+    // A tool declaring an MCP Apps view also gets its object result as
+    // `structuredContent` — what the view renders. The text is unchanged.
+    const structuredContent = uiStructuredContent(entry.tool, result);
     return rpcSuccess(id, asCallToolResult(result) ?? {
       content: [
         {
@@ -742,6 +775,7 @@ async function handleToolsCall(id: string | number | null, raw: unknown, userCtx
           text: typeof result === 'string' ? result : JSON.stringify(result),
         },
       ],
+      ...(structuredContent ? { structuredContent } : {}),
     });
   } catch (err) {
     // Authorization failures stay protocol errors: the client may act on them
@@ -779,29 +813,6 @@ async function handleToolsCall(id: string | number | null, raw: unknown, userCtx
 function toolExecutionError(message: string, detail?: unknown): Record<string, unknown> {
   const text = detail === undefined ? message : `${message}\n\n${JSON.stringify(detail)}`;
   return { content: [{ type: 'text', text }], isError: true };
-}
-
-const isString = (v: unknown): v is string => typeof v === 'string';
-
-/** True for a well-formed MCP content block (text, image, audio, resource, resource_link). */
-function isContentBlock(block: unknown): boolean {
-  if (typeof block !== 'object' || block === null) return false;
-  const b = block as Record<string, unknown>;
-  switch (b.type) {
-    case 'text':
-      return isString(b.text);
-    case 'image':
-    case 'audio':
-      return isString(b.data) && isString(b.mimeType);
-    case 'resource': {
-      const r = b.resource as Record<string, unknown> | undefined;
-      return typeof r === 'object' && r !== null && isString(r.uri) && (isString(r.text) || isString(r.blob));
-    }
-    case 'resource_link':
-      return isString(b.uri) && isString(b.name);
-    default:
-      return false;
-  }
 }
 
 /**
@@ -846,7 +857,11 @@ function handleFindTools(
   // Catalog filtered by scope + builtin-duplicate masking (see handleToolsList)
   const eligible = Array.from(catalog.tools.values())
     .filter(({ tool }) => !BUILTIN_TOOL_NAMES.has(getOriginalToolName(tool.name)))
-    .filter(({ tool }) => scopes.has(tool.scope));
+    .filter(({ tool }) => scopes.has(tool.scope))
+    // find_tools answers the model in text: a tool its backend reserved to a
+    // view (visibility without 'model') has no place in that answer. In
+    // tools/list it stays listed — hiding it there is the host's job.
+    .filter(({ app, tool }) => isModelVisible(app.id, tool));
 
   let matched: typeof eligible;
   if (Array.isArray(args.names) && args.names.length > 0) {
@@ -869,11 +884,7 @@ function handleFindTools(
       name: tool.name,
       description: `[${app.id}] ${baseDesc}`,
       inputSchema: toolInputSchema(tool),
-      _meta: {
-        version: tool.version ?? '1.0.0',
-        app: app.id,
-        ...(tool.deprecated ? { deprecated: tool.deprecated } : {}),
-      },
+      _meta: federatedToolMeta(app, tool),
     };
   });
 
@@ -1003,6 +1014,11 @@ async function handleResourcesRead(
     });
   }
 
+  // MCP Apps views: routed by backend id, gated by the declaring tools.
+  if (uri.startsWith(UI_SCHEME_PREFIX)) {
+    return handleUiResourceRead(id, uri, userCtx);
+  }
+
   // Dispatch to the federated backend owning the scheme, under the scope of
   // the template the URI falls under. Listing already filtered templates by
   // scope; without the same check here, any token could read any resource by
@@ -1042,19 +1058,98 @@ async function handleResourcesRead(
     });
     return rpcSuccess(id, res);
   } catch (err) {
-    if (err instanceof CortexBackendUnauthorized) {
-      return rpcError(id, -32603, 'Backend auth failed');
-    }
-    if (err instanceof CortexBackendInsufficientScope) {
-      return rpcError(id, -32603, 'Backend refused scope', { required: err.requiredScope });
-    }
-    if (err instanceof CortexBackendAclDenied) {
-      return rpcError(id, -32603, 'Backend ACL denied', { reason: err.reason });
-    }
-    if (err instanceof CortexBackendError) {
-      return rpcErrorFromBackendError(id, err);
-    }
-    return rpcError(id, -32603, err instanceof Error ? err.message : 'Internal error');
+    return resourceReadError(id, err);
+  }
+}
+
+function resourceReadError(id: string | number | null, err: unknown): JsonRpcError {
+  if (err instanceof CortexBackendUnauthorized) {
+    return rpcError(id, -32603, 'Backend auth failed');
+  }
+  if (err instanceof CortexBackendInsufficientScope) {
+    return rpcError(id, -32603, 'Backend refused scope', { required: err.requiredScope });
+  }
+  if (err instanceof CortexBackendAclDenied) {
+    return rpcError(id, -32603, 'Backend ACL denied', { reason: err.reason });
+  }
+  if (err instanceof CortexBackendError) {
+    return rpcErrorFromBackendError(id, err);
+  }
+  return rpcError(id, -32603, err instanceof Error ? err.message : 'Internal error');
+}
+
+/**
+ * `resources/read` on an MCP Apps view (`ui://<backendId>/<path>`).
+ *
+ * A view is served only when a federated tool of that backend declares it,
+ * and only to a caller holding the scope of one of those tools — the people
+ * who can call the tool are the people who can see its view. Anything else
+ * (unknown backend, undeclared path, forged URI, missing scope) is refused
+ * here, without a backend call: the backend never receives the token of a
+ * caller it has no business with. A quarantined tool no longer opens its
+ * view.
+ */
+/**
+ * The federated tools declaring `uri` as their view. The catalog already
+ * leaves quarantined tools out (federator); the explicit check keeps this
+ * gate standing on its own.
+ */
+function uiViewDeclarations(uri: string): FederatedToolEntry[] {
+  const parsed = parsePublishedUiUri(uri);
+  if (!parsed) return [];
+  return Array.from(getCatalog().tools.values())
+    .filter(({ app }) => app.id === parsed.backendId)
+    .filter(({ tool }) => !isQuarantined(tool.name))
+    .filter(({ tool }) => !BUILTIN_TOOL_NAMES.has(getOriginalToolName(tool.name)))
+    .filter(({ app, tool }) => publishedUiMeta(app.id, tool)?.resourceUri === uri);
+}
+
+/** Backend a view read is routed to, for the audit trail. Null when no tool declares the view. */
+export function uiViewBackendId(uri: string): string | null {
+  return uiViewDeclarations(uri)[0]?.app.id ?? null;
+}
+
+async function handleUiResourceRead(
+  id: string | number | null,
+  uri: string,
+  userCtx: ValidatedRequest,
+): Promise<JsonRpcResponse> {
+  const parsed = parsePublishedUiUri(uri);
+  const declaring = uiViewDeclarations(uri);
+  if (!parsed || declaring.length === 0) {
+    return rpcError(id, -32601, `Unknown resource or scheme: ${uri}`);
+  }
+
+  const granted = new Set(userCtx.scopes);
+  if (!declaring.some(({ tool }) => granted.has(tool.scope))) {
+    return rpcError(id, -32603, 'Insufficient scope', {
+      // Any one of them is enough.
+      anyOf: Array.from(new Set(declaring.map(({ tool }) => tool.scope))),
+    });
+  }
+
+  const backend = declaring[0].app;
+  const ctx: CortexUserContext = {
+    userId: userCtx.sub,
+    email: userCtx.email,
+    role: userCtx.role,
+    pool: userCtx.pool,
+    scopes: Array.from(userCtx.scopes),
+  };
+
+  try {
+    const res = await callBackend<CortexBackendResourceRead>({
+      baseUrl: backend.baseUrl,
+      backendPath: backend.backendPath,
+      method: 'read_resource',
+      params: { uri: parsed.backendUri },
+      bearerToken: userCtx.bearerToken,
+      userContext: ctx,
+      timeoutMs: backend.timeoutMs ?? 10_000,
+    });
+    return rpcSuccess(id, { contents: republishContents(res?.contents, parsed.backendUri, uri) });
+  } catch (err) {
+    return resourceReadError(id, err);
   }
 }
 

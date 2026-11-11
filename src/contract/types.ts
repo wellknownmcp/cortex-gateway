@@ -74,6 +74,28 @@ export interface CortexBackendTool {
    * either way.)
    */
   inputSchema?: Record<string, unknown>;
+  /**
+   * MCP Apps interface for this tool (extension `io.modelcontextprotocol/ui`).
+   * The gateway relays it as `_meta.ui` in `tools/list` and serves the view
+   * through `resources/read`. See docs/mcp-apps.md.
+   */
+  ui?: CortexBackendToolUi;
+}
+
+/** Interface declaration of a tool — the backend side of MCP Apps `_meta.ui`. */
+export interface CortexBackendToolUi {
+  /**
+   * The view rendering this tool's results, as a backend-local URI:
+   * `ui://<path>` (e.g. `ui://preview`). The gateway publishes it as
+   * `ui://<backendId>/<path>` and sends the local form back to
+   * `read_resource`. Path segments: letters, digits, `.`, `_`, `~`, `-`.
+   */
+  resourceUri?: string;
+  /**
+   * Who may use the tool. Default: both. `['app']` hides it from the model in
+   * a conforming host — it does not lift any scope check.
+   */
+  visibility?: Array<'model' | 'app'>;
 }
 
 /** Response of a backend's `list_tools` method. */
@@ -213,6 +235,12 @@ export interface CortexResourceContent {
   text?: string;
   /** Base64 otherwise. */
   blob?: string;
+  /**
+   * Resource metadata. For an MCP Apps view, `_meta.ui` carries the CSP,
+   * permissions and rendering hints the host enforces; the gateway relays it
+   * untouched.
+   */
+  _meta?: Record<string, unknown>;
 }
 
 /** Response of `read_resource`. */

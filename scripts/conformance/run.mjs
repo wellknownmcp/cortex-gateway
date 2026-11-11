@@ -9,7 +9,9 @@
  *     path is exercised, no dev bypass.
  *  3. Puts a small proxy in front that adds a Bearer token — the suite's server
  *     scenarios connect without OAuth.
- *  4. Runs every server scenario, with the known gaps listed in baseline.yml:
+ *  4. Checks the MCP Apps relay end to end (the suite has no scenario for
+ *     the extension): published `_meta.ui`, view read, structuredContent.
+ *  5. Runs every server scenario, with the known gaps listed in baseline.yml:
  *     a new failure, or a listed one that starts passing, fails the run.
  *
  * Usage:
@@ -107,6 +109,52 @@ gateway.stderr.pipe(process.stderr);
 
 
 
+/** One legacy JSON-RPC call through the proxy; returns the parsed response. */
+async function rpc(target, method, params = {}) {
+  const res = await fetch(target, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await res.text();
+  // The gateway may frame a response as SSE: take the data line.
+  const payload = text.trimStart().startsWith('{') ? text : (text.split('\n').find((l) => l.startsWith('data:')) ?? '').slice(5);
+  return JSON.parse(payload);
+}
+
+/**
+ * The fixture declares `ui_panel` with `ui: { resourceUri: 'ui://panel' }`.
+ * Through the production build and the real OAuth path, a client must see the
+ * view under the backend id, read it, and get the result in structured form.
+ */
+async function checkMcpAppsRelay(target) {
+  const expect = (cond, what) => {
+    if (!cond) throw new Error(`MCP Apps relay: ${what}`);
+  };
+  const init = await rpc(target, 'initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'relay-check', version: '0' } });
+  expect(init.result?.capabilities?.extensions?.['io.modelcontextprotocol/ui'], 'extension not announced by initialize');
+
+  const listed = await rpc(target, 'tools/list');
+  const panel = listed.result?.tools?.find((t) => t.name === 'test_ui_panel');
+  expect(panel?._meta?.ui?.resourceUri === 'ui://test/panel', `_meta.ui.resourceUri is ${JSON.stringify(panel?._meta?.ui)}`);
+
+  const view = await rpc(target, 'resources/read', { uri: 'ui://test/panel' });
+  const content = view.result?.contents?.[0];
+  expect(content?.uri === 'ui://test/panel', 'view not served under its published URI');
+  expect(content?.mimeType === 'text/html;profile=mcp-app' && content?.text?.includes('Fixture view'), 'view content not relayed');
+  expect(content?._meta?.ui?.prefersBorder === true, 'view _meta not relayed');
+
+  const undeclared = await rpc(target, 'resources/read', { uri: 'ui://test/other' });
+  expect(undeclared.error, 'an undeclared view was served');
+  const foreign = await rpc(target, 'resources/read', { uri: 'ui://json/panel' });
+  expect(foreign.error, 'a view was served under a backend that does not declare it');
+
+  const called = await rpc(target, 'tools/call', { name: 'test_ui_panel', arguments: {} });
+  expect(called.result?.structuredContent?.items === 3, 'structuredContent missing from the view tool result');
+  expect(called.result?.content?.[0]?.text === '{"status":"ok","items":3}', 'text content of the view tool changed');
+}
+
 let exitCode = 1;
 try {
   // The catalog is discovered in the background once /mcp is first loaded:
@@ -125,9 +173,13 @@ try {
     if (Date.now() > deadline) throw new Error('fixture tools never appeared in tools/list');
     await new Promise((r) => setTimeout(r, 1000));
   }
-  log(`gateway federating the fixture, running the suite against ${url}`);
+  log(`gateway federating the fixture at ${url}`);
 
-  // ─── 4. The suite ────────────────────────────────────────────────────────
+  // ─── 4. MCP Apps relay ───────────────────────────────────────────────────
+  await checkMcpAppsRelay(url);
+  log('MCP Apps relay: ok, running the suite');
+
+  // ─── 5. The suite ────────────────────────────────────────────────────────
   const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   exitCode = await new Promise((resolve) => {
     const suite = spawn(
