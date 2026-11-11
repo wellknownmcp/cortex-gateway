@@ -29,8 +29,10 @@ npm install
 bash scripts/generate-oauth-keys.sh >> .env
 # complete .env: OAUTH_ISSUER=https://auth.cortex-gateway.dev,
 #   OAUTH_MCP_AUDIENCE=https://mcp.cortex-gateway.dev/mcp, AUTH_DATABASE_URL,
-#   RESEND_API_KEY (required for a public demo), INTROSPECT_CLIENT_SECRET
-npx prisma db push
+#   RESEND_API_KEY (required for a public demo), INTROSPECT_CLIENT_SECRET,
+#   AUTH_TRUSTED_PROXY_HOPS=1 (nginx in front: without it every caller
+#   shares one rate-limit bucket)
+npx prisma db push   # again after any update that touches prisma/schema.prisma
 npm run build
 pm2 start npm --name cortex-demo-auth -- start
 ```
