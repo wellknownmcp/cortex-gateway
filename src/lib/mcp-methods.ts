@@ -51,6 +51,7 @@ import { boundTicketFields } from './ticket-bounds';
 import { checkRateLimit, positiveIntEnv } from './rate-limit';
 import { canonicalUri } from './oauth-validator';
 import { isContentBlock } from './content-blocks';
+import { SERVER_VERSION } from './version';
 import {
   UI_EXTENSION_CAPABILITY,
   UI_SCHEME_PREFIX,
@@ -92,7 +93,7 @@ export function serverName(): string {
   return process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway';
 }
 
-export const SERVER_VERSION = '0.3.0';
+export { SERVER_VERSION };
 
 const CAPABILITIES = {
   tools: { listChanged: true },

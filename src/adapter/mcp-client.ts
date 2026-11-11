@@ -15,6 +15,7 @@
 
 import { createHash } from 'node:crypto';
 import { UI_EXTENSION_CAPABILITY } from '@/lib/mcp-apps';
+import { SERVER_VERSION } from '@/lib/version';
 
 const PROTOCOL_VERSION = '2025-06-18';
 
@@ -188,7 +189,7 @@ async function ensureSession(url: string, token: string, timeoutMs: number): Pro
         // a host without MCP Apps falls back on the text content, which the
         // spec requires every such tool to keep meaningful.
         capabilities: { extensions: UI_EXTENSION_CAPABILITY },
-        clientInfo: { name: process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway', version: '0.3.0' },
+        clientInfo: { name: process.env.CORTEX_SERVER_NAME ?? 'cortex-gateway', version: SERVER_VERSION },
       },
     },
     null,
